@@ -1,0 +1,35 @@
+services:
+  mailpit:
+    container_name: !reset null
+    network_mode: !reset null
+    ports: !reset []
+  meilisearch:
+    container_name: !reset null
+    network_mode: !reset null
+    ports: !reset []
+  mysql:
+    container_name: !reset null
+    network_mode: !reset null
+    ports: !reset []
+  redis:
+    container_name: !reset null
+    network_mode: !reset null
+    ports: !reset []
+  selenium:
+    container_name: !reset null
+    network_mode: !reset null
+    ports: !reset []
+  laravel.test:
+    container_name: !reset null
+    network_mode: !reset null
+    ports: !reset []
+    networks:
+      sail: null
+      sail-proxy:
+        aliases:
+          - stedam.localhost
+          - stedam.internal
+    entrypoint: php -S 0.0.0.0:80 -t public public/router.php
+networks:
+  sail-proxy:
+    external: true

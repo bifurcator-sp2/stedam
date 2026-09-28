@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <!-- Верхний синий круг -->
+  <circle cx="200" cy="90" r="40" fill="#2B9BE0"/>
+  
+  <!-- Левый синий круг -->
+  <circle cx="130" cy="140" r="35" fill="#1E7BC0"/>
+  
+  <!-- Правый оранжевый круг -->
+  <circle cx="270" cy="140" r="35" fill="#F58220"/>
+  
+  <!-- Левая синяя дуга (плечо) -->
+  <path d="M 80 280 Q 80 200 130 180 Q 180 200 180 280 Z" fill="#1E7BC0"/>
+  
+  <!-- Правая оранжевая дуга (плечо) -->
+  <path d="M 220 280 Q 220 200 270 180 Q 320 200 320 280 Z" fill="#F58220"/>
+  
+  <!-- Галстук -->
+  <path d="M 195 180 L 205 180 L 205 220 L 200 240 L 195 220 Z" fill="#F58220"/>
+  
+  <!-- Текст -->
+  <text x="200" y="370" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="48" font-weight="900" fill="#1F3A5F">STEDAM.RU</text>
+</svg>

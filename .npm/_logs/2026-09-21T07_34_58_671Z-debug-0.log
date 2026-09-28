@@ -1,0 +1,1429 @@
+0 verbose cli /usr/bin/node /usr/bin/npm
+1 info using npm@9.2.0
+2 info using node@v22.22.1
+3 timing npm:load:whichnode Completed in 0ms
+4 timing config:load:defaults Completed in 1ms
+5 timing config:load:file:/usr/share/nodejs/npm/npmrc Completed in 3ms
+6 timing config:load:builtin Completed in 3ms
+7 timing config:load:cli Completed in 1ms
+8 timing config:load:env Completed in 0ms
+9 timing config:load:project Completed in 3ms
+10 timing config:load:file:/home/stedam/.npmrc Completed in 1ms
+11 timing config:load:user Completed in 1ms
+12 timing config:load:file:/etc/npmrc Completed in 0ms
+13 timing config:load:global Completed in 0ms
+14 timing config:load:setEnvs Completed in 1ms
+15 timing config:load Completed in 10ms
+16 timing npm:load:configload Completed in 10ms
+17 timing npm:load:mkdirpcache Completed in 1ms
+18 timing npm:load:mkdirplogs Completed in 0ms
+19 verbose title npm install @qirolab/nuxt-sanctum-authentication
+20 verbose argv "install" "@qirolab/nuxt-sanctum-authentication"
+21 timing npm:load:setTitle Completed in 1ms
+22 timing config:load:flatten Completed in 2ms
+23 timing npm:load:display Completed in 2ms
+24 verbose logfile logs-max:10 dir:/home/stedam/.npm/_logs/2026-09-21T07_34_58_671Z-
+25 verbose logfile /home/stedam/.npm/_logs/2026-09-21T07_34_58_671Z-debug-0.log
+26 timing npm:load:logFile Completed in 6ms
+27 timing npm:load:timers Completed in 0ms
+28 timing npm:load:configScope Completed in 0ms
+29 timing npm:load Completed in 21ms
+30 timing config:load:flatten Completed in 1ms
+31 timing arborist:ctor Completed in 0ms
+32 silly logfile done cleaning log files
+33 timing arborist:ctor Completed in 0ms
+34 timing idealTree:init Completed in 11ms
+35 timing idealTree:userRequests Completed in 3ms
+36 silly idealTree buildDeps
+37 silly fetch manifest @qirolab/nuxt-sanctum-authentication@*
+38 http fetch GET 200 https://registry.npmjs.org/@qirolab%2fnuxt-sanctum-authentication 755ms (cache miss)
+39 silly fetch manifest @tailwindcss/vite@^4.0.0
+40 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2fvite 153ms (cache miss)
+41 silly fetch manifest vite@^8.0.0
+42 http fetch GET 200 https://registry.npmjs.org/vite 170ms (cache miss)
+43 silly fetch manifest @types/node@^20.19.0 || >=22.12.0
+44 http fetch GET 200 https://registry.npmjs.org/@types%2fnode 160ms (cache miss)
+45 silly fetch manifest @vitejs/devtools@^0.7.1
+46 http fetch GET 200 https://registry.npmjs.org/@vitejs%2fdevtools 81ms (cache miss)
+47 silly fetch manifest @vitejs/devtools-oxc@^0.7.5
+48 http fetch GET 200 https://registry.npmjs.org/@vitejs%2fdevtools-oxc 71ms (cache miss)
+49 silly fetch manifest @vitejs/devtools-rolldown@^0.7.5
+50 http fetch GET 200 https://registry.npmjs.org/@vitejs%2fdevtools-rolldown 79ms (cache miss)
+51 silly fetch manifest @vitejs/devtools-vite@^0.7.5
+52 http fetch GET 200 https://registry.npmjs.org/@vitejs%2fdevtools-vite 72ms (cache miss)
+53 silly fetch manifest @vitejs/devtools-vitest@^0.7.5
+54 http fetch GET 200 https://registry.npmjs.org/@vitejs%2fdevtools-vitest 71ms (cache miss)
+55 silly fetch manifest vitest@*
+56 http fetch GET 200 https://registry.npmjs.org/vitest 99ms (cache miss)
+57 silly fetch manifest @edge-runtime/vm@*
+58 http fetch GET 200 https://registry.npmjs.org/@edge-runtime%2fvm 79ms (cache miss)
+59 silly fetch manifest @opentelemetry/api@^1.9.0
+60 http fetch GET 200 https://registry.npmjs.org/@opentelemetry%2fapi 75ms (cache miss)
+61 silly fetch manifest @vitest/browser-playwright@5.0.1
+62 http fetch GET 200 https://registry.npmjs.org/@vitest%2fbrowser-playwright 70ms (cache miss)
+63 silly fetch manifest playwright@*
+64 http fetch GET 200 https://registry.npmjs.org/playwright 300ms (cache miss)
+65 silly fetch manifest @vitest/browser-preview@5.0.1
+66 http fetch GET 200 https://registry.npmjs.org/@vitest%2fbrowser-preview 79ms (cache miss)
+67 silly fetch manifest @vitest/browser-webdriverio@^5.0.0-beta.5 || >=5.0.0
+68 http fetch GET 200 https://registry.npmjs.org/@vitest%2fbrowser-webdriverio 71ms (cache miss)
+69 silly fetch manifest webdriverio@*
+70 http fetch GET 200 https://registry.npmjs.org/webdriverio 108ms (cache miss)
+71 silly fetch manifest puppeteer-core@>=22.x <=24.x
+72 http fetch GET 200 https://registry.npmjs.org/puppeteer-core 77ms (cache miss)
+73 silly fetch manifest @vitest/coverage-istanbul@5.0.1
+74 http fetch GET 200 https://registry.npmjs.org/@vitest%2fcoverage-istanbul 86ms (cache miss)
+75 silly fetch manifest @vitest/coverage-v8@5.0.1
+76 http fetch GET 200 https://registry.npmjs.org/@vitest%2fcoverage-v8 77ms (cache miss)
+77 silly fetch manifest @vitest/browser@5.0.1
+78 http fetch GET 200 https://registry.npmjs.org/@vitest%2fbrowser 90ms (cache miss)
+79 silly fetch manifest @vitest/ui@5.0.1
+80 http fetch GET 200 https://registry.npmjs.org/@vitest%2fui 92ms (cache miss)
+81 silly fetch manifest happy-dom@*
+82 http fetch GET 200 https://registry.npmjs.org/happy-dom 94ms (cache miss)
+83 silly fetch manifest jsdom@*
+84 http fetch GET 200 https://registry.npmjs.org/jsdom 74ms (cache miss)
+85 silly fetch manifest canvas@^3.2.3
+86 http fetch GET 200 https://registry.npmjs.org/canvas 65ms (cache miss)
+87 silly fetch manifest esbuild@^0.27.0 || ^0.28.0
+88 http fetch GET 200 https://registry.npmjs.org/esbuild 92ms (cache miss)
+89 silly fetch manifest jiti@>=1.21.0
+90 http fetch GET 200 https://registry.npmjs.org/jiti 64ms (cache miss)
+91 silly fetch manifest less@^4.0.0
+92 http fetch GET 200 https://registry.npmjs.org/less 66ms (cache miss)
+93 silly fetch manifest sass@^1.70.0
+94 http fetch GET 200 https://registry.npmjs.org/sass 77ms (cache miss)
+95 silly fetch manifest sass-embedded@^1.70.0
+96 http fetch GET 200 https://registry.npmjs.org/sass-embedded 68ms (cache miss)
+97 silly fetch manifest stylus@>=0.54.8
+98 http fetch GET 200 https://registry.npmjs.org/stylus 62ms (cache miss)
+99 silly fetch manifest sugarss@^5.0.0
+100 http fetch GET 200 https://registry.npmjs.org/sugarss 58ms (cache miss)
+101 silly fetch manifest postcss@^8.3.3
+102 http fetch GET 200 https://registry.npmjs.org/postcss 69ms (cache miss)
+103 silly fetch manifest terser@^5.16.0
+104 http fetch GET 200 https://registry.npmjs.org/terser 66ms (cache miss)
+105 silly fetch manifest tsx@^4.8.1
+106 http fetch GET 200 https://registry.npmjs.org/tsx 63ms (cache miss)
+107 silly fetch manifest yaml@^2.4.2
+108 http fetch GET 200 https://registry.npmjs.org/yaml 62ms (cache miss)
+109 silly fetch manifest concurrently@^9.0.1
+110 http fetch GET 200 https://registry.npmjs.org/concurrently 66ms (cache miss)
+111 silly fetch manifest laravel-vite-plugin@^3.1
+112 http fetch GET 200 https://registry.npmjs.org/laravel-vite-plugin 63ms (cache miss)
+113 silly fetch manifest fontaine@^0.8.0
+114 http fetch GET 200 https://registry.npmjs.org/fontaine 64ms (cache miss)
+115 silly fetch manifest postcss@^8.4.31
+116 silly fetch manifest tailwindcss@^4.0.0
+117 http fetch GET 200 https://registry.npmjs.org/tailwindcss 167ms (cache miss)
+118 silly placeDep ROOT @qirolab/nuxt-sanctum-authentication@0.1.15 OK for:  want: *
+119 silly placeDep ROOT @tailwindcss/vite@4.3.3 OK for:  want: ^4.0.0
+120 silly placeDep ROOT vite@8.3.0 OK for: @tailwindcss/vite@4.3.3 want: ^5.2.0 || ^6 || ^7 || ^8
+121 silly placeDep ROOT concurrently@9.2.4 OK for:  want: ^9.0.1
+122 silly placeDep ROOT laravel-vite-plugin@3.2.0 OK for:  want: ^3.1
+123 silly placeDep ROOT tailwindcss@4.3.3 OK for:  want: ^4.0.0
+124 silly fetch manifest @nuxt/kit@^3.12.4
+125 silly fetch manifest defu@^6.1.4
+126 silly fetch manifest lodash-es@^4.17.21
+127 silly fetch manifest @tailwindcss/node@4.3.3
+128 silly fetch manifest @tailwindcss/oxide@4.3.3
+129 silly fetch manifest postcss@^8.5.28
+130 silly fetch manifest rolldown@~1.2.6
+131 silly fetch manifest picomatch@^4.0.7
+132 silly fetch manifest tinyglobby@^0.2.17
+133 silly fetch manifest lightningcss@^1.33.0
+134 silly fetch manifest fsevents@~2.3.3
+135 silly fetch manifest rxjs@7.8.2
+136 silly fetch manifest chalk@4.1.2
+137 silly fetch manifest yargs@17.7.2
+138 silly fetch manifest tree-kill@1.2.2
+139 silly fetch manifest shell-quote@1.9.0
+140 silly fetch manifest supports-color@8.1.1
+141 silly fetch manifest picocolors@^1.0.0
+142 silly fetch manifest tinyglobby@^0.2.12
+143 silly fetch manifest vite-plugin-full-reload@^1.1.0
+144 http fetch GET 200 https://registry.npmjs.org/@nuxt%2fkit 82ms (cache miss)
+145 http fetch GET 200 https://registry.npmjs.org/supports-color 133ms (cache miss)
+146 http fetch GET 200 https://registry.npmjs.org/defu 154ms (cache miss)
+147 http fetch GET 200 https://registry.npmjs.org/tinyglobby 154ms (cache miss)
+148 http fetch GET 200 https://registry.npmjs.org/tree-kill 166ms (cache miss)
+149 http fetch GET 200 https://registry.npmjs.org/picomatch 168ms (cache miss)
+150 http fetch GET 200 https://registry.npmjs.org/chalk 168ms (cache miss)
+151 http fetch GET 200 https://registry.npmjs.org/lodash-es 171ms (cache miss)
+152 http fetch GET 200 https://registry.npmjs.org/fsevents 171ms (cache miss)
+153 http fetch GET 200 https://registry.npmjs.org/shell-quote 172ms (cache miss)
+154 http fetch GET 200 https://registry.npmjs.org/lightningcss 173ms (cache miss)
+155 http fetch GET 200 https://registry.npmjs.org/picocolors 190ms (cache miss)
+156 http fetch GET 200 https://registry.npmjs.org/tinyglobby 204ms (cache miss)
+157 http fetch GET 200 https://registry.npmjs.org/vite-plugin-full-reload 208ms (cache miss)
+158 http fetch GET 200 https://registry.npmjs.org/yargs 212ms (cache miss)
+159 http fetch GET 200 https://registry.npmjs.org/rxjs 226ms (cache miss)
+160 http fetch GET 200 https://registry.npmjs.org/rolldown 267ms (cache miss)
+161 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2fnode 288ms (cache miss)
+162 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide 349ms (cache miss)
+163 timing idealTree:#root Completed in 4838ms
+164 silly placeDep ROOT @nuxt/kit@3.21.11 OK for: @qirolab/nuxt-sanctum-authentication@0.1.15 want: ^3.12.4
+165 silly placeDep ROOT defu@6.1.7 OK for: @qirolab/nuxt-sanctum-authentication@0.1.15 want: ^6.1.4
+166 silly placeDep ROOT lodash-es@4.18.1 OK for: @qirolab/nuxt-sanctum-authentication@0.1.15 want: ^4.17.21
+167 silly fetch manifest c12@^3.3.4
+168 silly fetch manifest rc9@^3.0.1
+169 silly fetch manifest ufo@^1.6.4
+170 silly fetch manifest errx@^0.1.2
+171 silly fetch manifest jiti@^2.7.0
+172 silly fetch manifest mlly@^1.8.2
+173 silly fetch manifest destr@^2.0.5
+174 silly fetch manifest klona@^2.0.6
+175 silly fetch manifest ohash@^2.0.11
+176 silly fetch manifest pathe@^2.0.3
+177 silly fetch manifest scule@^1.3.0
+178 silly fetch manifest unctx@^2.5.0
+179 silly fetch manifest ignore@^7.0.6
+180 silly fetch manifest semver@^7.8.5
+181 silly fetch manifest consola@^3.4.2
+182 silly fetch manifest exsolve@^1.1.1
+183 silly fetch manifest untyped@^2.0.0
+184 silly fetch manifest knitwork@^1.3.0
+185 silly fetch manifest pkg-types@^2.3.1
+186 http fetch GET 200 https://registry.npmjs.org/errx 87ms (cache miss)
+187 http fetch GET 200 https://registry.npmjs.org/ohash 87ms (cache miss)
+188 http fetch GET 200 https://registry.npmjs.org/c12 89ms (cache miss)
+189 http fetch GET 200 https://registry.npmjs.org/ufo 90ms (cache miss)
+190 http fetch GET 200 https://registry.npmjs.org/scule 89ms (cache miss)
+191 http fetch GET 200 https://registry.npmjs.org/exsolve 90ms (cache miss)
+192 http fetch GET 200 https://registry.npmjs.org/mlly 92ms (cache miss)
+193 http fetch GET 200 https://registry.npmjs.org/rc9 94ms (cache miss)
+194 http fetch GET 200 https://registry.npmjs.org/pathe 94ms (cache miss)
+195 http fetch GET 200 https://registry.npmjs.org/destr 96ms (cache miss)
+196 http fetch GET 200 https://registry.npmjs.org/unctx 95ms (cache miss)
+197 http fetch GET 200 https://registry.npmjs.org/ignore 98ms (cache miss)
+198 http fetch GET 200 https://registry.npmjs.org/semver 99ms (cache miss)
+199 http fetch GET 200 https://registry.npmjs.org/consola 99ms (cache miss)
+200 http fetch GET 200 https://registry.npmjs.org/knitwork 117ms (cache miss)
+201 http fetch GET 200 https://registry.npmjs.org/pkg-types 123ms (cache miss)
+202 http fetch GET 200 https://registry.npmjs.org/untyped 143ms (cache miss)
+203 http fetch GET 200 https://registry.npmjs.org/klona 231ms (cache miss)
+204 timing idealTree:node_modules/@qirolab/nuxt-sanctum-authentication Completed in 236ms
+205 silly fetch manifest magicast@*
+206 http fetch GET 200 https://registry.npmjs.org/magicast 59ms (cache miss)
+207 silly placeDep ROOT c12@3.3.4 OK for: @nuxt/kit@3.21.11 want: ^3.3.4
+208 silly placeDep ROOT consola@3.4.2 OK for: @nuxt/kit@3.21.11 want: ^3.4.2
+209 silly placeDep ROOT destr@2.0.5 OK for: @nuxt/kit@3.21.11 want: ^2.0.5
+210 silly placeDep ROOT errx@0.1.2 OK for: @nuxt/kit@3.21.11 want: ^0.1.2
+211 silly placeDep ROOT exsolve@1.1.1 OK for: @nuxt/kit@3.21.11 want: ^1.1.1
+212 silly placeDep ROOT ignore@7.0.9 OK for: @nuxt/kit@3.21.11 want: ^7.0.6
+213 silly placeDep ROOT jiti@2.7.0 OK for: @nuxt/kit@3.21.11 want: ^2.7.0
+214 silly placeDep ROOT klona@2.0.6 OK for: @nuxt/kit@3.21.11 want: ^2.0.6
+215 silly placeDep ROOT knitwork@1.3.0 OK for: @nuxt/kit@3.21.11 want: ^1.3.0
+216 silly placeDep ROOT mlly@1.8.2 OK for: @nuxt/kit@3.21.11 want: ^1.8.2
+217 silly placeDep ROOT ohash@2.0.12 OK for: @nuxt/kit@3.21.11 want: ^2.0.11
+218 silly placeDep ROOT pathe@2.0.3 OK for: @nuxt/kit@3.21.11 want: ^2.0.3
+219 silly placeDep ROOT pkg-types@2.3.3 OK for: @nuxt/kit@3.21.11 want: ^2.3.1
+220 silly placeDep ROOT rc9@3.1.0 OK for: @nuxt/kit@3.21.11 want: ^3.0.1
+221 silly placeDep ROOT scule@1.3.0 OK for: @nuxt/kit@3.21.11 want: ^1.3.0
+222 silly placeDep ROOT semver@7.8.5 OK for: @nuxt/kit@3.21.11 want: ^7.8.5
+223 silly placeDep ROOT tinyglobby@0.2.17 OK for: @nuxt/kit@3.21.11 want: ^0.2.17
+224 silly placeDep ROOT ufo@1.6.4 OK for: @nuxt/kit@3.21.11 want: ^1.6.4
+225 silly placeDep ROOT unctx@2.5.0 OK for: @nuxt/kit@3.21.11 want: ^2.5.0
+226 silly placeDep ROOT untyped@2.0.0 OK for: @nuxt/kit@3.21.11 want: ^2.0.0
+227 silly fetch manifest giget@^3.2.0
+228 silly fetch manifest dotenv@^17.3.1
+229 silly fetch manifest confbox@^0.2.4
+230 silly fetch manifest chokidar@^5.0.0
+231 silly fetch manifest perfect-debounce@^2.1.0
+232 silly fetch manifest acorn@^8.16.0
+233 silly fetch manifest pkg-types@^1.3.1
+234 silly fetch manifest confbox@^0.3.1
+235 silly fetch manifest fdir@^6.5.0
+236 silly fetch manifest picomatch@^4.0.4
+237 silly fetch manifest acorn@^8.15.0
+238 silly fetch manifest unplugin@^2.3.11
+239 silly fetch manifest magic-string@^0.30.21
+240 silly fetch manifest estree-walker@^3.0.3
+241 silly fetch manifest citty@^0.1.6
+242 http fetch GET 200 https://registry.npmjs.org/confbox 77ms (cache miss)
+243 http fetch GET 200 https://registry.npmjs.org/perfect-debounce 78ms (cache miss)
+244 http fetch GET 200 https://registry.npmjs.org/estree-walker 74ms (cache miss)
+245 http fetch GET 200 https://registry.npmjs.org/giget 80ms (cache miss)
+246 http fetch GET 200 https://registry.npmjs.org/citty 76ms (cache miss)
+247 http fetch GET 200 https://registry.npmjs.org/chokidar 81ms (cache miss)
+248 http fetch GET 200 https://registry.npmjs.org/dotenv 85ms (cache miss)
+249 http fetch GET 200 https://registry.npmjs.org/acorn 85ms (cache miss)
+250 http fetch GET 200 https://registry.npmjs.org/magic-string 83ms (cache miss)
+251 http fetch GET 200 https://registry.npmjs.org/fdir 88ms (cache miss)
+252 http fetch GET 200 https://registry.npmjs.org/confbox 89ms (cache miss)
+253 http fetch GET 200 https://registry.npmjs.org/acorn 91ms (cache miss)
+254 http fetch GET 200 https://registry.npmjs.org/unplugin 94ms (cache miss)
+255 timing idealTree:node_modules/@nuxt/kit Completed in 175ms
+256 silly placeDep ROOT @tailwindcss/node@4.3.3 OK for: @tailwindcss/vite@4.3.3 want: 4.3.3
+257 silly placeDep ROOT @tailwindcss/oxide@4.3.3 OK for: @tailwindcss/vite@4.3.3 want: 4.3.3
+258 silly fetch manifest lightningcss@1.32.0
+259 silly fetch manifest source-map-js@^1.2.1
+260 silly fetch manifest enhanced-resolve@^5.24.1
+261 silly fetch manifest @jridgewell/remapping@^2.3.5
+262 silly fetch manifest @tailwindcss/oxide-darwin-x64@4.3.3
+263 silly fetch manifest @tailwindcss/oxide-freebsd-x64@4.3.3
+264 silly fetch manifest @tailwindcss/oxide-wasm32-wasi@4.3.3
+265 silly fetch manifest @tailwindcss/oxide-darwin-arm64@4.3.3
+266 silly fetch manifest @tailwindcss/oxide-android-arm64@4.3.3
+267 silly fetch manifest @tailwindcss/oxide-linux-x64-gnu@4.3.3
+268 silly fetch manifest @tailwindcss/oxide-linux-x64-musl@4.3.3
+269 silly fetch manifest @tailwindcss/oxide-win32-x64-msvc@4.3.3
+270 silly fetch manifest @tailwindcss/oxide-linux-arm64-gnu@4.3.3
+271 silly fetch manifest @tailwindcss/oxide-linux-arm64-musl@4.3.3
+272 silly fetch manifest @tailwindcss/oxide-win32-arm64-msvc@4.3.3
+273 silly fetch manifest @tailwindcss/oxide-linux-arm-gnueabihf@4.3.3
+274 http fetch GET 200 https://registry.npmjs.org/source-map-js 63ms (cache miss)
+275 http fetch GET 200 https://registry.npmjs.org/@jridgewell%2fremapping 84ms (cache miss)
+276 http fetch GET 200 https://registry.npmjs.org/enhanced-resolve 90ms (cache miss)
+277 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-wasm32-wasi 132ms (cache miss)
+278 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-android-arm64 143ms (cache miss)
+279 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-win32-arm64-msvc 166ms (cache miss)
+280 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-linux-arm64-gnu 174ms (cache miss)
+281 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-linux-x64-musl 181ms (cache miss)
+282 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-darwin-arm64 192ms (cache miss)
+283 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-darwin-x64 204ms (cache miss)
+284 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-freebsd-x64 208ms (cache miss)
+285 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-linux-arm64-musl 212ms (cache miss)
+286 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-win32-x64-msvc 227ms (cache miss)
+287 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-linux-arm-gnueabihf 231ms (cache miss)
+288 http fetch GET 200 https://registry.npmjs.org/@tailwindcss%2foxide-linux-x64-gnu 235ms (cache miss)
+289 timing idealTree:node_modules/@tailwindcss/vite Completed in 243ms
+290 silly placeDep ROOT @jridgewell/remapping@2.3.5 OK for: @tailwindcss/node@4.3.3 want: ^2.3.5
+291 silly placeDep ROOT enhanced-resolve@5.25.1 OK for: @tailwindcss/node@4.3.3 want: ^5.24.1
+292 silly placeDep ROOT lightningcss@1.32.0 OK for: @tailwindcss/node@4.3.3 want: 1.32.0
+293 silly placeDep ROOT magic-string@0.30.21 OK for: @tailwindcss/node@4.3.3 want: ^0.30.21
+294 silly placeDep ROOT source-map-js@1.2.1 OK for: @tailwindcss/node@4.3.3 want: ^1.2.1
+295 silly fetch manifest @jridgewell/gen-mapping@^0.3.5
+296 silly fetch manifest @jridgewell/trace-mapping@^0.3.24
+297 silly fetch manifest tapable@^2.3.3
+298 silly fetch manifest graceful-fs@^4.2.4
+299 silly fetch manifest detect-libc@^2.0.3
+300 silly fetch manifest lightningcss-darwin-x64@1.32.0
+301 silly fetch manifest lightningcss-freebsd-x64@1.32.0
+302 silly fetch manifest lightningcss-darwin-arm64@1.32.0
+303 silly fetch manifest lightningcss-android-arm64@1.32.0
+304 silly fetch manifest lightningcss-linux-x64-gnu@1.32.0
+305 silly fetch manifest lightningcss-linux-x64-musl@1.32.0
+306 silly fetch manifest lightningcss-win32-x64-msvc@1.32.0
+307 silly fetch manifest lightningcss-linux-arm64-gnu@1.32.0
+308 silly fetch manifest lightningcss-linux-arm64-musl@1.32.0
+309 silly fetch manifest lightningcss-win32-arm64-msvc@1.32.0
+310 silly fetch manifest lightningcss-linux-arm-gnueabihf@1.32.0
+311 silly fetch manifest @jridgewell/sourcemap-codec@^1.5.5
+312 http fetch GET 200 https://registry.npmjs.org/detect-libc 78ms (cache miss)
+313 http fetch GET 200 https://registry.npmjs.org/graceful-fs 79ms (cache miss)
+314 http fetch GET 200 https://registry.npmjs.org/lightningcss-android-arm64 79ms (cache miss)
+315 http fetch GET 200 https://registry.npmjs.org/tapable 81ms (cache miss)
+316 http fetch GET 200 https://registry.npmjs.org/lightningcss-win32-arm64-msvc 80ms (cache miss)
+317 http fetch GET 200 https://registry.npmjs.org/lightningcss-freebsd-x64 81ms (cache miss)
+318 http fetch GET 200 https://registry.npmjs.org/lightningcss-linux-x64-gnu 83ms (cache miss)
+319 http fetch GET 200 https://registry.npmjs.org/lightningcss-darwin-arm64 84ms (cache miss)
+320 http fetch GET 200 https://registry.npmjs.org/lightningcss-win32-x64-msvc 83ms (cache miss)
+321 http fetch GET 200 https://registry.npmjs.org/lightningcss-darwin-x64 85ms (cache miss)
+322 http fetch GET 200 https://registry.npmjs.org/lightningcss-linux-arm64-gnu 85ms (cache miss)
+323 http fetch GET 200 https://registry.npmjs.org/@jridgewell%2fgen-mapping 87ms (cache miss)
+324 http fetch GET 200 https://registry.npmjs.org/lightningcss-linux-arm64-musl 85ms (cache miss)
+325 http fetch GET 200 https://registry.npmjs.org/@jridgewell%2ftrace-mapping 88ms (cache miss)
+326 http fetch GET 200 https://registry.npmjs.org/lightningcss-linux-x64-musl 87ms (cache miss)
+327 http fetch GET 200 https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf 119ms (cache miss)
+328 http fetch GET 200 https://registry.npmjs.org/@jridgewell%2fsourcemap-codec 133ms (cache miss)
+329 timing idealTree:node_modules/@tailwindcss/node Completed in 141ms
+330 silly placeDep ROOT @jridgewell/gen-mapping@0.3.13 OK for: @jridgewell/remapping@2.3.5 want: ^0.3.5
+331 silly placeDep ROOT @jridgewell/trace-mapping@0.3.31 OK for: @jridgewell/remapping@2.3.5 want: ^0.3.24
+332 silly fetch manifest @jridgewell/sourcemap-codec@^1.5.0
+333 silly fetch manifest @jridgewell/resolve-uri@^3.1.0
+334 silly fetch manifest @jridgewell/sourcemap-codec@^1.4.14
+335 http fetch GET 200 https://registry.npmjs.org/@jridgewell%2fresolve-uri 72ms (cache miss)
+336 timing idealTree:node_modules/@jridgewell/remapping Completed in 75ms
+337 silly placeDep ROOT @jridgewell/sourcemap-codec@1.6.0 OK for: @jridgewell/gen-mapping@0.3.13 want: ^1.5.0
+338 timing idealTree:node_modules/@jridgewell/gen-mapping Completed in 1ms
+339 timing idealTree:node_modules/@jridgewell/sourcemap-codec Completed in 0ms
+340 silly placeDep ROOT @jridgewell/resolve-uri@3.1.2 OK for: @jridgewell/trace-mapping@0.3.31 want: ^3.1.0
+341 timing idealTree:node_modules/@jridgewell/trace-mapping Completed in 1ms
+342 timing idealTree:node_modules/@jridgewell/resolve-uri Completed in 0ms
+343 silly placeDep ROOT @tailwindcss/oxide-android-arm64@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+344 silly placeDep ROOT @tailwindcss/oxide-darwin-arm64@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+345 silly placeDep ROOT @tailwindcss/oxide-darwin-x64@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+346 silly placeDep ROOT @tailwindcss/oxide-freebsd-x64@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+347 silly placeDep ROOT @tailwindcss/oxide-linux-arm-gnueabihf@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+348 silly placeDep ROOT @tailwindcss/oxide-linux-arm64-gnu@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+349 silly placeDep ROOT @tailwindcss/oxide-linux-arm64-musl@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+350 silly placeDep ROOT @tailwindcss/oxide-linux-x64-gnu@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+351 silly placeDep ROOT @tailwindcss/oxide-linux-x64-musl@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+352 silly placeDep ROOT @tailwindcss/oxide-wasm32-wasi@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+353 silly placeDep ROOT @tailwindcss/oxide-win32-arm64-msvc@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+354 silly placeDep ROOT @tailwindcss/oxide-win32-x64-msvc@4.3.3 OK for: @tailwindcss/oxide@4.3.3 want: 4.3.3
+355 timing idealTree:node_modules/@tailwindcss/oxide Completed in 8ms
+356 timing idealTree:node_modules/@tailwindcss/oxide-android-arm64 Completed in 0ms
+357 timing idealTree:node_modules/@tailwindcss/oxide-darwin-arm64 Completed in 0ms
+358 timing idealTree:node_modules/@tailwindcss/oxide-darwin-x64 Completed in 0ms
+359 timing idealTree:node_modules/@tailwindcss/oxide-freebsd-x64 Completed in 0ms
+360 timing idealTree:node_modules/@tailwindcss/oxide-linux-arm-gnueabihf Completed in 0ms
+361 timing idealTree:node_modules/@tailwindcss/oxide-linux-arm64-gnu Completed in 0ms
+362 timing idealTree:node_modules/@tailwindcss/oxide-linux-arm64-musl Completed in 0ms
+363 timing idealTree:node_modules/@tailwindcss/oxide-linux-x64-gnu Completed in 0ms
+364 timing idealTree:node_modules/@tailwindcss/oxide-linux-x64-musl Completed in 0ms
+365 timing idealTree:node_modules/@tailwindcss/oxide-wasm32-wasi Completed in 0ms
+366 timing idealTree:node_modules/@tailwindcss/oxide-win32-arm64-msvc Completed in 0ms
+367 timing idealTree:node_modules/@tailwindcss/oxide-win32-x64-msvc Completed in 0ms
+368 silly placeDep ROOT chokidar@5.0.0 OK for: c12@3.3.4 want: ^5.0.0
+369 silly placeDep ROOT confbox@0.2.4 OK for: c12@3.3.4 want: ^0.2.4
+370 silly placeDep ROOT dotenv@17.4.2 OK for: c12@3.3.4 want: ^17.3.1
+371 silly placeDep ROOT giget@3.3.1 OK for: c12@3.3.4 want: ^3.2.0
+372 silly placeDep ROOT perfect-debounce@2.1.0 OK for: c12@3.3.4 want: ^2.1.0
+373 silly fetch manifest readdirp@^5.0.0
+374 http fetch GET 200 https://registry.npmjs.org/readdirp 59ms (cache miss)
+375 timing idealTree:node_modules/c12 Completed in 64ms
+376 silly placeDep ROOT readdirp@5.1.1 OK for: chokidar@5.0.0 want: ^5.0.0
+377 timing idealTree:node_modules/chokidar Completed in 0ms
+378 silly placeDep ROOT chalk@4.1.2 OK for: concurrently@9.2.4 want: 4.1.2
+379 silly placeDep ROOT rxjs@7.8.2 OK for: concurrently@9.2.4 want: 7.8.2
+380 silly placeDep ROOT shell-quote@1.9.0 OK for: concurrently@9.2.4 want: 1.9.0
+381 silly placeDep ROOT supports-color@8.1.1 OK for: concurrently@9.2.4 want: 8.1.1
+382 silly placeDep ROOT tree-kill@1.2.2 OK for: concurrently@9.2.4 want: 1.2.2
+383 silly placeDep ROOT yargs@17.7.2 OK for: concurrently@9.2.4 want: 17.7.2
+384 silly fetch manifest ansi-styles@^4.1.0
+385 silly fetch manifest supports-color@^7.1.0
+386 silly fetch manifest tslib@^2.1.0
+387 silly fetch manifest has-flag@^4.0.0
+388 silly fetch manifest y18n@^5.0.5
+389 silly fetch manifest cliui@^8.0.1
+390 silly fetch manifest escalade@^3.1.1
+391 silly fetch manifest string-width@^4.2.3
+392 silly fetch manifest yargs-parser@^21.1.1
+393 silly fetch manifest get-caller-file@^2.0.5
+394 silly fetch manifest require-directory@^2.1.1
+395 http fetch GET 200 https://registry.npmjs.org/escalade 62ms (cache miss)
+396 http fetch GET 200 https://registry.npmjs.org/ansi-styles 63ms (cache miss)
+397 http fetch GET 200 https://registry.npmjs.org/tslib 64ms (cache miss)
+398 http fetch GET 200 https://registry.npmjs.org/require-directory 63ms (cache miss)
+399 http fetch GET 200 https://registry.npmjs.org/y18n 65ms (cache miss)
+400 http fetch GET 200 https://registry.npmjs.org/get-caller-file 65ms (cache miss)
+401 http fetch GET 200 https://registry.npmjs.org/cliui 72ms (cache miss)
+402 http fetch GET 200 https://registry.npmjs.org/string-width 74ms (cache miss)
+403 http fetch GET 200 https://registry.npmjs.org/has-flag 74ms (cache miss)
+404 http fetch GET 200 https://registry.npmjs.org/yargs-parser 75ms (cache miss)
+405 timing idealTree:node_modules/concurrently Completed in 80ms
+406 silly placeDep ROOT ansi-styles@4.3.0 OK for: chalk@4.1.2 want: ^4.1.0
+407 silly placeDep node_modules/chalk supports-color@7.2.0 OK for: chalk@4.1.2 want: ^7.1.0
+408 silly fetch manifest color-convert@^2.0.1
+409 http fetch GET 200 https://registry.npmjs.org/color-convert 64ms (cache miss)
+410 timing idealTree:node_modules/chalk Completed in 67ms
+411 silly placeDep ROOT color-convert@2.0.1 OK for: ansi-styles@4.3.0 want: ^2.0.1
+412 silly fetch manifest color-name@~1.1.4
+413 http fetch GET 200 https://registry.npmjs.org/color-name 66ms (cache miss)
+414 timing idealTree:node_modules/ansi-styles Completed in 68ms
+415 silly placeDep ROOT color-name@1.1.4 OK for: color-convert@2.0.1 want: ~1.1.4
+416 timing idealTree:node_modules/color-convert Completed in 1ms
+417 timing idealTree:node_modules/color-name Completed in 0ms
+418 timing idealTree:node_modules/confbox Completed in 0ms
+419 timing idealTree:node_modules/consola Completed in 0ms
+420 timing idealTree:node_modules/defu Completed in 0ms
+421 timing idealTree:node_modules/destr Completed in 0ms
+422 timing idealTree:node_modules/dotenv Completed in 0ms
+423 silly placeDep ROOT graceful-fs@4.2.11 OK for: enhanced-resolve@5.25.1 want: ^4.2.4
+424 silly placeDep ROOT tapable@2.3.3 OK for: enhanced-resolve@5.25.1 want: ^2.3.3
+425 timing idealTree:node_modules/enhanced-resolve Completed in 1ms
+426 timing idealTree:node_modules/errx Completed in 0ms
+427 timing idealTree:node_modules/exsolve Completed in 0ms
+428 timing idealTree:node_modules/giget Completed in 0ms
+429 timing idealTree:node_modules/graceful-fs Completed in 0ms
+430 timing idealTree:node_modules/ignore Completed in 0ms
+431 timing idealTree:node_modules/jiti Completed in 0ms
+432 timing idealTree:node_modules/klona Completed in 0ms
+433 timing idealTree:node_modules/knitwork Completed in 0ms
+434 silly placeDep ROOT picocolors@1.1.1 OK for: laravel-vite-plugin@3.2.0 want: ^1.0.0
+435 silly placeDep ROOT vite-plugin-full-reload@1.2.0 OK for: laravel-vite-plugin@3.2.0 want: ^1.1.0
+436 silly fetch manifest picomatch@^2.3.1
+437 timing idealTree:node_modules/laravel-vite-plugin Completed in 1ms
+438 silly placeDep ROOT detect-libc@2.1.2 OK for: lightningcss@1.32.0 want: ^2.0.3
+439 silly placeDep ROOT lightningcss-android-arm64@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+440 silly placeDep ROOT lightningcss-darwin-arm64@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+441 silly placeDep ROOT lightningcss-darwin-x64@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+442 silly placeDep ROOT lightningcss-freebsd-x64@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+443 silly placeDep ROOT lightningcss-linux-arm-gnueabihf@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+444 silly placeDep ROOT lightningcss-linux-arm64-gnu@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+445 silly placeDep ROOT lightningcss-linux-arm64-musl@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+446 silly placeDep ROOT lightningcss-linux-x64-gnu@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+447 silly placeDep ROOT lightningcss-linux-x64-musl@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+448 silly placeDep ROOT lightningcss-win32-arm64-msvc@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+449 silly placeDep ROOT lightningcss-win32-x64-msvc@1.32.0 OK for: lightningcss@1.32.0 want: 1.32.0
+450 timing idealTree:node_modules/lightningcss Completed in 7ms
+451 timing idealTree:node_modules/detect-libc Completed in 0ms
+452 timing idealTree:node_modules/lightningcss-android-arm64 Completed in 0ms
+453 timing idealTree:node_modules/lightningcss-darwin-arm64 Completed in 0ms
+454 timing idealTree:node_modules/lightningcss-darwin-x64 Completed in 0ms
+455 timing idealTree:node_modules/lightningcss-freebsd-x64 Completed in 0ms
+456 timing idealTree:node_modules/lightningcss-linux-arm-gnueabihf Completed in 0ms
+457 timing idealTree:node_modules/lightningcss-linux-arm64-gnu Completed in 0ms
+458 timing idealTree:node_modules/lightningcss-linux-arm64-musl Completed in 0ms
+459 timing idealTree:node_modules/lightningcss-linux-x64-gnu Completed in 0ms
+460 timing idealTree:node_modules/lightningcss-linux-x64-musl Completed in 0ms
+461 timing idealTree:node_modules/lightningcss-win32-arm64-msvc Completed in 0ms
+462 timing idealTree:node_modules/lightningcss-win32-x64-msvc Completed in 0ms
+463 timing idealTree:node_modules/lodash-es Completed in 0ms
+464 timing idealTree:node_modules/magic-string Completed in 0ms
+465 silly placeDep ROOT acorn@8.18.0 OK for: mlly@1.8.2 want: ^8.16.0
+466 silly placeDep node_modules/mlly pkg-types@1.3.1 OK for: mlly@1.8.2 want: ^1.3.1
+467 silly fetch manifest confbox@^0.1.8
+468 timing idealTree:node_modules/mlly Completed in 2ms
+469 timing idealTree:node_modules/acorn Completed in 0ms
+470 timing idealTree:node_modules/ohash Completed in 0ms
+471 timing idealTree:node_modules/pathe Completed in 0ms
+472 timing idealTree:node_modules/perfect-debounce Completed in 0ms
+473 timing idealTree:node_modules/picocolors Completed in 0ms
+474 silly placeDep node_modules/pkg-types confbox@0.3.1 OK for: pkg-types@2.3.3 want: ^0.3.1
+475 timing idealTree:node_modules/pkg-types Completed in 1ms
+476 timing idealTree:node_modules/rc9 Completed in 0ms
+477 timing idealTree:node_modules/readdirp Completed in 0ms
+478 silly placeDep ROOT tslib@2.8.1 OK for: rxjs@7.8.2 want: ^2.1.0
+479 timing idealTree:node_modules/rxjs Completed in 1ms
+480 timing idealTree:node_modules/scule Completed in 0ms
+481 timing idealTree:node_modules/semver Completed in 0ms
+482 timing idealTree:node_modules/shell-quote Completed in 0ms
+483 timing idealTree:node_modules/source-map-js Completed in 0ms
+484 silly placeDep ROOT has-flag@4.0.0 OK for: supports-color@8.1.1 want: ^4.0.0
+485 timing idealTree:node_modules/supports-color Completed in 1ms
+486 timing idealTree:node_modules/has-flag Completed in 0ms
+487 timing idealTree:node_modules/tailwindcss Completed in 0ms
+488 timing idealTree:node_modules/tapable Completed in 0ms
+489 silly placeDep ROOT fdir@6.5.0 OK for: tinyglobby@0.2.17 want: ^6.5.0
+490 silly placeDep ROOT picomatch@4.0.7 OK for: tinyglobby@0.2.17 want: ^4.0.4
+491 timing idealTree:node_modules/tinyglobby Completed in 2ms
+492 timing idealTree:node_modules/fdir Completed in 0ms
+493 timing idealTree:node_modules/picomatch Completed in 0ms
+494 timing idealTree:node_modules/tree-kill Completed in 0ms
+495 timing idealTree:node_modules/tslib Completed in 0ms
+496 timing idealTree:node_modules/ufo Completed in 0ms
+497 silly placeDep ROOT estree-walker@3.0.3 OK for: unctx@2.5.0 want: ^3.0.3
+498 silly placeDep ROOT unplugin@2.3.11 OK for: unctx@2.5.0 want: ^2.3.11
+499 silly fetch manifest @types/estree@^1.0.0
+500 silly fetch manifest webpack-virtual-modules@^0.6.2
+501 http fetch GET 200 https://registry.npmjs.org/webpack-virtual-modules 68ms (cache miss)
+502 http fetch GET 200 https://registry.npmjs.org/@types%2festree 75ms (cache miss)
+503 timing idealTree:node_modules/unctx Completed in 78ms
+504 silly placeDep ROOT @types/estree@1.0.9 OK for: estree-walker@3.0.3 want: ^1.0.0
+505 timing idealTree:node_modules/estree-walker Completed in 1ms
+506 timing idealTree:node_modules/@types/estree Completed in 0ms
+507 silly placeDep ROOT webpack-virtual-modules@0.6.2 OK for: unplugin@2.3.11 want: ^0.6.2
+508 timing idealTree:node_modules/unplugin Completed in 0ms
+509 silly placeDep ROOT citty@0.1.6 OK for: untyped@2.0.0 want: ^0.1.6
+510 timing idealTree:node_modules/untyped Completed in 1ms
+511 timing idealTree:node_modules/citty Completed in 0ms
+512 silly placeDep ROOT fsevents@2.3.3 OK for: vite@8.3.0 want: ~2.3.3
+513 silly placeDep node_modules/vite lightningcss@1.33.0 OK for: vite@8.3.0 want: ^1.33.0
+514 silly placeDep ROOT postcss@8.5.28 OK for: vite@8.3.0 want: ^8.5.28
+515 silly placeDep ROOT rolldown@1.2.9 OK for: vite@8.3.0 want: ~1.2.6
+516 silly fetch manifest lightningcss-darwin-x64@1.33.0
+517 silly fetch manifest lightningcss-linux-x64-gnu@1.33.0
+518 silly fetch manifest lightningcss-win32-x64-msvc@1.33.0
+519 silly fetch manifest lightningcss-win32-arm64-msvc@1.33.0
+520 silly fetch manifest lightningcss-darwin-arm64@1.33.0
+521 silly fetch manifest lightningcss-linux-arm64-gnu@1.33.0
+522 silly fetch manifest lightningcss-linux-arm-gnueabihf@1.33.0
+523 silly fetch manifest lightningcss-linux-arm64-musl@1.33.0
+524 silly fetch manifest lightningcss-linux-x64-musl@1.33.0
+525 silly fetch manifest lightningcss-freebsd-x64@1.33.0
+526 silly fetch manifest lightningcss-android-arm64@1.33.0
+527 silly fetch manifest nanoid@^3.3.18
+528 silly fetch manifest @oxc-project/types@=0.150.0
+529 silly fetch manifest @rolldown/pluginutils@^1.0.0
+530 silly fetch manifest @rolldown/binding-darwin-x64@1.2.9
+531 silly fetch manifest @rolldown/binding-freebsd-x64@1.2.9
+532 silly fetch manifest @rolldown/binding-darwin-arm64@1.2.9
+533 silly fetch manifest @rolldown/binding-android-arm64@1.2.9
+534 silly fetch manifest @rolldown/binding-linux-x64-gnu@1.2.9
+535 silly fetch manifest @rolldown/binding-linux-x64-musl@1.2.9
+536 silly fetch manifest @rolldown/binding-win32-x64-msvc@1.2.9
+537 silly fetch manifest @rolldown/binding-linux-arm64-gnu@1.2.9
+538 silly fetch manifest @rolldown/binding-linux-ppc64-gnu@1.2.9
+539 silly fetch manifest @rolldown/binding-linux-s390x-gnu@1.2.9
+540 silly fetch manifest @rolldown/binding-android-arm-eabi@1.2.9
+541 silly fetch manifest @rolldown/binding-linux-arm64-musl@1.2.9
+542 silly fetch manifest @rolldown/binding-win32-arm64-msvc@1.2.9
+543 silly fetch manifest @rolldown/binding-openharmony-arm64@1.2.9
+544 silly fetch manifest @rolldown/binding-linux-arm-gnueabihf@1.2.9
+545 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-linux-s390x-gnu 73ms (cache miss)
+546 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-android-arm64 78ms (cache miss)
+547 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-linux-ppc64-gnu 82ms (cache miss)
+548 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-android-arm-eabi 82ms (cache miss)
+549 http fetch GET 200 https://registry.npmjs.org/nanoid 110ms (cache miss)
+550 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fpluginutils 113ms (cache miss)
+551 http fetch GET 200 https://registry.npmjs.org/@oxc-project%2ftypes 116ms (cache miss)
+552 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-linux-x64-musl 116ms (cache miss)
+553 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-freebsd-x64 124ms (cache miss)
+554 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-win32-x64-msvc 125ms (cache miss)
+555 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-linux-x64-gnu 128ms (cache miss)
+556 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-darwin-x64 132ms (cache miss)
+557 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-darwin-arm64 134ms (cache miss)
+558 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-linux-arm64-musl 138ms (cache miss)
+559 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-linux-arm64-gnu 142ms (cache miss)
+560 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-openharmony-arm64 158ms (cache miss)
+561 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-linux-arm-gnueabihf 166ms (cache miss)
+562 http fetch GET 200 https://registry.npmjs.org/@rolldown%2fbinding-win32-arm64-msvc 169ms (cache miss)
+563 timing idealTree:node_modules/vite Completed in 178ms
+564 timing idealTree:node_modules/fsevents Completed in 0ms
+565 silly placeDep ROOT nanoid@3.3.19 OK for: postcss@8.5.28 want: ^3.3.18
+566 timing idealTree:node_modules/postcss Completed in 1ms
+567 timing idealTree:node_modules/nanoid Completed in 0ms
+568 silly placeDep ROOT @oxc-project/types@0.150.0 OK for: rolldown@1.2.9 want: =0.150.0
+569 silly placeDep ROOT @rolldown/binding-android-arm-eabi@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+570 silly placeDep ROOT @rolldown/binding-android-arm64@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+571 silly placeDep ROOT @rolldown/binding-darwin-arm64@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+572 silly placeDep ROOT @rolldown/binding-darwin-x64@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+573 silly placeDep ROOT @rolldown/binding-freebsd-x64@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+574 silly placeDep ROOT @rolldown/binding-linux-arm-gnueabihf@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+575 silly placeDep ROOT @rolldown/binding-linux-arm64-gnu@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+576 silly placeDep ROOT @rolldown/binding-linux-arm64-musl@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+577 silly placeDep ROOT @rolldown/binding-linux-ppc64-gnu@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+578 silly placeDep ROOT @rolldown/binding-linux-s390x-gnu@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+579 silly placeDep ROOT @rolldown/binding-linux-x64-gnu@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+580 silly placeDep ROOT @rolldown/binding-linux-x64-musl@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+581 silly placeDep ROOT @rolldown/binding-openharmony-arm64@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+582 silly placeDep ROOT @rolldown/binding-win32-arm64-msvc@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+583 silly placeDep ROOT @rolldown/binding-win32-x64-msvc@1.2.9 OK for: rolldown@1.2.9 want: 1.2.9
+584 silly placeDep ROOT @rolldown/pluginutils@1.0.1 OK for: rolldown@1.2.9 want: ^1.0.0
+585 timing idealTree:node_modules/rolldown Completed in 10ms
+586 timing idealTree:node_modules/@oxc-project/types Completed in 0ms
+587 timing idealTree:node_modules/@rolldown/binding-android-arm-eabi Completed in 0ms
+588 timing idealTree:node_modules/@rolldown/binding-android-arm64 Completed in 0ms
+589 timing idealTree:node_modules/@rolldown/binding-darwin-arm64 Completed in 0ms
+590 timing idealTree:node_modules/@rolldown/binding-darwin-x64 Completed in 0ms
+591 timing idealTree:node_modules/@rolldown/binding-freebsd-x64 Completed in 0ms
+592 timing idealTree:node_modules/@rolldown/binding-linux-arm-gnueabihf Completed in 0ms
+593 timing idealTree:node_modules/@rolldown/binding-linux-arm64-gnu Completed in 0ms
+594 timing idealTree:node_modules/@rolldown/binding-linux-arm64-musl Completed in 0ms
+595 timing idealTree:node_modules/@rolldown/binding-linux-ppc64-gnu Completed in 0ms
+596 timing idealTree:node_modules/@rolldown/binding-linux-s390x-gnu Completed in 0ms
+597 timing idealTree:node_modules/@rolldown/binding-linux-x64-gnu Completed in 0ms
+598 timing idealTree:node_modules/@rolldown/binding-linux-x64-musl Completed in 0ms
+599 timing idealTree:node_modules/@rolldown/binding-openharmony-arm64 Completed in 0ms
+600 timing idealTree:node_modules/@rolldown/binding-win32-arm64-msvc Completed in 0ms
+601 timing idealTree:node_modules/@rolldown/binding-win32-x64-msvc Completed in 0ms
+602 timing idealTree:node_modules/@rolldown/pluginutils Completed in 0ms
+603 silly placeDep node_modules/vite-plugin-full-reload picomatch@2.3.2 OK for: vite-plugin-full-reload@1.2.0 want: ^2.3.1
+604 timing idealTree:node_modules/vite-plugin-full-reload Completed in 1ms
+605 timing idealTree:node_modules/webpack-virtual-modules Completed in 0ms
+606 silly placeDep ROOT cliui@8.0.1 OK for: yargs@17.7.2 want: ^8.0.1
+607 silly placeDep ROOT escalade@3.2.0 OK for: yargs@17.7.2 want: ^3.1.1
+608 silly placeDep ROOT get-caller-file@2.0.5 OK for: yargs@17.7.2 want: ^2.0.5
+609 silly placeDep ROOT require-directory@2.1.1 OK for: yargs@17.7.2 want: ^2.1.1
+610 silly placeDep ROOT string-width@4.2.3 OK for: yargs@17.7.2 want: ^4.2.3
+611 silly placeDep ROOT y18n@5.0.8 OK for: yargs@17.7.2 want: ^5.0.5
+612 silly placeDep ROOT yargs-parser@21.1.1 OK for: yargs@17.7.2 want: ^21.1.1
+613 silly fetch manifest wrap-ansi@^7.0.0
+614 silly fetch manifest strip-ansi@^6.0.1
+615 silly fetch manifest emoji-regex@^8.0.0
+616 silly fetch manifest is-fullwidth-code-point@^3.0.0
+617 http fetch GET 200 https://registry.npmjs.org/is-fullwidth-code-point 59ms (cache miss)
+618 http fetch GET 200 https://registry.npmjs.org/wrap-ansi 63ms (cache miss)
+619 http fetch GET 200 https://registry.npmjs.org/strip-ansi 63ms (cache miss)
+620 http fetch GET 200 https://registry.npmjs.org/emoji-regex 65ms (cache miss)
+621 timing idealTree:node_modules/yargs Completed in 71ms
+622 silly placeDep ROOT strip-ansi@6.0.1 OK for: cliui@8.0.1 want: ^6.0.1
+623 silly placeDep ROOT wrap-ansi@7.0.0 OK for: cliui@8.0.1 want: ^7.0.0
+624 silly fetch manifest ansi-regex@^5.0.1
+625 http fetch GET 200 https://registry.npmjs.org/ansi-regex 57ms (cache miss)
+626 timing idealTree:node_modules/cliui Completed in 60ms
+627 timing idealTree:node_modules/escalade Completed in 0ms
+628 timing idealTree:node_modules/get-caller-file Completed in 0ms
+629 timing idealTree:node_modules/require-directory Completed in 0ms
+630 silly placeDep ROOT emoji-regex@8.0.0 OK for: string-width@4.2.3 want: ^8.0.0
+631 silly placeDep ROOT is-fullwidth-code-point@3.0.0 OK for: string-width@4.2.3 want: ^3.0.0
+632 timing idealTree:node_modules/string-width Completed in 1ms
+633 timing idealTree:node_modules/emoji-regex Completed in 0ms
+634 timing idealTree:node_modules/is-fullwidth-code-point Completed in 0ms
+635 silly placeDep ROOT ansi-regex@5.0.1 OK for: strip-ansi@6.0.1 want: ^5.0.1
+636 timing idealTree:node_modules/strip-ansi Completed in 1ms
+637 timing idealTree:node_modules/ansi-regex Completed in 0ms
+638 timing idealTree:node_modules/wrap-ansi Completed in 0ms
+639 timing idealTree:node_modules/y18n Completed in 0ms
+640 timing idealTree:node_modules/yargs-parser Completed in 0ms
+641 timing idealTree:node_modules/chalk/node_modules/supports-color Completed in 0ms
+642 silly placeDep node_modules/mlly confbox@0.1.8 OK for: pkg-types@1.3.1 want: ^0.1.8
+643 timing idealTree:node_modules/mlly/node_modules/pkg-types Completed in 1ms
+644 timing idealTree:node_modules/mlly/node_modules/confbox Completed in 0ms
+645 timing idealTree:node_modules/pkg-types/node_modules/confbox Completed in 0ms
+646 timing idealTree:node_modules/vite-plugin-full-reload/node_modules/picomatch Completed in 0ms
+647 silly placeDep node_modules/vite lightningcss-android-arm64@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+648 silly placeDep node_modules/vite lightningcss-darwin-arm64@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+649 silly placeDep node_modules/vite lightningcss-darwin-x64@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+650 silly placeDep node_modules/vite lightningcss-freebsd-x64@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+651 silly placeDep node_modules/vite lightningcss-linux-arm-gnueabihf@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+652 silly placeDep node_modules/vite lightningcss-linux-arm64-gnu@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+653 silly placeDep node_modules/vite lightningcss-linux-arm64-musl@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+654 silly placeDep node_modules/vite lightningcss-linux-x64-gnu@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+655 silly placeDep node_modules/vite lightningcss-linux-x64-musl@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+656 silly placeDep node_modules/vite lightningcss-win32-arm64-msvc@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+657 silly placeDep node_modules/vite lightningcss-win32-x64-msvc@1.33.0 OK for: lightningcss@1.33.0 want: 1.33.0
+658 timing idealTree:node_modules/vite/node_modules/lightningcss Completed in 7ms
+659 timing idealTree:node_modules/vite/node_modules/lightningcss-android-arm64 Completed in 0ms
+660 timing idealTree:node_modules/vite/node_modules/lightningcss-darwin-arm64 Completed in 0ms
+661 timing idealTree:node_modules/vite/node_modules/lightningcss-darwin-x64 Completed in 0ms
+662 timing idealTree:node_modules/vite/node_modules/lightningcss-freebsd-x64 Completed in 0ms
+663 timing idealTree:node_modules/vite/node_modules/lightningcss-linux-arm-gnueabihf Completed in 0ms
+664 timing idealTree:node_modules/vite/node_modules/lightningcss-linux-arm64-gnu Completed in 0ms
+665 timing idealTree:node_modules/vite/node_modules/lightningcss-linux-arm64-musl Completed in 0ms
+666 timing idealTree:node_modules/vite/node_modules/lightningcss-linux-x64-gnu Completed in 0ms
+667 timing idealTree:node_modules/vite/node_modules/lightningcss-linux-x64-musl Completed in 0ms
+668 timing idealTree:node_modules/vite/node_modules/lightningcss-win32-arm64-msvc Completed in 0ms
+669 timing idealTree:node_modules/vite/node_modules/lightningcss-win32-x64-msvc Completed in 0ms
+670 timing idealTree:buildDeps Completed in 6432ms
+671 timing idealTree:fixDepFlags Completed in 1ms
+672 timing idealTree Completed in 6447ms
+673 timing reify:loadTrees Completed in 6447ms
+674 timing reify:diffTrees Completed in 2ms
+675 silly reify moves {}
+676 timing reify:retireShallow Completed in 1ms
+677 timing reify:createSparse Completed in 48ms
+678 verbose reify failed optional dependency /home/stedam/node_modules/@tailwindcss/oxide-wasm32-wasi
+679 silly reify mark deleted [ '/home/stedam/node_modules/@tailwindcss/oxide-wasm32-wasi' ]
+680 timing reifyNode:node_modules/@tailwindcss/oxide-wasm32-wasi Completed in 2ms
+681 timing arborist:ctor Completed in 0ms
+682 timing reify:diffTrees Completed in 1ms
+683 timing reify:loadBundles Completed in 4ms
+684 silly audit bulk request {
+684 silly audit   '@qirolab/nuxt-sanctum-authentication': [ '0.1.15' ],
+684 silly audit   '@tailwindcss/vite': [ '4.3.3' ],
+684 silly audit   vite: [ '8.3.0' ],
+684 silly audit   concurrently: [ '9.2.4' ],
+684 silly audit   'laravel-vite-plugin': [ '3.2.0' ],
+684 silly audit   tailwindcss: [ '4.3.3' ],
+684 silly audit   '@nuxt/kit': [ '3.21.11' ],
+684 silly audit   defu: [ '6.1.7' ],
+684 silly audit   'lodash-es': [ '4.18.1' ],
+684 silly audit   c12: [ '3.3.4' ],
+684 silly audit   consola: [ '3.4.2' ],
+684 silly audit   destr: [ '2.0.5' ],
+684 silly audit   errx: [ '0.1.2' ],
+684 silly audit   exsolve: [ '1.1.1' ],
+684 silly audit   ignore: [ '7.0.9' ],
+684 silly audit   jiti: [ '2.7.0' ],
+684 silly audit   klona: [ '2.0.6' ],
+684 silly audit   knitwork: [ '1.3.0' ],
+684 silly audit   mlly: [ '1.8.2' ],
+684 silly audit   ohash: [ '2.0.12' ],
+684 silly audit   pathe: [ '2.0.3' ],
+684 silly audit   'pkg-types': [ '2.3.3', '1.3.1' ],
+684 silly audit   rc9: [ '3.1.0' ],
+684 silly audit   scule: [ '1.3.0' ],
+684 silly audit   semver: [ '7.8.5' ],
+684 silly audit   tinyglobby: [ '0.2.17' ],
+684 silly audit   ufo: [ '1.6.4' ],
+684 silly audit   unctx: [ '2.5.0' ],
+684 silly audit   untyped: [ '2.0.0' ],
+684 silly audit   '@tailwindcss/node': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide': [ '4.3.3' ],
+684 silly audit   '@jridgewell/remapping': [ '2.3.5' ],
+684 silly audit   'enhanced-resolve': [ '5.25.1' ],
+684 silly audit   lightningcss: [ '1.32.0', '1.33.0' ],
+684 silly audit   'magic-string': [ '0.30.21' ],
+684 silly audit   'source-map-js': [ '1.2.1' ],
+684 silly audit   '@jridgewell/gen-mapping': [ '0.3.13' ],
+684 silly audit   '@jridgewell/trace-mapping': [ '0.3.31' ],
+684 silly audit   '@jridgewell/sourcemap-codec': [ '1.6.0' ],
+684 silly audit   '@jridgewell/resolve-uri': [ '3.1.2' ],
+684 silly audit   '@tailwindcss/oxide-android-arm64': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide-darwin-arm64': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide-darwin-x64': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide-freebsd-x64': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide-linux-arm-gnueabihf': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide-linux-arm64-gnu': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide-linux-arm64-musl': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide-linux-x64-gnu': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide-linux-x64-musl': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide-win32-arm64-msvc': [ '4.3.3' ],
+684 silly audit   '@tailwindcss/oxide-win32-x64-msvc': [ '4.3.3' ],
+684 silly audit   chokidar: [ '5.0.0' ],
+684 silly audit   confbox: [ '0.2.4', '0.3.1', '0.1.8' ],
+684 silly audit   dotenv: [ '17.4.2' ],
+684 silly audit   giget: [ '3.3.1' ],
+684 silly audit   'perfect-debounce': [ '2.1.0' ],
+684 silly audit   readdirp: [ '5.1.1' ],
+684 silly audit   chalk: [ '4.1.2' ],
+684 silly audit   rxjs: [ '7.8.2' ],
+684 silly audit   'shell-quote': [ '1.9.0' ],
+684 silly audit   'supports-color': [ '8.1.1', '7.2.0' ],
+684 silly audit   'tree-kill': [ '1.2.2' ],
+684 silly audit   yargs: [ '17.7.2' ],
+684 silly audit   'ansi-styles': [ '4.3.0' ],
+684 silly audit   'color-convert': [ '2.0.1' ],
+684 silly audit   'color-name': [ '1.1.4' ],
+684 silly audit   'graceful-fs': [ '4.2.11' ],
+684 silly audit   tapable: [ '2.3.3' ],
+684 silly audit   picocolors: [ '1.1.1' ],
+684 silly audit   'vite-plugin-full-reload': [ '1.2.0' ],
+684 silly audit   'detect-libc': [ '2.1.2' ],
+684 silly audit   'lightningcss-android-arm64': [ '1.32.0', '1.33.0' ],
+684 silly audit   'lightningcss-darwin-arm64': [ '1.32.0', '1.33.0' ],
+684 silly audit   'lightningcss-darwin-x64': [ '1.32.0', '1.33.0' ],
+684 silly audit   'lightningcss-freebsd-x64': [ '1.32.0', '1.33.0' ],
+684 silly audit   'lightningcss-linux-arm-gnueabihf': [ '1.32.0', '1.33.0' ],
+684 silly audit   'lightningcss-linux-arm64-gnu': [ '1.32.0', '1.33.0' ],
+684 silly audit   'lightningcss-linux-arm64-musl': [ '1.32.0', '1.33.0' ],
+684 silly audit   'lightningcss-linux-x64-gnu': [ '1.32.0', '1.33.0' ],
+684 silly audit   'lightningcss-linux-x64-musl': [ '1.32.0', '1.33.0' ],
+684 silly audit   'lightningcss-win32-arm64-msvc': [ '1.32.0', '1.33.0' ],
+684 silly audit   'lightningcss-win32-x64-msvc': [ '1.32.0', '1.33.0' ],
+684 silly audit   acorn: [ '8.18.0' ],
+684 silly audit   tslib: [ '2.8.1' ],
+684 silly audit   'has-flag': [ '4.0.0' ],
+684 silly audit   fdir: [ '6.5.0' ],
+684 silly audit   picomatch: [ '4.0.7', '2.3.2' ],
+684 silly audit   'estree-walker': [ '3.0.3' ],
+684 silly audit   unplugin: [ '2.3.11' ],
+684 silly audit   '@types/estree': [ '1.0.9' ],
+684 silly audit   'webpack-virtual-modules': [ '0.6.2' ],
+684 silly audit   citty: [ '0.1.6' ],
+684 silly audit   fsevents: [ '2.3.3' ],
+684 silly audit   postcss: [ '8.5.28' ],
+684 silly audit   rolldown: [ '1.2.9' ],
+684 silly audit   nanoid: [ '3.3.19' ],
+684 silly audit   '@oxc-project/types': [ '0.150.0' ],
+684 silly audit   '@rolldown/binding-android-arm-eabi': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-android-arm64': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-darwin-arm64': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-darwin-x64': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-freebsd-x64': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-linux-arm-gnueabihf': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-linux-arm64-gnu': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-linux-arm64-musl': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-linux-ppc64-gnu': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-linux-s390x-gnu': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-linux-x64-gnu': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-linux-x64-musl': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-openharmony-arm64': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-win32-arm64-msvc': [ '1.2.9' ],
+684 silly audit   '@rolldown/binding-win32-x64-msvc': [ '1.2.9' ],
+684 silly audit   '@rolldown/pluginutils': [ '1.0.1' ],
+684 silly audit   cliui: [ '8.0.1' ],
+684 silly audit   escalade: [ '3.2.0' ],
+684 silly audit   'get-caller-file': [ '2.0.5' ],
+684 silly audit   'require-directory': [ '2.1.1' ],
+684 silly audit   'string-width': [ '4.2.3' ],
+684 silly audit   y18n: [ '5.0.8' ],
+684 silly audit   'yargs-parser': [ '21.1.1' ],
+684 silly audit   'strip-ansi': [ '6.0.1' ],
+684 silly audit   'wrap-ansi': [ '7.0.0' ],
+684 silly audit   'emoji-regex': [ '8.0.0' ],
+684 silly audit   'is-fullwidth-code-point': [ '3.0.0' ],
+684 silly audit   'ansi-regex': [ '5.0.1' ],
+684 silly audit   '@tailwindcss/oxide-wasm32-wasi': [ '4.3.3' ]
+684 silly audit }
+685 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-win32-x64-msvc
+686 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-win32-x64-msvc' ]
+687 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-win32-arm64-msvc
+688 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-win32-arm64-msvc' ]
+689 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-openharmony-arm64
+690 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-openharmony-arm64' ]
+691 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-linux-s390x-gnu
+692 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-linux-s390x-gnu' ]
+693 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-linux-ppc64-gnu
+694 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-linux-ppc64-gnu' ]
+695 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-linux-arm64-musl
+696 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-linux-arm64-musl' ]
+697 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-linux-arm64-gnu
+698 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-linux-arm64-gnu' ]
+699 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-linux-arm-gnueabihf
+700 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-linux-arm-gnueabihf' ]
+701 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-freebsd-x64
+702 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-freebsd-x64' ]
+703 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-darwin-x64
+704 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-darwin-x64' ]
+705 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-darwin-arm64
+706 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-darwin-arm64' ]
+707 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-android-arm64
+708 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-android-arm64' ]
+709 verbose reify failed optional dependency /home/stedam/node_modules/@rolldown/binding-android-arm-eabi
+710 silly reify mark deleted [ '/home/stedam/node_modules/@rolldown/binding-android-arm-eabi' ]
+711 verbose reify failed optional dependency /home/stedam/node_modules/fsevents
+712 silly reify mark deleted [ '/home/stedam/node_modules/fsevents' ]
+713 verbose reify failed optional dependency /home/stedam/node_modules/lightningcss-win32-x64-msvc
+714 silly reify mark deleted [ '/home/stedam/node_modules/lightningcss-win32-x64-msvc' ]
+715 verbose reify failed optional dependency /home/stedam/node_modules/lightningcss-win32-arm64-msvc
+716 silly reify mark deleted [ '/home/stedam/node_modules/lightningcss-win32-arm64-msvc' ]
+717 verbose reify failed optional dependency /home/stedam/node_modules/lightningcss-linux-arm64-musl
+718 silly reify mark deleted [ '/home/stedam/node_modules/lightningcss-linux-arm64-musl' ]
+719 verbose reify failed optional dependency /home/stedam/node_modules/lightningcss-linux-arm64-gnu
+720 silly reify mark deleted [ '/home/stedam/node_modules/lightningcss-linux-arm64-gnu' ]
+721 verbose reify failed optional dependency /home/stedam/node_modules/lightningcss-linux-arm-gnueabihf
+722 silly reify mark deleted [ '/home/stedam/node_modules/lightningcss-linux-arm-gnueabihf' ]
+723 verbose reify failed optional dependency /home/stedam/node_modules/lightningcss-freebsd-x64
+724 silly reify mark deleted [ '/home/stedam/node_modules/lightningcss-freebsd-x64' ]
+725 verbose reify failed optional dependency /home/stedam/node_modules/lightningcss-darwin-x64
+726 silly reify mark deleted [ '/home/stedam/node_modules/lightningcss-darwin-x64' ]
+727 verbose reify failed optional dependency /home/stedam/node_modules/lightningcss-darwin-arm64
+728 silly reify mark deleted [ '/home/stedam/node_modules/lightningcss-darwin-arm64' ]
+729 verbose reify failed optional dependency /home/stedam/node_modules/lightningcss-android-arm64
+730 silly reify mark deleted [ '/home/stedam/node_modules/lightningcss-android-arm64' ]
+731 verbose reify failed optional dependency /home/stedam/node_modules/@tailwindcss/oxide-win32-x64-msvc
+732 silly reify mark deleted [ '/home/stedam/node_modules/@tailwindcss/oxide-win32-x64-msvc' ]
+733 verbose reify failed optional dependency /home/stedam/node_modules/@tailwindcss/oxide-win32-arm64-msvc
+734 silly reify mark deleted [ '/home/stedam/node_modules/@tailwindcss/oxide-win32-arm64-msvc' ]
+735 verbose reify failed optional dependency /home/stedam/node_modules/@tailwindcss/oxide-linux-arm64-musl
+736 silly reify mark deleted [ '/home/stedam/node_modules/@tailwindcss/oxide-linux-arm64-musl' ]
+737 verbose reify failed optional dependency /home/stedam/node_modules/@tailwindcss/oxide-linux-arm64-gnu
+738 silly reify mark deleted [ '/home/stedam/node_modules/@tailwindcss/oxide-linux-arm64-gnu' ]
+739 verbose reify failed optional dependency /home/stedam/node_modules/@tailwindcss/oxide-linux-arm-gnueabihf
+740 silly reify mark deleted [ '/home/stedam/node_modules/@tailwindcss/oxide-linux-arm-gnueabihf' ]
+741 verbose reify failed optional dependency /home/stedam/node_modules/@tailwindcss/oxide-freebsd-x64
+742 silly reify mark deleted [ '/home/stedam/node_modules/@tailwindcss/oxide-freebsd-x64' ]
+743 verbose reify failed optional dependency /home/stedam/node_modules/@tailwindcss/oxide-darwin-x64
+744 silly reify mark deleted [ '/home/stedam/node_modules/@tailwindcss/oxide-darwin-x64' ]
+745 verbose reify failed optional dependency /home/stedam/node_modules/@tailwindcss/oxide-darwin-arm64
+746 silly reify mark deleted [ '/home/stedam/node_modules/@tailwindcss/oxide-darwin-arm64' ]
+747 verbose reify failed optional dependency /home/stedam/node_modules/@tailwindcss/oxide-android-arm64
+748 silly reify mark deleted [ '/home/stedam/node_modules/@tailwindcss/oxide-android-arm64' ]
+749 verbose reify failed optional dependency /home/stedam/node_modules/vite/node_modules/lightningcss-win32-x64-msvc
+750 silly reify mark deleted [
+750 silly reify   '/home/stedam/node_modules/vite/node_modules/lightningcss-win32-x64-msvc'
+750 silly reify ]
+751 verbose reify failed optional dependency /home/stedam/node_modules/vite/node_modules/lightningcss-win32-arm64-msvc
+752 silly reify mark deleted [
+752 silly reify   '/home/stedam/node_modules/vite/node_modules/lightningcss-win32-arm64-msvc'
+752 silly reify ]
+753 verbose reify failed optional dependency /home/stedam/node_modules/vite/node_modules/lightningcss-linux-arm64-musl
+754 silly reify mark deleted [
+754 silly reify   '/home/stedam/node_modules/vite/node_modules/lightningcss-linux-arm64-musl'
+754 silly reify ]
+755 verbose reify failed optional dependency /home/stedam/node_modules/vite/node_modules/lightningcss-linux-arm64-gnu
+756 silly reify mark deleted [
+756 silly reify   '/home/stedam/node_modules/vite/node_modules/lightningcss-linux-arm64-gnu'
+756 silly reify ]
+757 verbose reify failed optional dependency /home/stedam/node_modules/vite/node_modules/lightningcss-linux-arm-gnueabihf
+758 silly reify mark deleted [
+758 silly reify   '/home/stedam/node_modules/vite/node_modules/lightningcss-linux-arm-gnueabihf'
+758 silly reify ]
+759 verbose reify failed optional dependency /home/stedam/node_modules/vite/node_modules/lightningcss-freebsd-x64
+760 silly reify mark deleted [
+760 silly reify   '/home/stedam/node_modules/vite/node_modules/lightningcss-freebsd-x64'
+760 silly reify ]
+761 verbose reify failed optional dependency /home/stedam/node_modules/vite/node_modules/lightningcss-darwin-x64
+762 silly reify mark deleted [
+762 silly reify   '/home/stedam/node_modules/vite/node_modules/lightningcss-darwin-x64'
+762 silly reify ]
+763 verbose reify failed optional dependency /home/stedam/node_modules/vite/node_modules/lightningcss-darwin-arm64
+764 silly reify mark deleted [
+764 silly reify   '/home/stedam/node_modules/vite/node_modules/lightningcss-darwin-arm64'
+764 silly reify ]
+765 verbose reify failed optional dependency /home/stedam/node_modules/vite/node_modules/lightningcss-android-arm64
+766 silly reify mark deleted [
+766 silly reify   '/home/stedam/node_modules/vite/node_modules/lightningcss-android-arm64'
+766 silly reify ]
+767 timing reifyNode:node_modules/@rolldown/binding-win32-x64-msvc Completed in 16ms
+768 timing reifyNode:node_modules/@rolldown/binding-win32-arm64-msvc Completed in 16ms
+769 timing reifyNode:node_modules/@rolldown/binding-openharmony-arm64 Completed in 16ms
+770 timing reifyNode:node_modules/@rolldown/binding-linux-s390x-gnu Completed in 16ms
+771 timing reifyNode:node_modules/@rolldown/binding-linux-ppc64-gnu Completed in 16ms
+772 timing reifyNode:node_modules/@rolldown/binding-linux-arm64-musl Completed in 16ms
+773 timing reifyNode:node_modules/@rolldown/binding-linux-arm64-gnu Completed in 16ms
+774 timing reifyNode:node_modules/@rolldown/binding-linux-arm-gnueabihf Completed in 16ms
+775 timing reifyNode:node_modules/@rolldown/binding-freebsd-x64 Completed in 16ms
+776 timing reifyNode:node_modules/@rolldown/binding-darwin-x64 Completed in 16ms
+777 timing reifyNode:node_modules/@rolldown/binding-darwin-arm64 Completed in 16ms
+778 timing reifyNode:node_modules/@rolldown/binding-android-arm64 Completed in 16ms
+779 timing reifyNode:node_modules/@rolldown/binding-android-arm-eabi Completed in 16ms
+780 timing reifyNode:node_modules/fsevents Completed in 16ms
+781 timing reifyNode:node_modules/lightningcss-win32-x64-msvc Completed in 15ms
+782 timing reifyNode:node_modules/lightningcss-win32-arm64-msvc Completed in 15ms
+783 timing reifyNode:node_modules/lightningcss-linux-arm64-musl Completed in 16ms
+784 timing reifyNode:node_modules/lightningcss-linux-arm64-gnu Completed in 16ms
+785 timing reifyNode:node_modules/lightningcss-linux-arm-gnueabihf Completed in 16ms
+786 timing reifyNode:node_modules/lightningcss-freebsd-x64 Completed in 16ms
+787 timing reifyNode:node_modules/lightningcss-darwin-x64 Completed in 16ms
+788 timing reifyNode:node_modules/lightningcss-darwin-arm64 Completed in 16ms
+789 timing reifyNode:node_modules/lightningcss-android-arm64 Completed in 16ms
+790 timing reifyNode:node_modules/@tailwindcss/oxide-win32-x64-msvc Completed in 15ms
+791 timing reifyNode:node_modules/@tailwindcss/oxide-win32-arm64-msvc Completed in 15ms
+792 timing reifyNode:node_modules/@tailwindcss/oxide-linux-arm64-musl Completed in 15ms
+793 timing reifyNode:node_modules/@tailwindcss/oxide-linux-arm64-gnu Completed in 15ms
+794 timing reifyNode:node_modules/@tailwindcss/oxide-linux-arm-gnueabihf Completed in 15ms
+795 timing reifyNode:node_modules/@tailwindcss/oxide-freebsd-x64 Completed in 15ms
+796 timing reifyNode:node_modules/@tailwindcss/oxide-darwin-x64 Completed in 15ms
+797 timing reifyNode:node_modules/@tailwindcss/oxide-darwin-arm64 Completed in 15ms
+798 timing reifyNode:node_modules/@tailwindcss/oxide-android-arm64 Completed in 15ms
+799 timing reifyNode:node_modules/vite/node_modules/lightningcss-win32-x64-msvc Completed in 14ms
+800 timing reifyNode:node_modules/vite/node_modules/lightningcss-win32-arm64-msvc Completed in 14ms
+801 timing reifyNode:node_modules/vite/node_modules/lightningcss-linux-arm64-musl Completed in 15ms
+802 timing reifyNode:node_modules/vite/node_modules/lightningcss-linux-arm64-gnu Completed in 15ms
+803 timing reifyNode:node_modules/vite/node_modules/lightningcss-linux-arm-gnueabihf Completed in 15ms
+804 timing reifyNode:node_modules/vite/node_modules/lightningcss-freebsd-x64 Completed in 15ms
+805 timing reifyNode:node_modules/vite/node_modules/lightningcss-darwin-x64 Completed in 15ms
+806 timing reifyNode:node_modules/vite/node_modules/lightningcss-darwin-arm64 Completed in 15ms
+807 timing reifyNode:node_modules/vite/node_modules/lightningcss-android-arm64 Completed in 15ms
+808 silly tarball no local data for ansi-regex@https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz. Extracting by manifest.
+809 silly tarball no local data for is-fullwidth-code-point@https://registry.npmjs.org/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz. Extracting by manifest.
+810 silly tarball no local data for emoji-regex@https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz. Extracting by manifest.
+811 silly tarball no local data for wrap-ansi@https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz. Extracting by manifest.
+812 silly tarball no local data for strip-ansi@https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz. Extracting by manifest.
+813 silly tarball no local data for y18n@https://registry.npmjs.org/y18n/-/y18n-5.0.8.tgz. Extracting by manifest.
+814 silly tarball no local data for require-directory@https://registry.npmjs.org/require-directory/-/require-directory-2.1.1.tgz. Extracting by manifest.
+815 silly tarball no local data for get-caller-file@https://registry.npmjs.org/get-caller-file/-/get-caller-file-2.0.5.tgz. Extracting by manifest.
+816 silly tarball no local data for escalade@https://registry.npmjs.org/escalade/-/escalade-3.2.0.tgz. Extracting by manifest.
+817 silly tarball no local data for cliui@https://registry.npmjs.org/cliui/-/cliui-8.0.1.tgz. Extracting by manifest.
+818 silly tarball no local data for @rolldown/pluginutils@https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz. Extracting by manifest.
+819 silly tarball no local data for yargs-parser@https://registry.npmjs.org/yargs-parser/-/yargs-parser-21.1.1.tgz. Extracting by manifest.
+820 silly tarball no local data for @rolldown/binding-linux-x64-musl@https://registry.npmjs.org/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.2.9.tgz. Extracting by manifest.
+821 silly tarball no local data for @rolldown/binding-linux-x64-gnu@https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.9.tgz. Extracting by manifest.
+822 silly tarball no local data for @oxc-project/types@https://registry.npmjs.org/@oxc-project/types/-/types-0.150.0.tgz. Extracting by manifest.
+823 silly tarball no local data for nanoid@https://registry.npmjs.org/nanoid/-/nanoid-3.3.19.tgz. Extracting by manifest.
+824 silly tarball no local data for string-width@https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz. Extracting by manifest.
+825 silly tarball no local data for rolldown@https://registry.npmjs.org/rolldown/-/rolldown-1.2.9.tgz. Extracting by manifest.
+826 silly tarball no local data for postcss@https://registry.npmjs.org/postcss/-/postcss-8.5.28.tgz. Extracting by manifest.
+827 silly tarball no local data for citty@https://registry.npmjs.org/citty/-/citty-0.1.6.tgz. Extracting by manifest.
+828 silly tarball no local data for unplugin@https://registry.npmjs.org/unplugin/-/unplugin-2.3.11.tgz. Extracting by manifest.
+829 silly tarball no local data for @types/estree@https://registry.npmjs.org/@types/estree/-/estree-1.0.9.tgz. Extracting by manifest.
+830 silly tarball no local data for picomatch@https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz. Extracting by manifest.
+831 silly tarball no local data for estree-walker@https://registry.npmjs.org/estree-walker/-/estree-walker-3.0.3.tgz. Extracting by manifest.
+832 silly tarball no local data for webpack-virtual-modules@https://registry.npmjs.org/webpack-virtual-modules/-/webpack-virtual-modules-0.6.2.tgz. Extracting by manifest.
+833 silly tarball no local data for has-flag@https://registry.npmjs.org/has-flag/-/has-flag-4.0.0.tgz. Extracting by manifest.
+834 silly tarball no local data for tslib@https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz. Extracting by manifest.
+835 silly tarball no local data for acorn@https://registry.npmjs.org/acorn/-/acorn-8.18.0.tgz. Extracting by manifest.
+836 silly tarball no local data for lightningcss-linux-x64-musl@https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz. Extracting by manifest.
+837 silly tarball no local data for lightningcss-linux-x64-gnu@https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz. Extracting by manifest.
+838 silly tarball no local data for detect-libc@https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz. Extracting by manifest.
+839 silly tarball no local data for vite-plugin-full-reload@https://registry.npmjs.org/vite-plugin-full-reload/-/vite-plugin-full-reload-1.2.0.tgz. Extracting by manifest.
+840 silly tarball no local data for tapable@https://registry.npmjs.org/tapable/-/tapable-2.3.3.tgz. Extracting by manifest.
+841 silly tarball no local data for picocolors@https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz. Extracting by manifest.
+842 silly tarball no local data for graceful-fs@https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.11.tgz. Extracting by manifest.
+843 silly tarball no local data for color-name@https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz. Extracting by manifest.
+844 silly tarball no local data for fdir@https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz. Extracting by manifest.
+845 silly tarball no local data for ansi-styles@https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz. Extracting by manifest.
+846 silly tarball no local data for yargs@https://registry.npmjs.org/yargs/-/yargs-17.7.2.tgz. Extracting by manifest.
+847 silly tarball no local data for color-convert@https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz. Extracting by manifest.
+848 silly tarball no local data for shell-quote@https://registry.npmjs.org/shell-quote/-/shell-quote-1.9.0.tgz. Extracting by manifest.
+849 silly tarball no local data for tree-kill@https://registry.npmjs.org/tree-kill/-/tree-kill-1.2.2.tgz. Extracting by manifest.
+850 silly tarball no local data for supports-color@https://registry.npmjs.org/supports-color/-/supports-color-8.1.1.tgz. Extracting by manifest.
+851 silly tarball no local data for chalk@https://registry.npmjs.org/chalk/-/chalk-4.1.2.tgz. Extracting by manifest.
+852 silly tarball no local data for rxjs@https://registry.npmjs.org/rxjs/-/rxjs-7.8.2.tgz. Extracting by manifest.
+853 silly tarball no local data for readdirp@https://registry.npmjs.org/readdirp/-/readdirp-5.1.1.tgz. Extracting by manifest.
+854 silly tarball no local data for giget@https://registry.npmjs.org/giget/-/giget-3.3.1.tgz. Extracting by manifest.
+855 silly tarball no local data for perfect-debounce@https://registry.npmjs.org/perfect-debounce/-/perfect-debounce-2.1.0.tgz. Extracting by manifest.
+856 silly tarball no local data for dotenv@https://registry.npmjs.org/dotenv/-/dotenv-17.4.2.tgz. Extracting by manifest.
+857 silly tarball no local data for chokidar@https://registry.npmjs.org/chokidar/-/chokidar-5.0.0.tgz. Extracting by manifest.
+858 silly tarball no local data for confbox@https://registry.npmjs.org/confbox/-/confbox-0.2.4.tgz. Extracting by manifest.
+859 silly tarball no local data for @tailwindcss/oxide-linux-x64-musl@https://registry.npmjs.org/@tailwindcss/oxide-linux-x64-musl/-/oxide-linux-x64-musl-4.3.3.tgz. Extracting by manifest.
+860 silly tarball no local data for @jridgewell/resolve-uri@https://registry.npmjs.org/@jridgewell/resolve-uri/-/resolve-uri-3.1.2.tgz. Extracting by manifest.
+861 silly tarball no local data for @tailwindcss/oxide-linux-x64-gnu@https://registry.npmjs.org/@tailwindcss/oxide-linux-x64-gnu/-/oxide-linux-x64-gnu-4.3.3.tgz. Extracting by manifest.
+862 silly tarball no local data for @jridgewell/sourcemap-codec@https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.6.0.tgz. Extracting by manifest.
+863 silly tarball no local data for @jridgewell/gen-mapping@https://registry.npmjs.org/@jridgewell/gen-mapping/-/gen-mapping-0.3.13.tgz. Extracting by manifest.
+864 silly tarball no local data for @jridgewell/trace-mapping@https://registry.npmjs.org/@jridgewell/trace-mapping/-/trace-mapping-0.3.31.tgz. Extracting by manifest.
+865 silly tarball no local data for source-map-js@https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz. Extracting by manifest.
+866 silly tarball no local data for lightningcss@https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz. Extracting by manifest.
+867 silly tarball no local data for magic-string@https://registry.npmjs.org/magic-string/-/magic-string-0.30.21.tgz. Extracting by manifest.
+868 silly tarball no local data for enhanced-resolve@https://registry.npmjs.org/enhanced-resolve/-/enhanced-resolve-5.25.1.tgz. Extracting by manifest.
+869 silly tarball no local data for @tailwindcss/oxide@https://registry.npmjs.org/@tailwindcss/oxide/-/oxide-4.3.3.tgz. Extracting by manifest.
+870 silly tarball no local data for @jridgewell/remapping@https://registry.npmjs.org/@jridgewell/remapping/-/remapping-2.3.5.tgz. Extracting by manifest.
+871 silly tarball no local data for @tailwindcss/node@https://registry.npmjs.org/@tailwindcss/node/-/node-4.3.3.tgz. Extracting by manifest.
+872 silly tarball no local data for unctx@https://registry.npmjs.org/unctx/-/unctx-2.5.0.tgz. Extracting by manifest.
+873 silly tarball no local data for untyped@https://registry.npmjs.org/untyped/-/untyped-2.0.0.tgz. Extracting by manifest.
+874 silly tarball no local data for ufo@https://registry.npmjs.org/ufo/-/ufo-1.6.4.tgz. Extracting by manifest.
+875 silly tarball no local data for semver@https://registry.npmjs.org/semver/-/semver-7.8.5.tgz. Extracting by manifest.
+876 silly tarball no local data for tinyglobby@https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz. Extracting by manifest.
+877 silly tarball no local data for scule@https://registry.npmjs.org/scule/-/scule-1.3.0.tgz. Extracting by manifest.
+878 silly tarball no local data for pkg-types@https://registry.npmjs.org/pkg-types/-/pkg-types-2.3.3.tgz. Extracting by manifest.
+879 silly tarball no local data for rc9@https://registry.npmjs.org/rc9/-/rc9-3.1.0.tgz. Extracting by manifest.
+880 silly tarball no local data for pathe@https://registry.npmjs.org/pathe/-/pathe-2.0.3.tgz. Extracting by manifest.
+881 silly tarball no local data for mlly@https://registry.npmjs.org/mlly/-/mlly-1.8.2.tgz. Extracting by manifest.
+882 silly tarball no local data for ohash@https://registry.npmjs.org/ohash/-/ohash-2.0.12.tgz. Extracting by manifest.
+883 silly tarball no local data for knitwork@https://registry.npmjs.org/knitwork/-/knitwork-1.3.0.tgz. Extracting by manifest.
+884 silly tarball no local data for jiti@https://registry.npmjs.org/jiti/-/jiti-2.7.0.tgz. Extracting by manifest.
+885 silly tarball no local data for klona@https://registry.npmjs.org/klona/-/klona-2.0.6.tgz. Extracting by manifest.
+886 silly tarball no local data for ignore@https://registry.npmjs.org/ignore/-/ignore-7.0.9.tgz. Extracting by manifest.
+887 silly tarball no local data for errx@https://registry.npmjs.org/errx/-/errx-0.1.2.tgz. Extracting by manifest.
+888 silly tarball no local data for exsolve@https://registry.npmjs.org/exsolve/-/exsolve-1.1.1.tgz. Extracting by manifest.
+889 silly tarball no local data for destr@https://registry.npmjs.org/destr/-/destr-2.0.5.tgz. Extracting by manifest.
+890 silly tarball no local data for c12@https://registry.npmjs.org/c12/-/c12-3.3.4.tgz. Extracting by manifest.
+891 silly tarball no local data for consola@https://registry.npmjs.org/consola/-/consola-3.4.2.tgz. Extracting by manifest.
+892 silly tarball no local data for lodash-es@https://registry.npmjs.org/lodash-es/-/lodash-es-4.18.1.tgz. Extracting by manifest.
+893 silly tarball no local data for @nuxt/kit@https://registry.npmjs.org/@nuxt/kit/-/kit-3.21.11.tgz. Extracting by manifest.
+894 silly tarball no local data for defu@https://registry.npmjs.org/defu/-/defu-6.1.7.tgz. Extracting by manifest.
+895 silly tarball no local data for tailwindcss@https://registry.npmjs.org/tailwindcss/-/tailwindcss-4.3.3.tgz. Extracting by manifest.
+896 silly tarball no local data for concurrently@https://registry.npmjs.org/concurrently/-/concurrently-9.2.4.tgz. Extracting by manifest.
+897 silly tarball no local data for laravel-vite-plugin@https://registry.npmjs.org/laravel-vite-plugin/-/laravel-vite-plugin-3.2.0.tgz. Extracting by manifest.
+898 silly tarball no local data for vite@https://registry.npmjs.org/vite/-/vite-8.3.0.tgz. Extracting by manifest.
+899 silly tarball no local data for @qirolab/nuxt-sanctum-authentication@https://registry.npmjs.org/@qirolab/nuxt-sanctum-authentication/-/nuxt-sanctum-authentication-0.1.15.tgz. Extracting by manifest.
+900 silly tarball no local data for @tailwindcss/vite@https://registry.npmjs.org/@tailwindcss/vite/-/vite-4.3.3.tgz. Extracting by manifest.
+901 silly tarball no local data for picomatch@https://registry.npmjs.org/picomatch/-/picomatch-2.3.2.tgz. Extracting by manifest.
+902 silly tarball no local data for confbox@https://registry.npmjs.org/confbox/-/confbox-0.3.1.tgz. Extracting by manifest.
+903 silly tarball no local data for supports-color@https://registry.npmjs.org/supports-color/-/supports-color-7.2.0.tgz. Extracting by manifest.
+904 silly tarball no local data for confbox@https://registry.npmjs.org/confbox/-/confbox-0.1.8.tgz. Extracting by manifest.
+905 silly tarball no local data for lightningcss-linux-x64-musl@https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.33.0.tgz. Extracting by manifest.
+906 silly tarball no local data for pkg-types@https://registry.npmjs.org/pkg-types/-/pkg-types-1.3.1.tgz. Extracting by manifest.
+907 silly tarball no local data for lightningcss-linux-x64-gnu@https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.33.0.tgz. Extracting by manifest.
+908 silly tarball no local data for lightningcss@https://registry.npmjs.org/lightningcss/-/lightningcss-1.33.0.tgz. Extracting by manifest.
+909 http fetch GET 200 https://registry.npmjs.org/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz 117ms (cache miss)
+910 timing reifyNode:node_modules/is-fullwidth-code-point Completed in 159ms
+911 http fetch GET 200 https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz 120ms (cache miss)
+912 timing reifyNode:node_modules/ansi-regex Completed in 160ms
+913 http fetch GET 200 https://registry.npmjs.org/escalade/-/escalade-3.2.0.tgz 117ms (cache miss)
+914 http fetch GET 200 https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz 120ms (cache miss)
+915 timing reifyNode:node_modules/wrap-ansi Completed in 163ms
+916 http fetch GET 200 https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz 121ms (cache miss)
+917 timing reifyNode:node_modules/strip-ansi Completed in 163ms
+918 http fetch GET 200 https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz 122ms (cache miss)
+919 http fetch GET 200 https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz 121ms (cache miss)
+920 timing reifyNode:node_modules/emoji-regex Completed in 166ms
+921 http fetch GET 200 https://registry.npmjs.org/require-directory/-/require-directory-2.1.1.tgz 123ms (cache miss)
+922 timing reifyNode:node_modules/require-directory Completed in 165ms
+923 http fetch GET 200 https://registry.npmjs.org/get-caller-file/-/get-caller-file-2.0.5.tgz 124ms (cache miss)
+924 timing reifyNode:node_modules/get-caller-file Completed in 166ms
+925 timing reifyNode:node_modules/escalade Completed in 166ms
+926 timing reifyNode:node_modules/@rolldown/pluginutils Completed in 167ms
+927 http fetch GET 200 https://registry.npmjs.org/y18n/-/y18n-5.0.8.tgz 126ms (cache miss)
+928 timing reifyNode:node_modules/y18n Completed in 168ms
+929 http fetch GET 200 https://registry.npmjs.org/yargs-parser/-/yargs-parser-21.1.1.tgz 133ms (cache miss)
+930 timing reifyNode:node_modules/yargs-parser Completed in 177ms
+931 http fetch GET 200 https://registry.npmjs.org/cliui/-/cliui-8.0.1.tgz 136ms (cache miss)
+932 timing reifyNode:node_modules/cliui Completed in 180ms
+933 http fetch GET 200 https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz 164ms (cache miss)
+934 timing reifyNode:node_modules/string-width Completed in 209ms
+935 http fetch GET 200 https://registry.npmjs.org/nanoid/-/nanoid-3.3.19.tgz 174ms (cache miss)
+936 http fetch GET 200 https://registry.npmjs.org/citty/-/citty-0.1.6.tgz 173ms (cache miss)
+937 http fetch GET 200 https://registry.npmjs.org/@oxc-project/types/-/types-0.150.0.tgz 176ms (cache miss)
+938 timing reifyNode:node_modules/@oxc-project/types Completed in 220ms
+939 http fetch GET 200 https://registry.npmjs.org/estree-walker/-/estree-walker-3.0.3.tgz 175ms (cache miss)
+940 http fetch GET 200 https://registry.npmjs.org/@types/estree/-/estree-1.0.9.tgz 178ms (cache miss)
+941 timing reifyNode:node_modules/@types/estree Completed in 225ms
+942 timing reifyNode:node_modules/citty Completed in 228ms
+943 timing reifyNode:node_modules/estree-walker Completed in 232ms
+944 http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz 191ms (cache miss)
+945 http fetch GET 200 https://registry.npmjs.org/has-flag/-/has-flag-4.0.0.tgz 191ms (cache miss)
+946 timing reifyNode:node_modules/has-flag Completed in 240ms
+947 timing reifyNode:node_modules/picomatch Completed in 241ms
+948 timing reifyNode:node_modules/nanoid Completed in 244ms
+949 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 276ms
+950 timing auditReport:getReport Completed in 278ms
+951 silly audit report {}
+952 timing auditReport:init Completed in 0ms
+953 timing reify:audit Completed in 278ms
+954 http fetch GET 200 https://registry.npmjs.org/vite-plugin-full-reload/-/vite-plugin-full-reload-1.2.0.tgz 231ms (cache miss)
+955 http fetch GET 200 https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz 241ms (cache miss)
+956 http fetch GET 200 https://registry.npmjs.org/unplugin/-/unplugin-2.3.11.tgz 248ms (cache miss)
+957 timing reifyNode:node_modules/detect-libc Completed in 295ms
+958 timing reifyNode:node_modules/vite-plugin-full-reload Completed in 295ms
+959 http fetch GET 200 https://registry.npmjs.org/webpack-virtual-modules/-/webpack-virtual-modules-0.6.2.tgz 248ms (cache miss)
+960 timing reifyNode:node_modules/unplugin Completed in 297ms
+961 http fetch GET 200 https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz 247ms (cache miss)
+962 timing reifyNode:node_modules/picocolors Completed in 298ms
+963 timing reifyNode:node_modules/webpack-virtual-modules Completed in 301ms
+964 http fetch GET 200 https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.11.tgz 249ms (cache miss)
+965 http fetch GET 200 https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz 254ms (cache miss)
+966 timing reifyNode:node_modules/color-name Completed in 306ms
+967 timing reifyNode:node_modules/graceful-fs Completed in 306ms
+968 http fetch GET 200 https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz 263ms (cache miss)
+969 timing reifyNode:node_modules/fdir Completed in 319ms
+970 http fetch GET 200 https://registry.npmjs.org/tapable/-/tapable-2.3.3.tgz 270ms (cache miss)
+971 timing reifyNode:node_modules/tapable Completed in 332ms
+972 http fetch GET 200 https://registry.npmjs.org/shell-quote/-/shell-quote-1.9.0.tgz 295ms (cache miss)
+973 http fetch GET 200 https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz 310ms (cache miss)
+974 http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-8.5.28.tgz 318ms (cache miss)
+975 http fetch GET 200 https://registry.npmjs.org/supports-color/-/supports-color-8.1.1.tgz 311ms (cache miss)
+976 timing reifyNode:node_modules/supports-color Completed in 364ms
+977 http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-4.1.2.tgz 311ms (cache miss)
+978 http fetch GET 200 https://registry.npmjs.org/tree-kill/-/tree-kill-1.2.2.tgz 312ms (cache miss)
+979 timing reifyNode:node_modules/tree-kill Completed in 366ms
+980 http fetch GET 200 https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz 314ms (cache miss)
+981 timing reifyNode:node_modules/ansi-styles Completed in 366ms
+982 http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-8.18.0.tgz 318ms (cache miss)
+983 timing reifyNode:node_modules/color-convert Completed in 367ms
+984 timing reifyNode:node_modules/chalk Completed in 367ms
+985 timing reifyNode:node_modules/postcss Completed in 369ms
+986 http fetch GET 200 https://registry.npmjs.org/readdirp/-/readdirp-5.1.1.tgz 315ms (cache miss)
+987 timing reifyNode:node_modules/readdirp Completed in 369ms
+988 timing reifyNode:node_modules/acorn Completed in 370ms
+989 http fetch GET 200 https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz 323ms (cache miss)
+990 timing reifyNode:node_modules/tslib Completed in 372ms
+991 http fetch GET 200 https://registry.npmjs.org/perfect-debounce/-/perfect-debounce-2.1.0.tgz 324ms (cache miss)
+992 timing reifyNode:node_modules/perfect-debounce Completed in 378ms
+993 timing reifyNode:node_modules/shell-quote Completed in 378ms
+994 http fetch GET 200 https://registry.npmjs.org/@jridgewell/resolve-uri/-/resolve-uri-3.1.2.tgz 354ms (cache miss)
+995 http fetch GET 200 https://registry.npmjs.org/rolldown/-/rolldown-1.2.9.tgz 371ms (cache miss)
+996 timing reifyNode:node_modules/@jridgewell/resolve-uri Completed in 416ms
+997 timing reifyNode:node_modules/rolldown Completed in 419ms
+998 http fetch GET 200 https://registry.npmjs.org/confbox/-/confbox-0.2.4.tgz 431ms (cache miss)
+999 timing reifyNode:node_modules/confbox Completed in 496ms
+1000 http fetch GET 200 https://registry.npmjs.org/dotenv/-/dotenv-17.4.2.tgz 451ms (cache miss)
+1001 timing reifyNode:node_modules/dotenv Completed in 512ms
+1002 http fetch GET 200 https://registry.npmjs.org/chokidar/-/chokidar-5.0.0.tgz 459ms (cache miss)
+1003 timing reifyNode:node_modules/chokidar Completed in 513ms
+1004 http fetch GET 200 https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz 461ms (cache miss)
+1005 http fetch GET 200 https://registry.npmjs.org/yargs/-/yargs-17.7.2.tgz 473ms (cache miss)
+1006 timing reifyNode:node_modules/source-map-js Completed in 527ms
+1007 http fetch GET 200 https://registry.npmjs.org/@jridgewell/gen-mapping/-/gen-mapping-0.3.13.tgz 472ms (cache miss)
+1008 timing reifyNode:node_modules/yargs Completed in 535ms
+1009 http fetch GET 200 https://registry.npmjs.org/@tailwindcss/oxide/-/oxide-4.3.3.tgz 479ms (cache miss)
+1010 timing reifyNode:node_modules/@tailwindcss/oxide Completed in 535ms
+1011 timing reifyNode:node_modules/@jridgewell/gen-mapping Completed in 536ms
+1012 http fetch GET 200 https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz 499ms (cache miss)
+1013 timing reifyNode:node_modules/tinyglobby Completed in 559ms
+1014 http fetch GET 200 https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.6.0.tgz 508ms (cache miss)
+1015 http fetch GET 200 https://registry.npmjs.org/ufo/-/ufo-1.6.4.tgz 506ms (cache miss)
+1016 http fetch GET 200 https://registry.npmjs.org/scule/-/scule-1.3.0.tgz 511ms (cache miss)
+1017 timing reifyNode:node_modules/scule Completed in 569ms
+1018 timing reifyNode:node_modules/ufo Completed in 572ms
+1019 http fetch GET 200 https://registry.npmjs.org/pkg-types/-/pkg-types-2.3.3.tgz 514ms (cache miss)
+1020 timing reifyNode:node_modules/pkg-types Completed in 572ms
+1021 http fetch GET 200 https://registry.npmjs.org/giget/-/giget-3.3.1.tgz 519ms (cache miss)
+1022 timing reifyNode:node_modules/giget Completed in 573ms
+1023 timing reifyNode:node_modules/@jridgewell/sourcemap-codec Completed in 575ms
+1024 http fetch GET 200 https://registry.npmjs.org/rc9/-/rc9-3.1.0.tgz 521ms (cache miss)
+1025 http fetch GET 200 https://registry.npmjs.org/@tailwindcss/node/-/node-4.3.3.tgz 524ms (cache miss)
+1026 http fetch GET 200 https://registry.npmjs.org/unctx/-/unctx-2.5.0.tgz 528ms (cache miss)
+1027 timing reifyNode:node_modules/rc9 Completed in 591ms
+1028 timing reifyNode:node_modules/@tailwindcss/node Completed in 592ms
+1029 http fetch GET 200 https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz 539ms (cache miss)
+1030 timing reifyNode:node_modules/unctx Completed in 595ms
+1031 timing reifyNode:node_modules/lightningcss Completed in 604ms
+1032 http fetch GET 200 https://registry.npmjs.org/klona/-/klona-2.0.6.tgz 555ms (cache miss)
+1033 http fetch GET 200 https://registry.npmjs.org/knitwork/-/knitwork-1.3.0.tgz 555ms (cache miss)
+1034 http fetch GET 200 https://registry.npmjs.org/errx/-/errx-0.1.2.tgz 571ms (cache miss)
+1035 timing reifyNode:node_modules/errx Completed in 630ms
+1036 http fetch GET 200 https://registry.npmjs.org/c12/-/c12-3.3.4.tgz 571ms (cache miss)
+1037 http fetch GET 200 https://registry.npmjs.org/magic-string/-/magic-string-0.30.21.tgz 578ms (cache miss)
+1038 http fetch GET 200 https://registry.npmjs.org/@jridgewell/remapping/-/remapping-2.3.5.tgz 578ms (cache miss)
+1039 timing reifyNode:node_modules/knitwork Completed in 639ms
+1040 http fetch GET 200 https://registry.npmjs.org/ignore/-/ignore-7.0.9.tgz 580ms (cache miss)
+1041 http fetch GET 200 https://registry.npmjs.org/destr/-/destr-2.0.5.tgz 582ms (cache miss)
+1042 timing reifyNode:node_modules/destr Completed in 642ms
+1043 timing reifyNode:node_modules/ignore Completed in 643ms
+1044 http fetch GET 200 https://registry.npmjs.org/@jridgewell/trace-mapping/-/trace-mapping-0.3.31.tgz 589ms (cache miss)
+1045 timing reifyNode:node_modules/magic-string Completed in 647ms
+1046 timing reifyNode:node_modules/@jridgewell/remapping Completed in 648ms
+1047 http fetch GET 200 https://registry.npmjs.org/untyped/-/untyped-2.0.0.tgz 593ms (cache miss)
+1048 timing reifyNode:node_modules/c12 Completed in 651ms
+1049 http fetch GET 200 https://registry.npmjs.org/pathe/-/pathe-2.0.3.tgz 596ms (cache miss)
+1050 timing reifyNode:node_modules/@jridgewell/trace-mapping Completed in 657ms
+1051 http fetch GET 200 https://registry.npmjs.org/defu/-/defu-6.1.7.tgz 596ms (cache miss)
+1052 timing reifyNode:node_modules/untyped Completed in 665ms
+1053 http fetch GET 200 https://registry.npmjs.org/ohash/-/ohash-2.0.12.tgz 607ms (cache miss)
+1054 http fetch GET 200 https://registry.npmjs.org/exsolve/-/exsolve-1.1.1.tgz 606ms (cache miss)
+1055 timing reifyNode:node_modules/pathe Completed in 669ms
+1056 timing reifyNode:node_modules/exsolve Completed in 669ms
+1057 timing reifyNode:node_modules/defu Completed in 671ms
+1058 timing reifyNode:node_modules/ohash Completed in 677ms
+1059 http fetch GET 200 https://registry.npmjs.org/mlly/-/mlly-1.8.2.tgz 621ms (cache miss)
+1060 timing reifyNode:node_modules/klona Completed in 680ms
+1061 timing reifyNode:node_modules/mlly Completed in 686ms
+1062 http fetch GET 200 https://registry.npmjs.org/@nuxt/kit/-/kit-3.21.11.tgz 629ms (cache miss)
+1063 http fetch GET 200 https://registry.npmjs.org/@tailwindcss/vite/-/vite-4.3.3.tgz 629ms (cache miss)
+1064 timing reifyNode:node_modules/@tailwindcss/vite Completed in 692ms
+1065 http fetch GET 200 https://registry.npmjs.org/supports-color/-/supports-color-7.2.0.tgz 630ms (cache miss)
+1066 timing reifyNode:node_modules/chalk/node_modules/supports-color Completed in 695ms
+1067 timing reifyNode:node_modules/@nuxt/kit Completed in 695ms
+1068 http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-2.3.2.tgz 637ms (cache miss)
+1069 http fetch GET 200 https://registry.npmjs.org/pkg-types/-/pkg-types-1.3.1.tgz 640ms (cache miss)
+1070 timing reifyNode:node_modules/vite-plugin-full-reload/node_modules/picomatch Completed in 706ms
+1071 timing reifyNode:node_modules/mlly/node_modules/pkg-types Completed in 715ms
+1072 http fetch GET 200 https://registry.npmjs.org/semver/-/semver-7.8.5.tgz 671ms (cache miss)
+1073 timing reifyNode:node_modules/semver Completed in 740ms
+1074 http fetch GET 200 https://registry.npmjs.org/laravel-vite-plugin/-/laravel-vite-plugin-3.2.0.tgz 678ms (cache miss)
+1075 timing reifyNode:node_modules/laravel-vite-plugin Completed in 747ms
+1076 http fetch GET 200 https://registry.npmjs.org/confbox/-/confbox-0.3.1.tgz 697ms (cache miss)
+1077 timing reifyNode:node_modules/pkg-types/node_modules/confbox Completed in 768ms
+1078 http fetch GET 200 https://registry.npmjs.org/enhanced-resolve/-/enhanced-resolve-5.25.1.tgz 723ms (cache miss)
+1079 timing reifyNode:node_modules/enhanced-resolve Completed in 780ms
+1080 http fetch GET 200 https://registry.npmjs.org/consola/-/consola-3.4.2.tgz 743ms (cache miss)
+1081 http fetch GET 200 https://registry.npmjs.org/lightningcss/-/lightningcss-1.33.0.tgz 739ms (cache miss)
+1082 timing reifyNode:node_modules/vite/node_modules/lightningcss Completed in 804ms
+1083 timing reifyNode:node_modules/consola Completed in 808ms
+1084 http fetch GET 200 https://registry.npmjs.org/confbox/-/confbox-0.1.8.tgz 746ms (cache miss)
+1085 timing reifyNode:node_modules/mlly/node_modules/confbox Completed in 815ms
+1086 http fetch GET 200 https://registry.npmjs.org/tailwindcss/-/tailwindcss-4.3.3.tgz 765ms (cache miss)
+1087 timing reifyNode:node_modules/tailwindcss Completed in 830ms
+1088 http fetch GET 200 https://registry.npmjs.org/jiti/-/jiti-2.7.0.tgz 817ms (cache miss)
+1089 timing reifyNode:node_modules/jiti Completed in 878ms
+1090 http fetch GET 200 https://registry.npmjs.org/concurrently/-/concurrently-9.2.4.tgz 829ms (cache miss)
+1091 timing reifyNode:node_modules/concurrently Completed in 894ms
+1092 http fetch GET 200 https://registry.npmjs.org/@tailwindcss/oxide-linux-x64-gnu/-/oxide-linux-x64-gnu-4.3.3.tgz 844ms (cache miss)
+1093 timing reifyNode:node_modules/@tailwindcss/oxide-linux-x64-gnu Completed in 901ms
+1094 http fetch GET 200 https://registry.npmjs.org/@tailwindcss/oxide-linux-x64-musl/-/oxide-linux-x64-musl-4.3.3.tgz 850ms (cache miss)
+1095 timing reifyNode:node_modules/@tailwindcss/oxide-linux-x64-musl Completed in 905ms
+1096 http fetch GET 200 https://registry.npmjs.org/vite/-/vite-8.3.0.tgz 909ms (cache miss)
+1097 timing reifyNode:node_modules/vite Completed in 974ms
+1098 http fetch GET 200 https://registry.npmjs.org/@qirolab/nuxt-sanctum-authentication/-/nuxt-sanctum-authentication-0.1.15.tgz 1055ms (cache miss)
+1099 timing reifyNode:node_modules/@qirolab/nuxt-sanctum-authentication Completed in 1119ms
+1100 http fetch GET 200 https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz 1203ms (cache miss)
+1101 timing reifyNode:node_modules/lightningcss-linux-x64-musl Completed in 1255ms
+1102 http fetch GET 200 https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz 1213ms (cache miss)
+1103 timing reifyNode:node_modules/lightningcss-linux-x64-gnu Completed in 1264ms
+1104 http fetch GET 200 https://registry.npmjs.org/lodash-es/-/lodash-es-4.18.1.tgz 1275ms (cache miss)
+1105 timing reifyNode:node_modules/lodash-es Completed in 1337ms
+1106 http fetch GET 200 https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.33.0.tgz 1291ms (cache miss)
+1107 timing reifyNode:node_modules/vite/node_modules/lightningcss-linux-x64-musl Completed in 1355ms
+1108 http fetch GET 200 https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.33.0.tgz 1304ms (cache miss)
+1109 timing reifyNode:node_modules/vite/node_modules/lightningcss-linux-x64-gnu Completed in 1368ms
+1110 http fetch GET 200 https://registry.npmjs.org/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.2.9.tgz 1430ms (cache miss)
+1111 timing reifyNode:node_modules/@rolldown/binding-linux-x64-musl Completed in 1475ms
+1112 http fetch GET 200 https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.9.tgz 1431ms (cache miss)
+1113 timing reifyNode:node_modules/@rolldown/binding-linux-x64-gnu Completed in 1475ms
+1114 http fetch GET 200 https://registry.npmjs.org/rxjs/-/rxjs-7.8.2.tgz 1673ms (cache miss)
+1115 timing reifyNode:node_modules/rxjs Completed in 1727ms
+1116 timing reify:unpack Completed in 1729ms
+1117 timing reify:unretire Completed in 0ms
+1118 timing build:queue Completed in 6ms
+1119 timing build:link:node_modules/acorn Completed in 4ms
+1120 timing build:link:node_modules/jiti Completed in 4ms
+1121 timing build:link:node_modules/nanoid Completed in 4ms
+1122 timing build:link:node_modules/rolldown Completed in 4ms
+1123 timing build:link:node_modules/laravel-vite-plugin Completed in 4ms
+1124 timing build:link:node_modules/semver Completed in 4ms
+1125 timing build:link:node_modules/vite Completed in 4ms
+1126 timing build:link:node_modules/untyped Completed in 4ms
+1127 timing build:link:node_modules/tree-kill Completed in 4ms
+1128 timing build:link:node_modules/giget Completed in 4ms
+1129 timing build:link:node_modules/concurrently Completed in 4ms
+1130 timing build:link Completed in 5ms
+1131 timing build:deps Completed in 11ms
+1132 timing build Completed in 12ms
+1133 timing reify:build Completed in 12ms
+1134 timing reify:trash Completed in 3ms
+1135 timing reify:save Completed in 28ms
+1136 timing reify Completed in 8292ms
+1137 silly ADD node_modules/ansi-regex
+1138 silly ADD node_modules/is-fullwidth-code-point
+1139 silly ADD node_modules/emoji-regex
+1140 silly ADD node_modules/wrap-ansi
+1141 silly ADD node_modules/strip-ansi
+1142 silly ADD node_modules/yargs-parser
+1143 silly ADD node_modules/y18n
+1144 silly ADD node_modules/string-width
+1145 silly ADD node_modules/require-directory
+1146 silly ADD node_modules/get-caller-file
+1147 silly ADD node_modules/escalade
+1148 silly ADD node_modules/cliui
+1149 silly ADD node_modules/@rolldown/pluginutils
+1150 silly ADD
+1151 silly ADD
+1152 silly ADD
+1153 silly ADD node_modules/@rolldown/binding-linux-x64-musl
+1154 silly ADD node_modules/@rolldown/binding-linux-x64-gnu
+1155 silly ADD
+1156 silly ADD
+1157 silly ADD
+1158 silly ADD
+1159 silly ADD
+1160 silly ADD
+1161 silly ADD
+1162 silly ADD
+1163 silly ADD
+1164 silly ADD
+1165 silly ADD node_modules/@oxc-project/types
+1166 silly ADD node_modules/nanoid
+1167 silly ADD node_modules/rolldown
+1168 silly ADD node_modules/postcss
+1169 silly ADD
+1170 silly ADD node_modules/citty
+1171 silly ADD node_modules/webpack-virtual-modules
+1172 silly ADD node_modules/@types/estree
+1173 silly ADD node_modules/unplugin
+1174 silly ADD node_modules/estree-walker
+1175 silly ADD node_modules/picomatch
+1176 silly ADD node_modules/fdir
+1177 silly ADD node_modules/has-flag
+1178 silly ADD node_modules/tslib
+1179 silly ADD node_modules/acorn
+1180 silly ADD
+1181 silly ADD
+1182 silly ADD node_modules/lightningcss-linux-x64-musl
+1183 silly ADD node_modules/lightningcss-linux-x64-gnu
+1184 silly ADD
+1185 silly ADD
+1186 silly ADD
+1187 silly ADD
+1188 silly ADD
+1189 silly ADD
+1190 silly ADD
+1191 silly ADD node_modules/detect-libc
+1192 silly ADD node_modules/vite-plugin-full-reload
+1193 silly ADD node_modules/vite-plugin-full-reload/node_modules/picomatch
+1194 silly ADD node_modules/picocolors
+1195 silly ADD node_modules/tapable
+1196 silly ADD node_modules/graceful-fs
+1197 silly ADD node_modules/color-name
+1198 silly ADD node_modules/color-convert
+1199 silly ADD node_modules/ansi-styles
+1200 silly ADD node_modules/yargs
+1201 silly ADD node_modules/tree-kill
+1202 silly ADD node_modules/supports-color
+1203 silly ADD node_modules/shell-quote
+1204 silly ADD node_modules/rxjs
+1205 silly ADD node_modules/chalk
+1206 silly ADD node_modules/chalk/node_modules/supports-color
+1207 silly ADD node_modules/readdirp
+1208 silly ADD node_modules/perfect-debounce
+1209 silly ADD node_modules/giget
+1210 silly ADD node_modules/dotenv
+1211 silly ADD node_modules/confbox
+1212 silly ADD node_modules/chokidar
+1213 silly ADD
+1214 silly ADD
+1215 silly ADD
+1216 silly ADD node_modules/@tailwindcss/oxide-linux-x64-musl
+1217 silly ADD node_modules/@tailwindcss/oxide-linux-x64-gnu
+1218 silly ADD
+1219 silly ADD
+1220 silly ADD
+1221 silly ADD
+1222 silly ADD
+1223 silly ADD
+1224 silly ADD
+1225 silly ADD node_modules/@jridgewell/resolve-uri
+1226 silly ADD node_modules/@jridgewell/sourcemap-codec
+1227 silly ADD node_modules/@jridgewell/trace-mapping
+1228 silly ADD node_modules/@jridgewell/gen-mapping
+1229 silly ADD node_modules/source-map-js
+1230 silly ADD node_modules/magic-string
+1231 silly ADD node_modules/lightningcss
+1232 silly ADD node_modules/enhanced-resolve
+1233 silly ADD node_modules/@jridgewell/remapping
+1234 silly ADD node_modules/@tailwindcss/oxide
+1235 silly ADD node_modules/@tailwindcss/node
+1236 silly ADD node_modules/untyped
+1237 silly ADD node_modules/unctx
+1238 silly ADD node_modules/ufo
+1239 silly ADD node_modules/tinyglobby
+1240 silly ADD node_modules/semver
+1241 silly ADD node_modules/scule
+1242 silly ADD node_modules/rc9
+1243 silly ADD node_modules/pkg-types
+1244 silly ADD node_modules/pkg-types/node_modules/confbox
+1245 silly ADD node_modules/pathe
+1246 silly ADD node_modules/ohash
+1247 silly ADD node_modules/mlly
+1248 silly ADD node_modules/mlly/node_modules/confbox
+1249 silly ADD node_modules/mlly/node_modules/pkg-types
+1250 silly ADD node_modules/knitwork
+1251 silly ADD node_modules/klona
+1252 silly ADD node_modules/jiti
+1253 silly ADD node_modules/ignore
+1254 silly ADD node_modules/exsolve
+1255 silly ADD node_modules/errx
+1256 silly ADD node_modules/destr
+1257 silly ADD node_modules/consola
+1258 silly ADD node_modules/c12
+1259 silly ADD node_modules/lodash-es
+1260 silly ADD node_modules/defu
+1261 silly ADD node_modules/@nuxt/kit
+1262 silly ADD node_modules/tailwindcss
+1263 silly ADD node_modules/laravel-vite-plugin
+1264 silly ADD node_modules/concurrently
+1265 silly ADD node_modules/vite
+1266 silly ADD
+1267 silly ADD
+1268 silly ADD node_modules/vite/node_modules/lightningcss-linux-x64-musl
+1269 silly ADD node_modules/vite/node_modules/lightningcss-linux-x64-gnu
+1270 silly ADD
+1271 silly ADD
+1272 silly ADD
+1273 silly ADD
+1274 silly ADD
+1275 silly ADD
+1276 silly ADD
+1277 silly ADD node_modules/vite/node_modules/lightningcss
+1278 silly ADD node_modules/@tailwindcss/vite
+1279 silly ADD node_modules/@qirolab/nuxt-sanctum-authentication
+1280 timing command:install Completed in 8299ms
+1281 verbose exit 0
+1282 timing npm Completed in 8334ms
+1283 info ok

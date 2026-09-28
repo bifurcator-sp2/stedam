@@ -1,0 +1,1 @@
+import{t as e}from"./B3JUNSer.js";var t=()=>e(`color-mode`).value;export{t};

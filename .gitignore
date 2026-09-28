@@ -1,0 +1,73 @@
+# ==================== Зависимости ====================
+/vendor
+/node_modules
+/public/build
+/public/hot
+/public/storage
+
+# ==================== Логи ====================
+/storage/*.key
+/storage/logs/*
+!/storage/logs/.gitignore
+/storage/framework/cache/data/*
+!/storage/framework/cache/data/.gitignore
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+
+# ==================== Кэш ====================
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
+
+# ==================== Окружение ====================
+.env
+.env.backup
+.env.production
+.env.local
+
+# ==================== Тесты и кэш ====================
+.phpunit.result.cache
+.phpunit.cache
+
+# ==================== Homestead / Sail ====================
+Homestead.json
+Homestead.yaml
+auth.json
+
+# ==================== Логи npm/yarn ====================
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+lerna-debug.log*
+
+# ==================== IDE ====================
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# ==================== OS ====================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ==================== NPM / Yarn ====================
+node_modules
+.pnp
+.pnp.js
+.yarn
+.yarnrc.yml
+
+# ==================== Сборка фронтенда ====================
+/public/build
+/public/hot
+/storage/app/public/*
+!/storage/app/public/.gitignore
+
+# ==================== Файлы БД (если используете SQLite) ====================
+/database/*.sqlite
+/database/*.sqlite-journal
