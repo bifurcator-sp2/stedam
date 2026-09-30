@@ -7,29 +7,33 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class BlockType extends Model
+class Block extends Model
 {
     use SoftDeletes;
 
     protected $fillable = [
-        'code',
-        'type',
-        'default_settings',
+        'block_type_id',
         'user_id',
+        'settings',
     ];
 
     protected $casts = [
-        'default_settings' => 'array',
+        'settings' => 'array',
     ];
 
-    public function translations(): HasMany
+    public function blockType(): BelongsTo
     {
-        return $this->hasMany(BlockTypeTranslation::class);
+        return $this->belongsTo(BlockType::class);
     }
 
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function translations(): HasMany
+    {
+        return $this->hasMany(BlockTranslation::class);
     }
 
     /**
@@ -42,8 +46,7 @@ class BlockType extends Model
 
         return $this->translations->firstWhere('locale', $locale)?->name
             ?? $this->translations->firstWhere('locale', $fallback)?->name
-            ?? $this->translations->first()?->name
-            ?? $this->code;
+            ?? $this->translations->first()?->name;
     }
 
     /**
@@ -57,20 +60,5 @@ class BlockType extends Model
         return $this->translations->firstWhere('locale', $locale)?->description
             ?? $this->translations->firstWhere('locale', $fallback)?->description
             ?? $this->translations->first()?->description;
-    }
-
-    public function isInfo(): bool
-    {
-        return $this->type === 'info';
-    }
-
-    public function isTask(): bool
-    {
-        return $this->type === 'task';
-    }
-
-    public function blocks(): HasMany
-    {
-        return $this->hasMany(Block::class);php
     }
 }
