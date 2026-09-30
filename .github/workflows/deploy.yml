@@ -20,3 +20,15 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             git clean -fd
+            php artisan migrate --force
+
+              # Только безопасные сидеры
+              php artisan db:seed --class=CountrySeeder --force
+              php artisan db:seed --class=BlockTypeSeeder --force
+
+              php artisan optimize:clear
+              php artisan config:cache
+              php artisan route:cache
+              php artisan view:cache
+              php artisan queue:restart || true
+
