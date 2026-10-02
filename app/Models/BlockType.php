@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Blocks\Settings\SettingsSynchronizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -59,6 +60,16 @@ class BlockType extends Model
             ?? $this->translations->first()?->description;
     }
 
+    public function getNormalizedSettingsAttribute(): ?array
+    {
+        return SettingsSynchronizer::forForm(
+            $this['code'] ?? null,
+            $this['default_settings'] ?? [],
+        );
+    }
+
+
+
     public function isInfo(): bool
     {
         return $this->type === 'info';
@@ -71,6 +82,6 @@ class BlockType extends Model
 
     public function blocks(): HasMany
     {
-        return $this->hasMany(Block::class);php
+        return $this->hasMany(Block::class);
     }
 }

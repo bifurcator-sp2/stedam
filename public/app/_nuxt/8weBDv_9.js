@@ -1,0 +1,1 @@
+import{g as e}from"./KZ5jAimj.js";import{Q as t,et as n}from"./DumUCn5O.js";import{t as r}from"./Br_ANCSL.js";var i=t(async t=>{let i,a,{user:o,fetchUser:s,hasRole:c}=r();if(o.value||([i,a]=e(()=>s()),await i,a()),!o.value)return n(`/login`);let l=t.meta.roles;if(l&&!(Array.isArray(l)?l.some(e=>c(e)):c(l)))return n(`/forbidden`)},1);export{i as default};

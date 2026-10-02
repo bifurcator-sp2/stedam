@@ -27,6 +27,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user-data', [UserDataController::class, 'update']);
     Route::patch('/user-data', [UserDataController::class, 'update']);
     Route::delete('/user-data', [UserDataController::class, 'destroy']);
+
+
+    Route::get('/block-types', [\App\Http\Controllers\Api\BlockTypeController::class, 'index']);
+    Route::get('/block-types/{code}', [\App\Http\Controllers\Api\BlockTypeController::class, 'show']);
 });
 
 Route::get('/countries', [\App\Http\Controllers\Api\CountryController::class, 'index']);
