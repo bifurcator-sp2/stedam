@@ -37,28 +37,26 @@ class Block extends Model
     }
 
     /**
-     * Название на текущей локали с фолбэком.
+     * Хелперы для удобства: получить перевод на текущей локали с фолбэком.
+     * Используются в BlockResource.
      */
-    public function getNameAttribute(): ?string
+    public function translationFor(?string $locale = null): ?BlockTranslation
     {
-        $locale = app()->getLocale();
+        $locale ??= app()->getLocale();
         $fallback = config('app.fallback_locale', 'en');
 
-        return $this->translations->firstWhere('locale', $locale)?->name
-            ?? $this->translations->firstWhere('locale', $fallback)?->name
-            ?? $this->translations->first()?->name;
+        return $this->translations->firstWhere('locale', $locale)
+            ?? $this->translations->firstWhere('locale', $fallback)
+            ?? $this->translations->first();
     }
 
-    /**
-     * Описание на текущей локали с фолбэком.
-     */
+    public function getTitleAttribute(): ?string
+    {
+        return $this->translationFor()?->title;
+    }
+
     public function getDescriptionAttribute(): ?string
     {
-        $locale = app()->getLocale();
-        $fallback = config('app.fallback_locale', 'en');
-
-        return $this->translations->firstWhere('locale', $locale)?->description
-            ?? $this->translations->firstWhere('locale', $fallback)?->description
-            ?? $this->translations->first()?->description;
+        return $this->translationFor()?->description;
     }
 }

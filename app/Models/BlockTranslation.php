@@ -10,7 +10,7 @@ class BlockTranslation extends Model
     protected $fillable = [
         'block_id',
         'locale',
-        'name',
+        'title',
         'description',
     ];
 

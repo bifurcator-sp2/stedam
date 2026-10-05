@@ -160,7 +160,7 @@ class BlockSettingsRegistry
                     default: 'i-lucide-layout-panel-left',
                     label: 'Иконка',
                 ),
-                new SettingDefinition(
+/*                new SettingDefinition(
                     key: 'title',
                     type: SettingType::String,
                     default: 'Новй тип блока',
@@ -171,7 +171,7 @@ class BlockSettingsRegistry
                     type: SettingType::String,
                     default: 'Описание новго типа блока',
                     label: 'Описание блока',
-                ),
+                ),*/
                 new SettingDefinition(
                     key: 'layout',
                     type: SettingType::Select,
@@ -265,6 +265,12 @@ class BlockSettingsRegistry
                         type: SettingType::String,
                         default: 'А быть может, каждый из вас уже начал — не заметив этого — тот единственный путь, который предназначен ему судьбой. В странные времена довелось мне жить! Мы веками разводили скот, пахали землю, строили дома, мастерили орудия, помогали гондорцам в битвах за Минас Тирит. Все это мы называли обычной человеческой жизнью, и нам казалось, что таким путем идет весь мир. Нас мало беспокоило, что происходит за пределами нашей страны. Об этом пелось в песнях, но мы забывали эти песни или пели их только детям, просто так, бездумно, по привычке. И вот эти песни напомнили о себе, отыскали нас в самом неожиданном месте и обрели видимое обличье!',
                         label: 'Превью текста',
+                        ),
+                    new SettingDefinition(
+                        key: 'editor',
+                        type: SettingType::Bool,
+                        default: 0,
+                        label: 'Разрешить редактор',
                         ),
                     new SettingDefinition(
                         key: 'cols',
