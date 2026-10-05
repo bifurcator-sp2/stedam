@@ -31,6 +31,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/block-types', [\App\Http\Controllers\Api\BlockTypeController::class, 'index']);
     Route::get('/block-types/{code}', [\App\Http\Controllers\Api\BlockTypeController::class, 'show']);
+    Route::get('/blocks', [\App\Http\Controllers\Api\BlockController::class, 'index']);
+
+
 });
 
 Route::get('/countries', [\App\Http\Controllers\Api\CountryController::class, 'index']);

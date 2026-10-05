@@ -161,6 +161,18 @@ class BlockSettingsRegistry
                     label: 'Иконка',
                 ),
                 new SettingDefinition(
+                    key: 'title',
+                    type: SettingType::String,
+                    default: 'Новй тип блока',
+                    label: 'Название блока',
+                ),
+                new SettingDefinition(
+                    key: 'description',
+                    type: SettingType::String,
+                    default: 'Описание новго типа блока',
+                    label: 'Описание блока',
+                ),
+                new SettingDefinition(
                     key: 'layout',
                     type: SettingType::Select,
                     default: 'text-right',

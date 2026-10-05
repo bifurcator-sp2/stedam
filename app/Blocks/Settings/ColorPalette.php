@@ -14,6 +14,10 @@ class ColorPalette
     {
         return [
             // ─── Теория (синие) ───────────────────────────────
+            'default' => [
+                'light' => ['bg' => '', 'border' => '', 'accent' => ''],
+                'dark'  => ['bg' => '', 'border' => '', 'accent' => ''],
+            ],
             'definition' => [
                 'light' => ['bg' => '#EFF6FF', 'border' => '#BFDBFE', 'accent' => '#3B82F6'],
                 'dark'  => ['bg' => '#172554', 'border' => '#1E40AF', 'accent' => '#60A5FA'],
