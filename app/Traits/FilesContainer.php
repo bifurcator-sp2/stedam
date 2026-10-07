@@ -513,14 +513,13 @@ trait FilesContainer
      *
      * Порядок:
      *  1. moveTempToStore — переносит temp → store, актуализирует реестр, прунит сирот.
-     *  2. То, что было в реестре, но не пришло с фронта — удаляем.
-     *
-     * @param array|null $images Список изображений с фронта.
-     * @param array|null $files  Список файлов с фронта.
+     *  2. Удаляем из реестра то, чего нет в payload.
+     *  3. Применяем title из payload.
+     *  4. Переупорядочиваем реестр по порядку из payload.
      */
     public function syncFilesFromRequest(?array $images, ?array $files): void
     {
-        // 1. Переносим temp → store. Внутри уже вызывает actuate* и pruneOrphans.
+        // 1. Переносим temp → store.
         $this->moveTempToStore();
 
         // 2. Изображения: оставляем только то, что пришло с фронта.
@@ -549,6 +548,14 @@ trait FilesContainer
 
         // 4. Применяем title из пришедших данных.
         $this->applyTitlesFromRequest($images, $files);
+
+        // 5. Переупорядочиваем реестр по порядку из payload.
+        if ($images !== null) {
+            $this->reorderImagesByPayload($images);
+        }
+        if ($files !== null) {
+            $this->reorderFilesByPayload($files);
+        }
     }
 
     /**
@@ -641,6 +648,51 @@ trait FilesContainer
             $result[$url] = $item['title'] ?? null;
         }
         return $result;
+    }
+
+    /**
+     * Переупорядочивает $this->images по порядку из payload.
+     * Элементы, которых нет в payload, уже удалены на шаге 2.
+     */
+    protected function reorderImagesByPayload(array $incoming): void
+    {
+        $current = collect($this->imageList())->keyBy('original');
+
+        $ordered = [];
+        foreach ($incoming as $item) {
+            $url = $item['url'] ?? null;
+            if (!$url) continue;
+
+            $name = basename(parse_url($url, PHP_URL_PATH) ?: $url);
+            if ($name && $current->has($name)) {
+                $ordered[] = $current->get($name);
+            }
+        }
+
+        $this->images = $ordered ?: null;
+        $this->saveQuietly();
+    }
+
+    /**
+     * Переупорядочивает $this->files по порядку из payload.
+     */
+    protected function reorderFilesByPayload(array $incoming): void
+    {
+        $current = collect($this->fileList())->keyBy('name');
+
+        $ordered = [];
+        foreach ($incoming as $item) {
+            $url = $item['url'] ?? null;
+            if (!$url) continue;
+
+            $name = basename(parse_url($url, PHP_URL_PATH) ?: $url);
+            if ($name && $current->has($name)) {
+                $ordered[] = $current->get($name);
+            }
+        }
+
+        $this->files = $ordered ?: null;
+        $this->saveQuietly();
     }
 
     /* ============================================================
