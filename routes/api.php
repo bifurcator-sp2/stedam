@@ -36,5 +36,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
 });
 
+Route::middleware('auth:sanctum')->prefix('files')->group(function () {
+    Route::post('/preload/{modelName}/{modelId}',   [\App\Http\Controllers\FilesController::class, 'preload']);
+    Route::get('/preload/{modelName}/{modelId}',    [\App\Http\Controllers\FilesController::class, 'list']);
+    Route::delete('/preload/{modelName}/{modelId}', [\App\Http\Controllers\FilesController::class, 'deleteTemp']);
+});
+
+
 Route::get('/countries', [\App\Http\Controllers\Api\CountryController::class, 'index']);
 Route::get('/countries/{country}', [\App\Http\Controllers\Api\CountryController::class, 'show']);

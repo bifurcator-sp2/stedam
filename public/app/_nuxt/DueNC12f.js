@@ -1,1 +1,0 @@
-import{t as e}from"./BS_Pd5HX.js";var t=()=>e(`color-mode`).value;export{t};

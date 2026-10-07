@@ -72,6 +72,8 @@ class BlockController extends Controller
             'title'       => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'settings'    => ['nullable', 'array'],
+            'files'       => ['nullable', 'array'],
+            'images'      => ['nullable', 'array'],
         ]);
 
         $block = DB::transaction(function () use ($user, $data) {
@@ -89,6 +91,14 @@ class BlockController extends Controller
 
             return $block;
         });
+
+        // Синхронизируем файлы, если фронт их прислал
+        if (array_key_exists('files', $data) || array_key_exists('images', $data)) {
+            $block->syncFilesFromRequest(
+                $data['images'] ?? null,
+                $data['files']  ?? null,
+            );
+        }
 
         $block->load(['blockType.translations', 'translations']);
 
@@ -136,6 +146,8 @@ class BlockController extends Controller
             'title'       => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'settings'    => ['nullable', 'array'],
+            'files'       => ['nullable', 'array'],
+            'images'      => ['nullable', 'array'],
         ]);
 
         DB::transaction(function () use ($block, $data) {
@@ -150,6 +162,16 @@ class BlockController extends Controller
             $translation->description = $data['description'] ?? $translation->description ?? '';
             $translation->save();
         });
+
+        if (array_key_exists('files', $data) || array_key_exists('images', $data)) {
+            $block->syncFilesFromRequest(
+                $data['images'] ?? null,
+                $data['files']  ?? null,
+            );
+        } else {
+            // Совместимость: если фронт не прислал списки — просто переносим temp.
+            $block->moveTempToStore();
+        }
 
         $block->load(['blockType.translations', 'translations']);
 

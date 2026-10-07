@@ -6,11 +6,11 @@ class BlockSettingsRegistry
 {
 
 
-    public static function getBordersDefinition(): SettingDefinition
+    public static function getBordersDefinition($key = 'border', $label ='Границы'): SettingDefinition
     {
         return new SettingDefinition(
-            key: 'border',
-            label: 'Границы',
+            key: $key,
+            label: $label,
             type: SettingType::Array,
             children: [
             new SettingDefinition(
@@ -160,18 +160,6 @@ class BlockSettingsRegistry
                     default: 'i-lucide-layout-panel-left',
                     label: 'Иконка',
                 ),
-/*                new SettingDefinition(
-                    key: 'title',
-                    type: SettingType::String,
-                    default: 'Новй тип блока',
-                    label: 'Название блока',
-                ),
-                new SettingDefinition(
-                    key: 'description',
-                    type: SettingType::String,
-                    default: 'Описание новго типа блока',
-                    label: 'Описание блока',
-                ),*/
                 new SettingDefinition(
                     key: 'layout',
                     type: SettingType::Select,
@@ -241,6 +229,7 @@ class BlockSettingsRegistry
                         default: 200,
                         label: 'Высота ряда',
                         ),
+                    self::getBordersDefinition('image-border', 'Рамки изображений'),
                     self::getPaddingsDefinition(),
                     self::getMarginDefinition(),
                     self::getBordersDefinition(),

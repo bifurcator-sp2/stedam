@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\FilesContainer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,16 +10,20 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Block extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, FilesContainer;
 
     protected $fillable = [
         'block_type_id',
         'user_id',
         'settings',
+        'images',
+        'files',
     ];
 
     protected $casts = [
         'settings' => 'array',
+        'images' => 'array',
+        'files'  => 'array',
     ];
 
     public function blockType(): BelongsTo
@@ -59,4 +64,25 @@ class Block extends Model
     {
         return $this->translationFor()?->description;
     }
+
+    /**
+     * Процессоры, применяемые к перенесённым файлам.
+     * Каждый класс должен реализовать метод handle($model, array $filenames): void
+     */
+    protected array $fileProcessors = [
+        \App\Files\Processors\ThumbnailProcessor::class,
+    ];
+
+    /**
+     * Правила для валидации на бэке и подсказок на фронте.
+     */
+    public static array $fileRules = [
+        'image_mimes'    => ['image/jpeg', 'image/png', 'image/webp'],
+        'file_mimes'     => ['application/pdf', 'application/zip'],
+        'max_images'     => 10,
+        'max_files'      => 10,
+        'max_size_kb'    => 10240,
+        'ratios'         => ['1x1', '1x2', '1x3', '1x4', '2x1', '3x1', '4x1'],
+    ];
+
 }

@@ -1,1 +1,0 @@
-import{o as e}from"./KZ5jAimj.js";import"./DihzGEKO.js";var t=()=>{let{$sanctumClient:t}=e();return t};export{t};
