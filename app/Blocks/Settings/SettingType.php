@@ -14,17 +14,7 @@ case Object = 'object';
 case Array = 'array';
 case Json = 'json';
 case Color = 'color';
+case Icon = 'icon';
 
-    public function tsType(): string
-{
-    return match ($this) {
-        self::String, self::Select => 'string',
-        self::Int, self::Float => 'number',
-        self::Bool => 'boolean',
-        self::MultiSelect => 'string[]',
-        self::Object => 'object',
-        self::Array => 'unknown[]',
-        self::Json => 'unknown',
-    };
-}
+
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Blocks\Settings\SettingsNormalizer;
 use App\Blocks\Settings\SettingsSynchronizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -62,7 +63,7 @@ class BlockType extends Model
 
     public function getNormalizedSettingsAttribute(): ?array
     {
-        return SettingsSynchronizer::forForm(
+        return SettingsNormalizer::normalize(
             $this['code'] ?? null,
             $this['default_settings'] ?? [],
         );

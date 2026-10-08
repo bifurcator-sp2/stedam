@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\BlockTypes\Pages;
 
-use App\Blocks\Settings\SettingsSynchronizer;
+use App\Blocks\Settings\SettingsNormalizer;
 use App\Filament\Resources\BlockTypes\BlockTypeResource;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
@@ -22,10 +22,11 @@ class EditBlockType extends EditRecord
         ];
     }
 
+
     // При открытии формы: структура → реестр, значения → из БД
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $data['default_settings'] = SettingsSynchronizer::forForm(
+        $data['default_settings'] = SettingsNormalizer::normalize(
             $data['code'] ?? null,
             $data['default_settings'] ?? [],
         );
@@ -36,11 +37,10 @@ class EditBlockType extends EditRecord
     // При сохранении: структура → реестр, значения → из формы
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        $data['default_settings'] = SettingsSynchronizer::forSave(
+        $data['default_settings'] = SettingsNormalizer::normalize(
             $data['code'] ?? null,
             $data['default_settings'] ?? [],
         );
-
         return $data;
     }
 }

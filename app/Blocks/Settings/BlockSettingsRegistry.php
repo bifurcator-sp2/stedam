@@ -156,7 +156,7 @@ class BlockSettingsRegistry
             'text_image' => [
                 new SettingDefinition(
                     key: 'icon',
-                    type: SettingType::String,
+                    type: SettingType::Icon,
                     default: 'i-lucide-layout-panel-left',
                     label: 'Иконка',
                 ),

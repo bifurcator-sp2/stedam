@@ -5,10 +5,6 @@ namespace App\Blocks\Settings;
 class SettingsNormalizer
 {
 
-    public static function normalize(string $code, array $input): array
-    {
-        return BlockSettingsRegistry::for($code);
-    }
 
     /**
      * Мержит актуальную схему (schema) с сохранёнными значениями (saved).
@@ -64,6 +60,11 @@ class SettingsNormalizer
         }
 
         return $result;
+    }
+
+    public static function normalize(?string $code, ?array $saved): array
+    {
+        return self::mergeSchemaWithSaved(BlockSettingsRegistry::serializeSchema($code), $saved??[]);
     }
 
 

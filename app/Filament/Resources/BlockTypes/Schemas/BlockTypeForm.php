@@ -8,6 +8,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Asignua\FilamentJsonYamlEditor\Forms\JsonEditor;
 
 class BlockTypeForm
 {
@@ -31,8 +32,7 @@ class BlockTypeForm
                     ->default('info')
                     ->required()
                     ->native(false),
-
-                Textarea::make('default_settings')
+                JsonEditor::make('default_settings')
                     ->label('Настройки по умолчанию')
                     ->formatStateUsing(fn ($state) => is_array($state)
                         ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
@@ -42,7 +42,6 @@ class BlockTypeForm
                         ? (json_decode($state, true) ?: [])
                         : ($state ?? [])
                     )
-                    ->rows(15)
                     ->columnSpanFull()
                     ->helperText(fn (Get $get) => self::helperTextForCode($get('code')))
                     ->rule('json'),
