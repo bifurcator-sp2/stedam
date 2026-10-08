@@ -1,1 +1,0 @@
-import{g as e,vn as t}from"./BbKDsylC.js";import{i as n}from"./BZ4Q4Vna.js";function r(){let r=t();return{primitiveElement:r,currentElement:e(()=>[`#text`,`#comment`].includes(r.value?.$el.nodeName)?r.value?.$el.nextElementSibling:n(r))}}export{r as t};

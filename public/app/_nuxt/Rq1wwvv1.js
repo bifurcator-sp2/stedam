@@ -1,1 +1,0 @@
-import{D as e,b as t,mt as n,qt as r,xt as i}from"./BbKDsylC.js";import{t as a}from"./BDNMzG2s.js";import{n as o}from"#entry";var s={};function c(a,s){let c=o;return n(),t(`div`,null,[e(c,null,{default:r(()=>[i(a.$slots,`default`)]),_:3})])}var l=a(s,[[`render`,c],[`__file`,`empty.vue`]]);export{l as default};
