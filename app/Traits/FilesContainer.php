@@ -38,7 +38,12 @@ trait FilesContainer
 
     public function storeDir(): string
     {
-        return "models/{$this->getTable()}/{$this->getKey()}";
+        if (!$this->getKey()) {
+            // Новая модель — папка ещё не нужна, но путь должен быть валидным
+            return "models/{$this->getTable()}/_new";
+        }
+
+        return "models/{$this->getTable()}/{$this->shardPrefix()}/{$this->getKey()}";
     }
 
     /* ============================================================
@@ -428,6 +433,9 @@ trait FilesContainer
         $images = $this->actuateImageList($this->imageList());
         $files  = $this->actuateFileList($this->fileList());
 
+        $maxImages = $this->maxImages();
+        $maxFiles  = $this->maxFiles();
+
         $userId = auth()->id() ?? 0;
         $modelName = $this->getTable();
 
@@ -436,13 +444,53 @@ trait FilesContainer
             "temp/users/{$userId}/models/{$modelName}/0",
         ]);
 
+        // Считаем оригиналы в temp (thumb не считаем)
+        $tempImages = [];
+        $tempFiles  = [];
+
+        foreach ($tempDirs as $tempDir) {
+            if (!$disk->exists($tempDir)) continue;
+
+            foreach ($disk->files($tempDir) as $path) {
+                $filename = basename($path);
+
+                if (str_starts_with($filename, 'thumb_')) {
+                    continue;
+                }
+
+                if ($this->isImagePath($path)) {
+                    $tempImages[] = $path;
+                } else {
+                    $tempFiles[] = $path;
+                }
+            }
+        }
+
+        // Проверка ДО переноса
+        $totalImages = count($images) + count($tempImages);
+        if ($totalImages > $maxImages) {
+            throw new \App\Exceptions\FileLimitExceededException(
+                'images',
+                $maxImages,
+                $totalImages,
+        );
+        }
+
+        $totalFiles = count($files) + count($tempFiles);
+        if ($totalFiles > $maxFiles) {
+            throw new \App\Exceptions\FileLimitExceededException(
+                'files',
+                $maxFiles,
+                $totalFiles,
+        );
+        }
+
+        // Лимиты ок — переносим всё
         $movedImages = [];
         $movedFiles  = [];
 
         foreach ($tempDirs as $tempDir) {
-            if (!$disk->exists($tempDir)) {
-                continue;
-            }
+            if (!$disk->exists($tempDir)) continue;
 
             foreach ($disk->files($tempDir) as $path) {
                 $filename = basename($path);
@@ -487,6 +535,7 @@ trait FilesContainer
             $this->saveQuietly();
         }
 
+        // Fallback-обработка тумбов
         if ($movedImages) {
             $needProcessing = [];
             foreach ($movedImages as $name) {
@@ -519,10 +568,30 @@ trait FilesContainer
      */
     public function syncFilesFromRequest(?array $images, ?array $files): void
     {
-        // 1. Переносим temp → store.
+        // 1. Перенос temp → store (внутри проверяет лимиты)
         $this->moveTempToStore();
 
-        // 2. Изображения: оставляем только то, что пришло с фронта.
+        $maxImages = $this->maxImages();
+        $maxFiles  = $this->maxFiles();
+
+        // 2. Проверка payload на лимиты
+        if ($images !== null && count($images) > $maxImages) {
+            throw new \App\Exceptions\FileLimitExceededException(
+                'images',
+                $maxImages,
+                count($images),
+        );
+        }
+
+        if ($files !== null && count($files) > $maxFiles) {
+            throw new \App\Exceptions\FileLimitExceededException(
+                'files',
+                $maxFiles,
+                count($files),
+        );
+        }
+
+        // 3. Удаляем из реестра то, чего нет в payload
         if ($images !== null) {
             $incoming = $this->extractNamesFromUrls($images);
 
@@ -534,7 +603,6 @@ trait FilesContainer
             }
         }
 
-        // 3. Файлы: аналогично.
         if ($files !== null) {
             $incoming = $this->extractNamesFromUrls($files);
 
@@ -546,10 +614,10 @@ trait FilesContainer
             }
         }
 
-        // 4. Применяем title из пришедших данных.
+        // 4. Применяем title
         $this->applyTitlesFromRequest($images, $files);
 
-        // 5. Переупорядочиваем реестр по порядку из payload.
+        // 5. Переупорядочиваем
         if ($images !== null) {
             $this->reorderImagesByPayload($images);
         }
@@ -814,6 +882,31 @@ trait FilesContainer
 
         return $disk->exists("{$dir}/{$thumbName}") ? $thumbName : null;
     }
+    /**
+     * Шардированный префикс для модели.
+     * Пример: для id=123456 вернёт "e1/0a".
+     */
+    protected function shardPrefix(): string
+    {
+        $id = (string) ($this->getKey() ?? 0);
+        $hash = md5($id);
+
+        $first  = substr($hash, 0, 2);
+        $second = substr($hash, 2, 2);
+
+        return "{$first}/{$second}";
+    }
+
+    public function maxImages(): int
+    {
+        return (int) config('files.max_images', 100);
+    }
+
+    public function maxFiles(): int
+    {
+        return (int) config('files.max_files', 20);
+    }
+
 
     /* ============================================================
      *  СИНХРОНИЗАЦИЯ (задел на будущее)

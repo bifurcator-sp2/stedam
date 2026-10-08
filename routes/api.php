@@ -37,8 +37,10 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::middleware('auth:sanctum')->prefix('files')->group(function () {
-    Route::post('/preload/{modelName}/{modelId}',   [\App\Http\Controllers\FilesController::class, 'preload']);
-    Route::get('/preload/{modelName}/{modelId}',    [\App\Http\Controllers\FilesController::class, 'list']);
+    Route::post('/preload/{modelName}/{modelId}', [\App\Http\Controllers\FilesController::class, 'preload'])
+        ->middleware('throttle:files-upload');
+
+    Route::get('/preload/{modelName}/{modelId}', [\App\Http\Controllers\FilesController::class, 'list']);
     Route::delete('/preload/{modelName}/{modelId}', [\App\Http\Controllers\FilesController::class, 'deleteTemp']);
 });
 

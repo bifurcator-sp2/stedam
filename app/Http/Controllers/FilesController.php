@@ -18,10 +18,14 @@ class FilesController extends Controller
     ) {
         $rules = $this->rulesFor($modelName);
 
+        $envMaxImages = (int) config('files.max_images', 100);
+        $envMaxFiles  = (int) config('files.max_files', 20);
+
         $request->validate([
-            'files'   => 'required|array|max:' . ($rules['max_images'] + $rules['max_files']),
+            'files'   => 'required|array|max:' . ($envMaxImages + $envMaxFiles),
             'files.*' => 'file|max:' . $rules['max_size_kb'],
         ]);
+
 
         $userId = auth()->id() ?? 0;
         $dir = "temp/users/{$userId}/models/{$modelName}/{$modelId}";
@@ -99,6 +103,10 @@ class FilesController extends Controller
             'stored' => [
                 'images' => $storedImages,
                 'files'  => $storedFiles,
+            ],
+            'limits' => [
+                'max_images' => (int) config('files.max_images', 100),
+                'max_files'  => (int) config('files.max_files', 20),
             ],
         ]);
     }
