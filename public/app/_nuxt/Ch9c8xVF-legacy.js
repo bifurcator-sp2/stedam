@@ -1,0 +1,1 @@
+System.register(["./Cr2sIBow-legacy.js","./CcBAKQ6d-legacy.js"],function(t,n){var e,i;return t("t",function(){e();var t=i();return[{label:"VK",onClick:()=>{t.add({title:"VK",description:"Login with VK"})}},{label:"MAX",onClick:()=>{t.add({title:"MAX",description:"Login with MAX"})}}]}),{setters:[function(t){e=t.s},function(t){i=t.n}],execute:function(){}}});

@@ -1,0 +1,1 @@
+import{g as e,vn as t}from"./C-cToEAb.js";import{i as n}from"./C7Ryrthp.js";function m(){const m=t();return{primitiveElement:m,currentElement:e(()=>["#text","#comment"].includes(m.value?.$el.nodeName)?m.value?.$el.nextElementSibling:n(m))}}export{m as t};

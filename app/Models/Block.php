@@ -3,14 +3,16 @@
 namespace App\Models;
 
 use App\Traits\FilesContainer;
+use App\Traits\HasFileSets;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Enums\FilePurpose;
 
 class Block extends Model
 {
-    use SoftDeletes, FilesContainer;
+    use SoftDeletes, FilesContainer, HasFileSets;
 
     protected $fillable = [
         'block_type_id',
@@ -24,6 +26,16 @@ class Block extends Model
         'settings' => 'array',
         'images' => 'array',
         'files'  => 'array',
+    ];
+
+    /**
+     * Разрешённые purpose для блоков.
+     *
+     * @var FilePurpose[]
+     */
+    protected static array $filePurposes = [
+        FilePurpose::Cover,
+        FilePurpose::BackgroundImage,
     ];
 
     public function blockType(): BelongsTo

@@ -1,0 +1,1 @@
+function t(t,e={}){const n=t.detail.originalEvent,i=n.target;i?.isConnected?e.scrollable&&(n.offsetX>i.clientWidth||n.offsetY>i.clientHeight)&&t.preventDefault():t.preventDefault()}export{t};

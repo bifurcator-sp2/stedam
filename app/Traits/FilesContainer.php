@@ -19,6 +19,11 @@ trait FilesContainer
         });
 
         static::deleting(function ($model) {
+            // Soft delete — не трогаем файлы
+            if (method_exists($model, 'isForceDeleting') && !$model->isForceDeleting()) {
+                return;
+            }
+
             $model->deleteAllFiles();
         });
     }

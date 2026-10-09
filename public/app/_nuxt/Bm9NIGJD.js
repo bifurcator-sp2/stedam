@@ -1,0 +1,1 @@
+import{s as i}from"./3RPpFqtt.js";import{n as t}from"./C58Y1OYi.js";function o(){i();const o=t();return[{label:"VK",onClick:()=>{o.add({title:"VK",description:"Login with VK"})}},{label:"MAX",onClick:()=>{o.add({title:"MAX",description:"Login with MAX"})}}]}export{o as t};

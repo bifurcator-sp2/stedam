@@ -1,0 +1,1 @@
+System.register(["./BtDhqzG3-legacy.js","./Cv7b57qj-legacy.js"],function(r,n){var t,e,u;return r("t",function(r){var n=u({dir:e("ltr")});return t(()=>{var t;return(null==r?void 0:r.value)||(null===(t=n.dir)||void 0===t?void 0:t.value)||"ltr"})}),{setters:[function(r){t=r.g,e=r.vn},function(r){u=r.r}],execute:function(){}}});

@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Blocks\Settings;
-
+use App\Enums\FilePurpose;
 class BlockSettingsRegistry
 {
 
@@ -173,6 +173,13 @@ class BlockSettingsRegistry
                     default: 'bg-default',
                     allowed: ColorPalette::bgTokens(),
                     label: 'Цвет фона',
+                ),
+                new SettingDefinition(
+                    key: 'background-image',
+                    type: SettingType::Image,
+                    default: [],
+                    allowed: [FilePurpose::BackgroundImage],
+                    label: 'Фоновое изображение',
                 ),
                 self::getPaddingsDefinition(),
                 self::getMarginDefinition(),

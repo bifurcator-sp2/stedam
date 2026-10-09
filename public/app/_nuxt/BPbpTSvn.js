@@ -1,1 +1,0 @@
-import{s as e}from"./Cl7MjACQ.js";import{n as t}from"./CqVd8ez7.js";function n(){e();let n=t();return[{label:`VK`,onClick:()=>{n.add({title:`VK`,description:`Login with VK`})}},{label:`MAX`,onClick:()=>{n.add({title:`MAX`,description:`Login with MAX`})}}]}export{n as t};

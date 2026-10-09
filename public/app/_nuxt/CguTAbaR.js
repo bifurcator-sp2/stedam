@@ -1,0 +1,1 @@
+var r;function e(){return r||(r=Promise.all([])),r}export{e as getMdcConfigs};

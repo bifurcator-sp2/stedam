@@ -1,0 +1,1 @@
+import{i}from"./DOHrZzGG.js";function o(){const o=i().ui?.prefix;return i=>o&&i?i.split(/\s+/).filter(Boolean).map(i=>`${o}:${i}`).join(" "):i}export{o as t};

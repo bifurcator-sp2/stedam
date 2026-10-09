@@ -1,0 +1,1 @@
+System.register([],function(e,t){var n;return e("getMdcConfigs",function(){return n||(n=Promise.all([])),n}),{setters:[],execute:function(){}}});

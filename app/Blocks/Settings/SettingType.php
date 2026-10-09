@@ -15,6 +15,6 @@ case Array = 'array';
 case Json = 'json';
 case Color = 'color';
 case Icon = 'icon';
-
+case Image = 'image';
 
 }

@@ -1,0 +1,1 @@
+System.register(["./CMn4thH5-legacy.js"],function(e,t){var n;return{setters:[function(e){n=e.t}],execute:function(){e("t",()=>n("color-mode").value)}}});

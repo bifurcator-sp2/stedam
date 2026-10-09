@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\FilePurpose;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BlockResource;
 use App\Models\Block;
@@ -100,6 +101,11 @@ class BlockController extends Controller
             );
         }
 
+        // Синхронизация FileSet по settings
+        if (!empty($data['settings'])) {
+            $this->syncFileSets($block, $data['settings']);
+        }
+
         $block->load(['blockType.translations', 'translations']);
 
         return (new BlockResource($block))
@@ -173,6 +179,11 @@ class BlockController extends Controller
             $block->moveTempToStore();
         }
 
+        // Синхронизация FileSet по settings
+        if (!empty($data['settings'])) {
+            $this->syncFileSets($block, $data['settings']);
+        }
+
         $block->load(['blockType.translations', 'translations']);
 
         return (new BlockResource($block))->response();
@@ -196,5 +207,78 @@ class BlockController extends Controller
         $block->delete();
 
         return response()->json(['message' => 'Deleted'], 200);
+    }
+
+    /* ============================================================
+     *  Синхронизация FileSet по settings
+     * ============================================================ */
+
+    /**
+     * Проходит по всем разрешённым purpose блока и синхронизирует FileSet
+     * согласно settings.
+     *
+     * Для каждого purpose:
+     *  - ищет в settings узел с type="image" и allowed[0] === purpose;
+     *  - если найден — берёт node.default (массив images) и вызывает
+     *    fileSet(purpose)->syncFilesFromRequest(images, null).
+     *
+     * @param Block $block
+     * @param array $settings — дерево SettingNode[]
+     */
+    protected function syncFileSets(Block $block, array $settings): void
+    {
+        foreach ($block::filePurposes() as $purposeEnum) {
+            $purpose = $purposeEnum instanceof FilePurpose
+                ? $purposeEnum->value
+                : $purposeEnum;
+
+            // Ищем узел с type=image и allowed[0] == purpose
+            $node = $this->findSettingNode(
+                $settings,
+                fn ($n) => ($n['type'] ?? null) === 'image'
+                    && (($n['allowed'][0] ?? null) === $purpose),
+            );
+
+            if ($node === null) {
+                continue;
+            }
+
+            $images = is_array($node['default'] ?? null)
+                ? $node['default']
+                : [];
+
+            $fileSet = $block->fileSet($purpose);
+
+            $fileSet->syncFilesFromRequest($images, null);
+        }
+    }
+
+    /**
+     * Рекурсивный поиск узла в дереве settings.
+     *
+     * @param array $nodes
+     * @param callable $predicate
+     * @return array|null
+     */
+    protected function findSettingNode(array $nodes, callable $predicate): ?array
+    {
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+
+            if ($predicate($node)) {
+                return $node;
+            }
+
+            if (!empty($node['children']) && is_array($node['children'])) {
+                $found = $this->findSettingNode($node['children'], $predicate);
+                if ($found !== null) {
+                    return $found;
+                }
+            }
+        }
+
+        return null;
     }
 }

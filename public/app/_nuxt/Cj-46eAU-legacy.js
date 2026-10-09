@@ -1,0 +1,1 @@
+System.register([],function(e,t){return e("t",function(e,t={}){var n=e.detail.originalEvent,i=n.target;null!=i&&i.isConnected?t.scrollable&&(n.offsetX>i.clientWidth||n.offsetY>i.clientHeight)&&e.preventDefault():e.preventDefault()}),{setters:[],execute:function(){}}});
