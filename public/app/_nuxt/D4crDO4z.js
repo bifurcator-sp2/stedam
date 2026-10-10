@@ -1,1 +1,0 @@
-import{D as t,b as s,mt as a,qt as r,xt as e}from"./C-cToEAb.js";import{t as l}from"./DgLP3hnZ.js";import{i as o,n as f}from"./CIt_rS5y.js";var u=l({},[["render",function(l,u){const n=o,i=f;return a(),s("div",null,[t(n),t(i,null,{default:r(()=>[e(l.$slots,"default")]),_:3})])}],["__file","default.vue"]]);export{u as default};
