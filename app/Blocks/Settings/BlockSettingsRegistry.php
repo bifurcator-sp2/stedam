@@ -1,12 +1,14 @@
 <?php
 
 namespace App\Blocks\Settings;
+
 use App\Enums\FilePurpose;
+
 class BlockSettingsRegistry
 {
 
 
-    public static function getBordersDefinition($key = 'border', $label ='Границы'): SettingDefinition
+    public static function getBordersDefinition($key = 'border', $label = 'Границы'): SettingDefinition
     {
         return new SettingDefinition(
             key: $key,
@@ -19,31 +21,31 @@ class BlockSettingsRegistry
                 default: 'border-default',
                 allowed: ColorPalette::borderTokens(),
                 label: 'Цвет',
-                ),
+            ),
             new SettingDefinition(
                 key: 'left',
                 type: SettingType::Int,
                 default: 0,
                 label: 'Слева',
-                ),
+            ),
             new SettingDefinition(
                 key: 'right',
                 type: SettingType::Int,
                 default: 0,
                 label: 'Справа',
-                ),
+            ),
             new SettingDefinition(
                 key: 'top',
                 type: SettingType::Int,
                 default: 0,
                 label: 'Сверху',
-                ),
+            ),
             new SettingDefinition(
                 key: 'bottom',
                 type: SettingType::Int,
                 default: 0,
                 label: 'Снизу',
-                ),
+            ),
             new SettingDefinition(
                 key: 'radius',
                 label: 'Радиус',
@@ -54,27 +56,27 @@ class BlockSettingsRegistry
                     type: SettingType::Int,
                     default: 0,
                     label: 'Левый верхний',
-                        ),
+                ),
                 new SettingDefinition(
                     key: 'top-right',
                     type: SettingType::Int,
                     default: 0,
                     label: 'Правый верхний',
-                        ),
+                ),
                 new SettingDefinition(
                     key: 'bottom-right',
                     type: SettingType::Int,
                     default: 0,
                     label: 'Нижний правый',
-                        ),
+                ),
                 new SettingDefinition(
                     key: 'bottom-left',
                     type: SettingType::Int,
                     default: 0,
                     label: 'Нижний левый',
-                        ),
-            ],
                 ),
+            ],
+            ),
         ],
         );
     }
@@ -91,27 +93,88 @@ class BlockSettingsRegistry
                 type: SettingType::Int,
                 default: 1,
                 label: 'Слева',
-                                ),
+            ),
             new SettingDefinition(
                 key: 'right',
                 type: SettingType::Int,
                 default: 1,
                 label: 'Справа',
-                                ),
+            ),
             new SettingDefinition(
                 key: 'top',
                 type: SettingType::Int,
                 default: 1,
                 label: 'Сверху',
-                                ),
+            ),
             new SettingDefinition(
                 key: 'bottom',
                 type: SettingType::Int,
                 default: 1,
                 label: 'Снизу',
-                                ),
+            ),
         ],
-                        );
+        );
+    }
+
+
+    public static function getTextDefinition($key, $label)
+    {
+        return new SettingDefinition(
+            key: $key,
+            label: $label,
+            type: SettingType::Array,
+            children: [
+                new SettingDefinition(
+                    key: 'editor',
+                    type: SettingType::Bool,
+                    default: 0,
+                    label: 'Разрешить редактор',
+                ),
+                new SettingDefinition(
+                    key: 'text-block-align',
+                    type: SettingType::Select,
+                    default: 'left',
+                    allowed: [
+                    'left', 'right', 'center', 'justify', 'start', 'end', 'match-parent', 'justify-all',
+                ],
+                    label: 'Выравнивание текста',
+                ),
+                new SettingDefinition(
+                    key: 'text-size',
+                    type: SettingType::Select,
+                    default: 'text-base',
+                    allowed: [
+                    'text-xs',
+                    'text-sm',
+                    'text-base',
+                    'text-lg',
+                    'text-xl',
+                    'text-2xl',
+                    'text-3xl',
+                    'text-4xl',
+                    'text-5xl',
+                    'text-6xl',
+                    'text-7xl',
+                    'text-8xl',
+                    'text-9xl',
+                ],
+                    label: 'Размер шрифта',
+                ),
+                new SettingDefinition(
+                    key: 'container',
+                    type: SettingType::Select,
+                    default: 'ProseP',
+                    allowed: ['ProseP', 'ProseStrong', 'ProseEm', 'ProseBlockquote', 'ProseH1', 'ProseH2', 'ProseH3', 'ProseH4', 'ProseH5', 'ProseH6', 'ProseCode', 'ProsePre'],
+                    label: 'Контейнер',
+                ),
+                new SettingDefinition(
+                    key: 'text-cols',
+                    type: SettingType::Int,
+                    default: 1,
+                    label: 'Количество колонок текста',
+                ),
+            ]
+        );
     }
 
     public static function getMarginDefinition()
@@ -126,27 +189,27 @@ class BlockSettingsRegistry
                 type: SettingType::Int,
                 default: 1,
                 label: 'Слева',
-                                ),
+            ),
             new SettingDefinition(
                 key: 'right',
                 type: SettingType::Int,
                 default: 1,
                 label: 'Справа',
-                                ),
+            ),
             new SettingDefinition(
                 key: 'top',
                 type: SettingType::Int,
                 default: 1,
                 label: 'Сверху',
-                                ),
+            ),
             new SettingDefinition(
                 key: 'bottom',
                 type: SettingType::Int,
                 default: 1,
                 label: 'Снизу',
-                                ),
+            ),
         ],
-                        );
+        );
     }
 
     /** @return array<string, SettingDefinition[]> */
@@ -221,46 +284,46 @@ class BlockSettingsRegistry
                         type: SettingType::Int,
                         default: 1,
                         label: 'Количество изображений',
-                        ),
+                    ),
                     new SettingDefinition(
                         key: 'columns',
                         type: SettingType::Int,
                         default: 1,
                         label: 'Количество колонок',
-                        ),
+                    ),
                     new SettingDefinition(
                         key: 'distance',
                         type: SettingType::Int,
                         default: 1,
                         label: 'Расстояние',
-                        ),
+                    ),
                     new SettingDefinition(
                         key: 'background-color',
                         type: SettingType::Color,
                         default: 'bg-default',
                         allowed: ColorPalette::bgTokens(),
                         label: 'Цвет фона',
-                        ),
+                    ),
                     new SettingDefinition(
                         key: 'flex-direction',
                         type: SettingType::Select,
                         default: 'column',
                         allowed: ['column', 'row', 'masonry'],
                         label: 'Расположение изображений',
-                        ),
+                    ),
                     new SettingDefinition(
                         key: 'image-size-strategy',
                         type: SettingType::Select,
                         default: 'fill',
                         allowed: ['fill', 'contain', 'cover', 'none', 'scale-down'],
                         label: 'Масштабирование изображений',
-                        ),
+                    ),
                     new SettingDefinition(
                         key: 'image-height',
                         type: SettingType::Int,
                         default: 200,
                         label: 'Высота ряда',
-                        ),
+                    ),
                     self::getBordersDefinition('image-border', 'Рамки изображений'),
                     self::getPaddingsDefinition(),
                     self::getMarginDefinition(),
@@ -280,31 +343,25 @@ class BlockSettingsRegistry
                         type: SettingType::String,
                         default: 'Одно кольцо, чтобы править всеми',
                         label: 'Превью заголовка',
-                        ),
+                    ),
                     new SettingDefinition(
                         key: 'summary',
                         type: SettingType::String,
-                        default: 'Одно кольцо, чтобы править всеми',
-                        label: 'Превью заголовка',
+                        default: 'Хотелось бы мне, чтобы это случилось в другое время — не в моё. — И мне бы тоже, да и всем, кто дожил до таких времён. Но выбирать не дано. Мы можем только решить, как распорядиться своим временем',
+                        label: 'Превью сводки',
                     ),
                     new SettingDefinition(
                         key: 'text',
                         type: SettingType::String,
                         default: 'А быть может, каждый из вас уже начал — не заметив этого — тот единственный путь, который предназначен ему судьбой. В странные времена довелось мне жить! Мы веками разводили скот, пахали землю, строили дома, мастерили орудия, помогали гондорцам в битвах за Минас Тирит. Все это мы называли обычной человеческой жизнью, и нам казалось, что таким путем идет весь мир. Нас мало беспокоило, что происходит за пределами нашей страны. Об этом пелось в песнях, но мы забывали эти песни или пели их только детям, просто так, бездумно, по привычке. И вот эти песни напомнили о себе, отыскали нас в самом неожиданном месте и обрели видимое обличье!',
                         label: 'Превью текста',
-                        ),
-                    new SettingDefinition(
-                        key: 'editor',
-                        type: SettingType::Bool,
-                        default: 0,
-                        label: 'Разрешить редактор',
-                        ),
+                    ),
                     new SettingDefinition(
                         key: 'cols',
                         type: SettingType::Int,
                         default: 12,
                         label: 'Ширина блока, колонок',
-                        ),
+                    ),
                     new SettingDefinition(
                         key: 'text-block-position',
                         type: SettingType::Select,
@@ -317,55 +374,15 @@ class BlockSettingsRegistry
                         label: 'Позиция блока текста',
                     ),
                     new SettingDefinition(
-                        key: 'text-block-align',
-                        type: SettingType::Select,
-                        default: 'left',
-                        allowed: [
-                        'left', 'right', 'center', 'justify', 'start', 'end', 'match-parent', 'justify-all',
-                    ],
-                        label: 'Выравнивание текста',
-                    ),
-                    new SettingDefinition(
-                        key: 'text-size',
-                        type: SettingType::Select,
-                        default: 'text-base',
-                        allowed: [
-                        'text-xs',
-                        'text-sm',
-                        'text-base',
-                        'text-lg',
-                        'text-xl',
-                        'text-2xl',
-                        'text-3xl',
-                        'text-4xl',
-                        'text-5xl',
-                        'text-6xl',
-                        'text-7xl',
-                        'text-8xl',
-                        'text-9xl',
-                    ],
-                        label: 'Размер шрифта',
-                        ),
-                    new SettingDefinition(
-                        key: 'header-type',
-                        type: SettingType::Select,
-                        default: 'h2',
-                        allowed: ['h2', 'h3', 'h4', 'h5'],
-                        label: 'Тип заголовка',
-                        ),
-                    new SettingDefinition(
-                        key: 'text-cols',
-                        type: SettingType::Int,
-                        default: 1,
-                        label: 'Количество колонок текста',
-                        ),
-                    new SettingDefinition(
                         key: 'background-color',
                         type: SettingType::Color,
                         default: 'bg-default',
                         allowed: ColorPalette::bgTokens(),
                         label: 'Цвет фона',
-                        ),
+                    ),
+                    self::getTextDefinition('title-settings', 'Заголовок'),
+                    self::getTextDefinition('summary-settings', 'Сводка'),
+                    self::getTextDefinition('text-settings', 'Текст'),
                     self::getPaddingsDefinition(),
                     self::getMarginDefinition(),
                     self::getBordersDefinition(),
