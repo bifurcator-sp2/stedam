@@ -1,4 +1,7 @@
 :root {
+    --bg-default: ;
+    --border-default: ;
+    --accent-default: ;
     --bg-definition: #EFF6FF;
     --border-definition: #BFDBFE;
     --accent-definition: #3B82F6;
@@ -56,9 +59,15 @@
     --bg-reference: #F1F5F9;
     --border-reference: #CBD5E1;
     --accent-reference: #475569;
+    --bg-white: #FFFFFF;
+    --border-white: #FFFFFF;
+    --accent-white: #FFFFFF;
 }
 
 .dark {
+    --bg-default: ;
+    --border-default: ;
+    --accent-default: ;
     --bg-definition: #172554;
     --border-definition: #1E40AF;
     --accent-definition: #60A5FA;
@@ -116,4 +125,7 @@
     --bg-reference: #0F172A;
     --border-reference: #1E293B;
     --accent-reference: #64748B;
+    --bg-white: var(--ui-bg);
+    --border-white: var(--ui-bg);
+    --accent-white: var(--ui-bg);
 }

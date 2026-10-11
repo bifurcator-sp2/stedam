@@ -9,6 +9,10 @@ class CssVariablesGenerator
         $lines = [':root {'];
 
         foreach (ColorPalette::all() as $name => $channels) {
+            if ($name === 'inherit') {
+                continue;
+            }
+
             foreach ($channels['light'] as $channel => $hex) {
                 $lines[] = sprintf('    --%s-%s: %s;', $channel, $name, $hex);
             }
@@ -19,6 +23,10 @@ class CssVariablesGenerator
         $lines[] = '.dark {';
 
         foreach (ColorPalette::all() as $name => $channels) {
+            if ($name === 'inherit') {
+                continue;
+            }
+
             foreach ($channels['dark'] as $channel => $hex) {
                 $lines[] = sprintf('    --%s-%s: %s;', $channel, $name, $hex);
             }

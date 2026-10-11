@@ -102,6 +102,18 @@ class ColorPalette
                 'light' => ['bg' => '#F1F5F9', 'border' => '#CBD5E1', 'accent' => '#475569'],
                 'dark'  => ['bg' => '#0F172A', 'border' => '#1E293B', 'accent' => '#64748B'],
             ],
+            'white' => [
+                'light' => ['bg' => '#FFFFFF', 'border' => '#FFFFFF', 'accent' => '#FFFFFF'],
+                'dark'  => ['bg' => 'var(--ui-bg)', 'border' => 'var(--ui-bg)', 'accent' => 'var(--ui-bg)'],
+            ],
+            // ─── Специальное: рамка = цвет фона того же блока ─
+            // Значения не используются напрямую — CssVariablesGenerator
+            // пропускает эту группу, а text_image.vue обрабатывает её
+            // отдельно: border-inherit → var(--bg-…) того же контейнера.
+            'inherit' => [
+                'light' => ['bg' => '', 'border' => '', 'accent' => ''],
+                'dark'  => ['bg' => '', 'border' => '', 'accent' => ''],
+            ],
         ];
     }
 
