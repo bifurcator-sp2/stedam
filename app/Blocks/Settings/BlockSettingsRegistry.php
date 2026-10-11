@@ -206,6 +206,17 @@ class BlockSettingsRegistry
                     default: [],
                     children: [
                     new SettingDefinition(
+                        key: 'images-block-position',
+                        type: SettingType::Select,
+                        default: 'center',
+                        allowed: [
+                        'flex-start',
+                        'center',
+                        'flex-end',
+                    ],
+                        label: 'Позиция блока изображений',
+                    ),
+                    new SettingDefinition(
                         key: 'count',
                         type: SettingType::Int,
                         default: 1,
@@ -271,6 +282,12 @@ class BlockSettingsRegistry
                         label: 'Превью заголовка',
                         ),
                     new SettingDefinition(
+                        key: 'summary',
+                        type: SettingType::String,
+                        default: 'Одно кольцо, чтобы править всеми',
+                        label: 'Превью заголовка',
+                    ),
+                    new SettingDefinition(
                         key: 'text',
                         type: SettingType::String,
                         default: 'А быть может, каждый из вас уже начал — не заметив этого — тот единственный путь, который предназначен ему судьбой. В странные времена довелось мне жить! Мы веками разводили скот, пахали землю, строили дома, мастерили орудия, помогали гондорцам в битвах за Минас Тирит. Все это мы называли обычной человеческой жизнью, и нам казалось, что таким путем идет весь мир. Нас мало беспокоило, что происходит за пределами нашей страны. Об этом пелось в песнях, но мы забывали эти песни или пели их только детям, просто так, бездумно, по привычке. И вот эти песни напомнили о себе, отыскали нас в самом неожиданном месте и обрели видимое обличье!',
@@ -285,9 +302,29 @@ class BlockSettingsRegistry
                     new SettingDefinition(
                         key: 'cols',
                         type: SettingType::Int,
-                        default: 6,
+                        default: 12,
                         label: 'Ширина блока, колонок',
                         ),
+                    new SettingDefinition(
+                        key: 'text-block-position',
+                        type: SettingType::Select,
+                        default: 'center',
+                        allowed: [
+                        'flex-start',
+                        'center',
+                        'flex-end',
+                    ],
+                        label: 'Позиция блока текста',
+                    ),
+                    new SettingDefinition(
+                        key: 'text-block-align',
+                        type: SettingType::Select,
+                        default: 'left',
+                        allowed: [
+                        'left', 'right', 'center', 'justify', 'start', 'end', 'match-parent', 'justify-all',
+                    ],
+                        label: 'Выравнивание текста',
+                    ),
                     new SettingDefinition(
                         key: 'text-size',
                         type: SettingType::Select,
