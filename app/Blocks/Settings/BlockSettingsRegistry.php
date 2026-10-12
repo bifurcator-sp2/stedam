@@ -163,8 +163,8 @@ class BlockSettingsRegistry
                 new SettingDefinition(
                     key: 'container',
                     type: SettingType::Select,
-                    default: 'ProseP',
-                    allowed: ['ProseP', 'ProseStrong', 'ProseEm', 'ProseBlockquote', 'ProseH1', 'ProseH2', 'ProseH3', 'ProseH4', 'ProseH5', 'ProseH6', 'ProseCode', 'ProsePre'],
+                    default: 'div',
+                    allowed: ['div', 'ProseP', 'ProseStrong', 'ProseEm', 'ProseBlockquote', 'ProseH1', 'ProseH2', 'ProseH3', 'ProseH4', 'ProseH5', 'ProseH6', 'ProseCode', 'ProsePre'],
                     label: 'Контейнер',
                 ),
                 new SettingDefinition(
