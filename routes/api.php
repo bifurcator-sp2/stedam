@@ -28,7 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/user-data', [UserDataController::class, 'update']);
     Route::delete('/user-data', [UserDataController::class, 'destroy']);
 
-
+    Route::get('/block-types/struct', [\App\Http\Controllers\Api\BlockTypeController::class, 'struct']);
     Route::get('/block-types', [\App\Http\Controllers\Api\BlockTypeController::class, 'index']);
     Route::get('/block-types/{code}', [\App\Http\Controllers\Api\BlockTypeController::class, 'show']);
 
