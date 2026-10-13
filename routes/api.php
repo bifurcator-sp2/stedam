@@ -14,6 +14,8 @@ Route::post('/login', [\App\Http\Controllers\Auth\AuthenticatedSessionController
 Route::post('/forgot-password', [\App\Http\Controllers\Auth\PasswordResetLinkController::class, 'store']);
 Route::post('/reset-password', [\App\Http\Controllers\Auth\NewPasswordController::class, 'store']);
 
+
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [\App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'destroy']);
     Route::get('/user', function (Request $request) {
@@ -34,6 +36,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('blocks', \App\Http\Controllers\Api\BlockController::class);
 
+    Route::get('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'show']);
+    Route::post('/lessons/make',            [\App\Http\Controllers\Api\LessonController::class, 'make']);
+    Route::post('/lessons/{lesson}/blocks', [\App\Http\Controllers\Api\LessonController::class, 'storeBlock']);
+    Route::put('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'save']);
+    Route::get('/lessons',         [\App\Http\Controllers\Api\LessonController::class, 'list']);
 });
 
 Route::middleware('auth:sanctum')->prefix('files')->group(function () {

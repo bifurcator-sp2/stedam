@@ -38,6 +38,11 @@ class Block extends Model
         FilePurpose::BackgroundImage,
     ];
 
+    public function lessonBlocks(): HasMany
+    {
+        return $this->hasMany(LessonBlock::class);
+    }
+
     public function blockType(): BelongsTo
     {
         return $this->belongsTo(BlockType::class);

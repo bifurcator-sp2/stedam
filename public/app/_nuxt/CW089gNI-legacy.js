@@ -1,0 +1,1 @@
+System.register(["./Cr2sIBow-legacy.js","./vGUlL1ch-legacy.js","./CYNG59gy-legacy.js"],function(n,t){var e,c;return n({i:function(n){return{}},n:function(n){},r:function(){return c},t:function(n){}}),{setters:[function(n){},function(n){e=n.t},function(n){}],execute:function(){c=e}}});

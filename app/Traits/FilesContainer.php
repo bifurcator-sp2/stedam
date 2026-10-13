@@ -8,11 +8,13 @@ use Illuminate\Support\Facades\Storage;
 
 trait FilesContainer
 {
+    public $tempId = null;
+
     /* ============================================================
      *  BOOT
      * ============================================================ */
 
-    protected static function bootFilesContainer(): void
+    public static function bootFilesContainer(): void
     {
         static::created(function ($model) {
             $model->moveTempToStore();
@@ -891,7 +893,7 @@ trait FilesContainer
      * Шардированный префикс для модели.
      * Пример: для id=123456 вернёт "e1/0a".
      */
-    protected function shardPrefix(): string
+    public function shardPrefix(): string
     {
         $id = (string) ($this->getKey() ?? 0);
         $hash = md5($id);
