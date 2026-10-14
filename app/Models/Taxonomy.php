@@ -20,8 +20,23 @@ class Taxonomy extends Model
     ];
 
     protected $casts = [
-        'parent_id' => 'integer', // <-- полезно для плагина
+        'parent_id' => 'integer',
     ];
+
+    /**
+     * Fallback: если parent_id пришёл -1, но в сессии лежит taxonomy_parent_id,
+     * подставляем его. Сработает гарантированно, независимо от TreePage.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Taxonomy $taxonomy) {
+            if (($taxonomy->parent_id === null || $taxonomy->parent_id === -1)
+                && session()->has('taxonomy_parent_id')
+            ) {
+                $taxonomy->parent_id = session()->pull('taxonomy_parent_id');
+            }
+        });
+    }
 
     public function translations(): HasMany
     {
@@ -43,9 +58,6 @@ class Taxonomy extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    /**
-     * Заголовок на текущей локали с фолбэком.
-     */
     public function getTitleAttribute(): ?string
     {
         $locale = app()->getLocale();
@@ -56,9 +68,6 @@ class Taxonomy extends Model
             ?? $this->translations->first()?->title;
     }
 
-    /**
-     * Описание на текущей локали с фолбэком.
-     */
     public function getDescriptionAttribute(): ?string
     {
         $locale = app()->getLocale();

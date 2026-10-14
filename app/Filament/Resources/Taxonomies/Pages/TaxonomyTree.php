@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Taxonomies\Pages;
 use App\Filament\Resources\Taxonomies\TaxonomyResource;
 use App\Filament\Tree\Actions\AddChildAction;
 use App\Models\Taxonomy;
+use Filament\Actions\CreateAction;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -25,18 +26,14 @@ class TaxonomyTree extends TreePage
     /** ID родителя для создаваемого через «+» узла. */
     public ?int $preselectedParentId = null;
 
-    /**
-     * Инициализация rootId из URL.
-     * booted() вызывается Livewire автоматически и не конфликтует с родителем.
-     */
-    public function booted(): void
+    public function mount(int $root): void
     {
-        $this->rootId = (int) request()->route('root');
-
         abort_unless(
-            Taxonomy::where('id', $this->rootId)->where('parent_id', -1)->exists(),
+            Taxonomy::where('id', $root)->where('parent_id', -1)->exists(),
             404
         );
+
+        $this->rootId = $root;
     }
 
     /**
@@ -118,6 +115,18 @@ class TaxonomyTree extends TreePage
         ];
     }
 
+    protected function configureCreateAction(CreateAction $action): CreateAction
+    {
+        return parent::configureCreateAction($action)
+            ->mutateFormDataUsing(function (array $data, array $arguments): array {
+                // $arguments['parent_id'] приходит из AddChildAction::mountAction('create', ['parent_id' => ...])
+                $data['parent_id'] = $arguments['parent_id'] ?? $this->rootId ?? -1;
+
+                return $data;
+            });
+    }
+
+
     /**
      * При создании ставим parent_id:
      * — если через «+», то preselectedParentId;
@@ -126,7 +135,6 @@ class TaxonomyTree extends TreePage
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['parent_id'] = $this->preselectedParentId ?? $this->rootId;
-
         return $data;
     }
 
@@ -152,4 +160,6 @@ class TaxonomyTree extends TreePage
 
         return "[{$record->id}] {$title}";
     }
+
+
 }

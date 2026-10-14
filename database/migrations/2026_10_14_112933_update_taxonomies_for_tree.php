@@ -9,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('taxonomies', function (Blueprint $table) {
+       Schema::table('taxonomies', function (Blueprint $table) {
             $table->dropForeign(['parent_id']);
         });
         // 1. Добавляем колонку order

@@ -4,7 +4,6 @@ namespace App\Filament\Tree\Actions;
 
 use Filament\Actions\Action as BaseAction;
 use SolutionForest\FilamentTree\Concern\Actions\TreeActionTrait;
-use Livewire\Attributes\On;
 
 class AddChildAction extends BaseAction
 {
@@ -25,17 +24,8 @@ class AddChildAction extends BaseAction
             ->color('success')
             ->tooltip('Добавить дочерний')
             ->action(function (array $arguments, $record, $livewire) {
-                $livewire->preselectedParentId = $record->getKey();
+                session(['taxonomy_parent_id' => $record->getKey()]);
                 $livewire->dispatch('openCreateModal', parentId: $record->getKey());
             });
-    }
-
-
-
-    #[On('openCreateModal')]
-    public function openCreateModal(int $parentId): void
-    {
-        $this->preselectedParentId = $parentId;
-        $this->mountAction('create');
     }
 }
