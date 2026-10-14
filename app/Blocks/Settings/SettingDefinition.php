@@ -9,6 +9,7 @@ class SettingDefinition
         public readonly string $key,
         public readonly SettingType $type,
         public mixed $default = null,
+        public bool $public = false,
         public ?array $allowed = null,
         public readonly ?string $label = null,
         public readonly ?string $description = null,

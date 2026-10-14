@@ -12,7 +12,7 @@ class SettingsNormalizer
      * Новые поля появляются автоматически, удалённые — исчезают.
      *
      * @param array|null $schema Актуальная схема (массив узлов).
-     * @param array|null $saved  Сохранённые значения (массив узлов).
+     * @param array|null $saved Сохранённые значения (массив узлов).
      * @return array
      */
     public static function mergeSchemaWithSaved(?array $schema, ?array $saved): array
@@ -44,8 +44,19 @@ class SettingsNormalizer
             // Мерж: базовая структура — из схемы, `default` — из saved
             $merged = $schemaItem;
 
-            if (array_key_exists('default', $savedItem)) {
+            /*if (array_key_exists('default', $savedItem)) {
                 $merged['default'] = $savedItem['default'];
+                $merged['public'] = $savedItem['public'];
+            }*/
+            foreach ($schemaItem as $schenaKey => $schemaVal) {
+                if (
+                    $schenaKey == 'label' || $schenaKey == 'public'
+                ) {
+                    continue;
+                }
+                if (array_key_exists($schenaKey, $savedItem)) {
+                    $merged[$schenaKey] = $savedItem[$schenaKey];
+                }
             }
 
             // Рекурсивно мержим children
@@ -53,7 +64,7 @@ class SettingsNormalizer
                 $merged['children'] = self::mergeSchemaWithSaved(
                     $schemaItem['children'],
                     $savedItem['children'] ?? [],
-            );
+                );
             }
 
             $result[] = $merged;
@@ -64,7 +75,7 @@ class SettingsNormalizer
 
     public static function normalize(?string $code, ?array $saved): array
     {
-        return self::mergeSchemaWithSaved(BlockSettingsRegistry::serializeSchema($code), $saved??[]);
+        return self::mergeSchemaWithSaved(BlockSettingsRegistry::serializeSchema($code), $saved ?? []);
     }
 
 

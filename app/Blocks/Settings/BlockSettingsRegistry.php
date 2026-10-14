@@ -239,6 +239,7 @@ class BlockSettingsRegistry
                 ),
                 new SettingDefinition(
                     key: 'background-image',
+                    public: true,
                     type: SettingType::Image,
                     default: [],
                     allowed: [FilePurpose::BackgroundImage, 1],
@@ -354,20 +355,23 @@ class BlockSettingsRegistry
                     new SettingDefinition(
                         key: 'title',
                         type: SettingType::String,
+                        public: true,
                         default: 'Одно кольцо, чтобы править всеми',
-                        label: 'Превью заголовка',
+                        label: 'Заголовок',
                     ),
                     new SettingDefinition(
                         key: 'summary',
                         type: SettingType::String,
+                        public: true,
                         default: 'Хотелось бы мне, чтобы это случилось в другое время — не в моё. — И мне бы тоже, да и всем, кто дожил до таких времён. Но выбирать не дано. Мы можем только решить, как распорядиться своим временем',
-                        label: 'Превью сводки',
+                        label: 'Сводка',
                     ),
                     new SettingDefinition(
                         key: 'text',
                         type: SettingType::String,
+                        public: true,
                         default: 'А быть может, каждый из вас уже начал — не заметив этого — тот единственный путь, который предназначен ему судьбой. В странные времена довелось мне жить! Мы веками разводили скот, пахали землю, строили дома, мастерили орудия, помогали гондорцам в битвах за Минас Тирит. Все это мы называли обычной человеческой жизнью, и нам казалось, что таким путем идет весь мир. Нас мало беспокоило, что происходит за пределами нашей страны. Об этом пелось в песнях, но мы забывали эти песни или пели их только детям, просто так, бездумно, по привычке. И вот эти песни напомнили о себе, отыскали нас в самом неожиданном месте и обрели видимое обличье!',
-                        label: 'Превью текста',
+                        label: 'Тект',
                     ),
                     new SettingDefinition(
                         key: 'cols',
@@ -593,7 +597,7 @@ class BlockSettingsRegistry
         );
     }
 
-    public static function serializeDefinition(SettingDefinition $def): array
+    /*public static function serializeDefinition(SettingDefinition $def): array
     {
         $node = [
             'key' => $def->key,
@@ -606,6 +610,48 @@ class BlockSettingsRegistry
         ];
 
         // Для контейнеров — children как есть (плоский список)
+        if ($def->isContainer()) {
+            $node['children'] = array_map(
+                fn(SettingDefinition $child) => self::serializeDefinition($child),
+                $def->children ?? [],
+            );
+        }
+
+        return $node;
+    }*/
+
+    public static function serializeDefinition(SettingDefinition $def): array
+    {
+        static $fields = null;
+
+        if ($fields === null) {
+            $fields = array_map(
+                fn(\ReflectionParameter $p) => $p->getName(),
+                (new \ReflectionClass(SettingDefinition::class))
+                    ->getConstructor()
+                    ->getParameters(),
+            );
+        }
+
+        $node = [];
+
+        foreach ($fields as $field) {
+
+            // children обрабатываем отдельно — только для контейнеров
+            if ($field === 'children') {
+                continue;
+            }
+
+            $value = $def->{$field};
+
+            // enum -> скаляр
+            if ($value instanceof \BackedEnum) {
+                $value = $value->value;
+            }
+
+            $node[$field] = $value;
+        }
+
         if ($def->isContainer()) {
             $node['children'] = array_map(
                 fn(SettingDefinition $child) => self::serializeDefinition($child),
