@@ -117,11 +117,11 @@ class BlockSettingsRegistry
     }
 
 
-    public static function getTextDefinition($key, $label)
+    public static function getTextSettingsDefinition()
     {
         return new SettingDefinition(
-            key: $key,
-            label: $label,
+            key: 'settings',
+            label: 'Настройки текста',
             type: SettingType::Array,
             children: [
                 new SettingDefinition(
@@ -212,6 +212,100 @@ class BlockSettingsRegistry
         );
     }
 
+    public static function getGalleryDefinition($key = 'images', $label='Изображения'){
+        return new SettingDefinition(
+            key: $key,
+            type: SettingType::Array,
+            label: $label,
+            default: [],
+            children: [
+            new SettingDefinition(
+                key: 'images-block-position',
+                type: SettingType::Select,
+                default: 'center',
+                allowed: [
+                'flex-start',
+                'center',
+                'flex-end',
+            ],
+                label: 'Позиция блока изображений',
+            ),
+            new SettingDefinition(
+                key: 'count',
+                type: SettingType::Int,
+                default: 1,
+                label: 'Количество изображений',
+            ),
+            new SettingDefinition(
+                key: FilePurpose::Gallery1->value,
+                        public: true,
+                        type: SettingType::Image,
+                        default: [],
+                        params: ['purpose' => FilePurpose::Gallery1, 'count' => 'images.count', 'display-images' => false],
+                        label: 'Галерея',
+                        children: [
+            new SettingDefinition(
+                key: 'columns',
+                type: SettingType::Int,
+                default: 1,
+                label: 'Количество колонок',
+            ),
+            new SettingDefinition(
+                key: 'distance',
+                type: SettingType::Int,
+                default: 1,
+                label: 'Расстояние',
+            ),
+            new SettingDefinition(
+                key: 'background-color',
+                type: SettingType::Color,
+                default: 'bg-default',
+                allowed: ColorPalette::bgTokens(),
+                label: 'Цвет фона',
+            ),
+            new SettingDefinition(
+                key: 'flex-direction',
+                type: SettingType::Select,
+                default: 'column',
+                allowed: ['column', 'row', 'masonry'],
+                label: 'Расположение изображений',
+            ),
+            new SettingDefinition(
+                key: 'image-size-strategy',
+                type: SettingType::Select,
+                default: 'fill',
+                allowed: ['fill', 'contain', 'cover', 'none', 'scale-down'],
+                label: 'Масштабирование изображений',
+            ),
+            new SettingDefinition(
+                key: 'image-height',
+                type: SettingType::Int,
+                default: 200,
+                label: 'Высота ряда',
+            ),
+            new SettingDefinition(
+                key: 'image-outline',
+                type: SettingType::Int,
+                default: 0,
+                label: 'Ширина линии',
+            ),
+            new SettingDefinition(
+                key: 'image-outline-color',
+                type: SettingType::Color,
+                default: 'border-default',
+                allowed: ColorPalette::borderTokens(),
+                label: 'Цвет линии',
+            ),
+            self::getBordersDefinition('image-border', 'Рамки изображений'),
+            self::getPaddingsDefinition(),
+            self::getMarginDefinition(),
+            self::getBordersDefinition(),
+        ],
+                    ),
+                ],
+                );
+    }
+
     /** @return array<string, SettingDefinition[]> */
     public static function map(): array
     {
@@ -263,97 +357,7 @@ class BlockSettingsRegistry
                 self::getMarginDefinition(),
                 self::getBordersDefinition(),
                 // Array изображений: children — плоский список полей элемента
-                new SettingDefinition(
-                    key: 'images',
-                    type: SettingType::Array,
-                    label: 'Изображения',
-                    default: [],
-                    children: [
-                    new SettingDefinition(
-                        key: 'images-block-position',
-                        type: SettingType::Select,
-                        default: 'center',
-                        allowed: [
-                        'flex-start',
-                        'center',
-                        'flex-end',
-                    ],
-                        label: 'Позиция блока изображений',
-                    ),
-                    new SettingDefinition(
-                        key: 'count',
-                        type: SettingType::Int,
-                        default: 1,
-                        label: 'Количество изображений',
-                    ),
-                    new SettingDefinition(
-                        key: FilePurpose::Gallery1->value,
-                        public: true,
-                        type: SettingType::Image,
-                        default: [],
-                        params: ['purpose' => FilePurpose::Gallery1, 'count' => 'images.count', 'display-images' => false],
-                        label: 'Галерея',
-                        children: [
-                                new SettingDefinition(
-                                    key: 'columns',
-                                    type: SettingType::Int,
-                                    default: 1,
-                                    label: 'Количество колонок',
-                                ),
-                                new SettingDefinition(
-                                    key: 'distance',
-                                    type: SettingType::Int,
-                                    default: 1,
-                                    label: 'Расстояние',
-                                ),
-                                new SettingDefinition(
-                                    key: 'background-color',
-                                    type: SettingType::Color,
-                                    default: 'bg-default',
-                                    allowed: ColorPalette::bgTokens(),
-                                    label: 'Цвет фона',
-                                ),
-                                new SettingDefinition(
-                                    key: 'flex-direction',
-                                    type: SettingType::Select,
-                                    default: 'column',
-                                    allowed: ['column', 'row', 'masonry'],
-                                    label: 'Расположение изображений',
-                                ),
-                                new SettingDefinition(
-                                    key: 'image-size-strategy',
-                                    type: SettingType::Select,
-                                    default: 'fill',
-                                    allowed: ['fill', 'contain', 'cover', 'none', 'scale-down'],
-                                    label: 'Масштабирование изображений',
-                                ),
-                                new SettingDefinition(
-                                    key: 'image-height',
-                                    type: SettingType::Int,
-                                    default: 200,
-                                    label: 'Высота ряда',
-                                ),
-                                new SettingDefinition(
-                                    key: 'image-outline',
-                                    type: SettingType::Int,
-                                    default: 0,
-                                    label: 'Ширина линии',
-                                ),
-                                new SettingDefinition(
-                                    key: 'image-outline-color',
-                                    type: SettingType::Color,
-                                    default: 'border-default',
-                                    allowed: ColorPalette::borderTokens(),
-                                    label: 'Цвет линии',
-                                ),
-                                self::getBordersDefinition('image-border', 'Рамки изображений'),
-                                self::getPaddingsDefinition(),
-                                self::getMarginDefinition(),
-                                self::getBordersDefinition(),
-                            ],
-                    ),
-                ],
-                ),
+                self::getGalleryDefinition(),
 
                 // Array текстов: children — плоский список полей элемента
                 new SettingDefinition(
@@ -368,6 +372,9 @@ class BlockSettingsRegistry
                         public: true,
                         default: 'Одно кольцо, чтобы править всеми',
                         label: 'Заголовок',
+                        children: [
+                        self::getTextSettingsDefinition(),
+                    ],
                     ),
                     new SettingDefinition(
                         key: 'summary',
@@ -375,6 +382,9 @@ class BlockSettingsRegistry
                         public: true,
                         default: 'Хотелось бы мне, чтобы это случилось в другое время — не в моё. — И мне бы тоже, да и всем, кто дожил до таких времён. Но выбирать не дано. Мы можем только решить, как распорядиться своим временем',
                         label: 'Сводка',
+                        children: [
+                        self::getTextSettingsDefinition(),
+                    ],
                     ),
                     new SettingDefinition(
                         key: 'text',
@@ -382,6 +392,9 @@ class BlockSettingsRegistry
                         public: true,
                         default: 'А быть может, каждый из вас уже начал — не заметив этого — тот единственный путь, который предназначен ему судьбой. В странные времена довелось мне жить! Мы веками разводили скот, пахали землю, строили дома, мастерили орудия, помогали гондорцам в битвах за Минас Тирит. Все это мы называли обычной человеческой жизнью, и нам казалось, что таким путем идет весь мир. Нас мало беспокоило, что происходит за пределами нашей страны. Об этом пелось в песнях, но мы забывали эти песни или пели их только детям, просто так, бездумно, по привычке. И вот эти песни напомнили о себе, отыскали нас в самом неожиданном месте и обрели видимое обличье!',
                         label: 'Тект',
+                        children: [
+                        self::getTextSettingsDefinition(),
+                    ],
                     ),
                     new SettingDefinition(
                         key: 'cols',
@@ -407,9 +420,7 @@ class BlockSettingsRegistry
                         allowed: ColorPalette::bgTokens(),
                         label: 'Цвет фона',
                     ),
-                    self::getTextDefinition('title-settings', 'Заголовок'),
-                    self::getTextDefinition('summary-settings', 'Сводка'),
-                    self::getTextDefinition('text-settings', 'Текст'),
+
                     self::getPaddingsDefinition(),
                     self::getMarginDefinition(),
                     self::getBordersDefinition(),
