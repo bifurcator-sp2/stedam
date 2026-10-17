@@ -8,6 +8,8 @@ enum FilePurpose: string
 case Avatar = 'avatar';
 case Cover = 'cover';
 case BackgroundImage = 'background-image';
+case Gallery1 = 'gallery1';
+case Gallery2 = 'gallery2';
 
     /**
      * Все значения для валидации.
@@ -28,6 +30,8 @@ case BackgroundImage = 'background-image';
         self::Avatar => 'Аватар',
         self::Cover => 'Обложка',
         self::BackgroundImage => 'Фоновое изображение',
+        self::Gallery1 => 'Галерея 1',
+        self::Gallery1 => 'Галерея 2',
     };
 }
 }

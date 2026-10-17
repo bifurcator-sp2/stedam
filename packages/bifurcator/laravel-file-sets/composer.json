@@ -1,0 +1,33 @@
+{
+    "name": "bifurcator/laravel-file-sets",
+    "description": "File sets and file containers for Laravel models",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/filesystem": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/support": "^10.0|^11.0|^12.0|^13.0"
+    },
+    "require-dev": {
+        "intervention/image": "^3.0"
+    },
+    "suggest": {
+        "intervention/image": "Нужен для генерации thumbnail'ов (^3.0)"
+    },
+    "autoload": {
+        "psr-4": {
+            "Bifurcator\\FileSets\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Bifurcator\\FileSets\\FileSetsServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

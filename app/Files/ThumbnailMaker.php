@@ -3,11 +3,13 @@
 
 namespace App\Files;
 
+use Bifurcator\FileSets\Contracts\FileStorage;
+use Bifurcator\FileSets\Contracts\ThumbnailMakerContract;
+use Bifurcator\FileSets\FileStorageKeys;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Laravel\Facades\Image;
 
-class ThumbnailMaker
+class ThumbnailMaker implements ThumbnailMakerContract
 {
     protected int $width = 300;
     protected int $quality = 85;
@@ -17,13 +19,14 @@ class ThumbnailMaker
      * Генерирует тумбнейл рядом с оригиналом.
      * Возвращает имя тумбнейла или null.
      *
-     * @param string $sourcePath путь относительно диска 'public'
+     * @param string $sourcePath путь относительно диска
+     * @param FileStorage|null $storage хранилище; если null — берётся TEMP
      */
-    public function make(string $sourcePath): ?string
+    public function make(string $sourcePath, ?FileStorage $storage = null): ?string
     {
-        $disk = Storage::disk('public');
+        $storage ??= app(FileStorageKeys::TEMP);
 
-        if (!$disk->exists($sourcePath)) {
+        if (!$storage->exists($sourcePath)) {
             Log::warning('[ThumbnailMaker] source missing', ['path' => $sourcePath]);
             return null;
         }
@@ -36,25 +39,21 @@ class ThumbnailMaker
         $thumbPath = "{$dir}/{$thumbName}";
 
         // Уже есть — не пересобираем
-        if ($disk->exists($thumbPath)) {
+        if ($storage->exists($thumbPath)) {
             return $thumbName;
         }
 
         try {
-            $image = Image::decode($disk->path($sourcePath))
+            // Читаем бинарник через storage — работает и на local, и на S3
+            $image = Image::decode($storage->get($sourcePath))
                 ->scale(width: $this->width);
 
             $encoded = (string) $image->encodeUsingFileExtension(
                 $ext,
-                quality: $this->quality
+                quality: $this->quality,
             );
 
-            $disk->put($thumbPath, $encoded);
-
-           /* Log::info('[ThumbnailMaker] done', [
-                'target' => $thumbPath,
-                'bytes'  => strlen($encoded),
-            ]);*/
+            $storage->put($thumbPath, $encoded);
 
             return $thumbName;
         } catch (\Throwable $e) {

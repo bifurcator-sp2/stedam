@@ -1,7 +1,9 @@
 <?php
+// app/Http/Controllers/Api/LessonController.php
 
 namespace App\Http\Controllers\Api;
 
+use App\Blocks\Settings\SettingsNormalizer;
 use App\Http\Resources\LessonBlockResource;
 use App\Http\Resources\LessonResource;
 use App\Models\Block;
@@ -10,7 +12,6 @@ use App\Models\LessonBlock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class LessonController
 {
@@ -61,16 +62,15 @@ class LessonController
                 'user_id'  => $user->id,
                 'block_id' => $prototype->id,
                 'settings' => $prototype->settings,
-                'images'   => null,
-                'files'    => null,
                 'order'    => $order,
             ]);
 
-            $this->copyPrototypeFiles($prototype, $block);
-
-            $block->images = $prototype->images;
-            $block->files  = $prototype->files;
-            $block->saveQuietly();
+            // Синхронизация FileSet (копирование/перенос файлов прототипа)
+            $this->syncFileSetsForLessonBlock(
+                $block,
+                $prototype->blockType?->default_settings ?? [],
+                $prototype->settings ?? [],
+            );
 
             return $block;
         });
@@ -94,14 +94,12 @@ class LessonController
             'saved'       => ['sometimes', 'boolean'],
             'published'   => ['sometimes', 'boolean'],
 
-            'blocks'               => ['sometimes', 'array'],
-            'blocks.*.id'          => ['required_with:blocks', 'integer', 'distinct'],
-            'blocks.*.settings'    => ['sometimes', 'nullable', 'array'],
-            'blocks.*.images'      => ['sometimes', 'nullable', 'array'],
-            'blocks.*.files'       => ['sometimes', 'nullable', 'array'],
+            'blocks'            => ['sometimes', 'array'],
+            'blocks.*.id'       => ['required_with:blocks', 'integer', 'distinct'],
+            'blocks.*.settings' => ['sometimes', 'nullable', 'array'],
         ]);
 
-        $result = DB::transaction(function () use ($lesson, $validated, $user) {
+        $result = DB::transaction(function () use ($lesson, &$validated, $user) {
             $lesson->fill(collect($validated)->only([
                 'title', 'description', 'locale', 'saved', 'published',
             ])->all());
@@ -137,8 +135,13 @@ class LessonController
     {
         $lesson->blocks()->update(['order' => DB::raw('`order` + 1000000')]);
 
-        $existing = $lesson->blocks()->get()->keyBy('id');
-        $keptIds  = [];
+        // Подгружаем сразу с block.blockType, чтобы не делать N+1
+        $existing = $lesson->blocks()
+            ->with('block.blockType')
+            ->get()
+            ->keyBy('id');
+
+        $keptIds = [];
 
         foreach ($blocks as $i => $data) {
             $id = $data['id'] ?? null;
@@ -150,17 +153,19 @@ class LessonController
             );
 
             $block = $existing->get($id);
+            $newSettings = $data['settings'] ?? null;
 
+            // 1. Синхронизируем (мутирует $newSettings по ссылке)
+            $code = $block->block?->blockType?->code;
+            if ($code && $newSettings !== null) {
+                $block->syncFileSetsFromSettings($newSettings, $code);
+            }
+
+            // 2. Сохраняем блок с уже обновленными настройками
             $block->fill([
-                'settings' => $data['settings'] ?? null,
+                'settings' => $newSettings,
                 'order'    => $i,
             ]);
-
-            $block->syncFilesFromRequest(
-                $data['images'] ?? null,
-                $data['files']  ?? null,
-            );
-
             $block->save();
 
             $keptIds[] = $block->id;
@@ -172,28 +177,26 @@ class LessonController
         }
     }
 
-    protected function copyPrototypeFiles(Block $prototype, LessonBlock $block): void
-    {
-        $disk = Storage::disk('public');
-
-        $srcDir = $prototype->storeDir();
-        $dstDir = $block->storeDir();
-
-        if (!$disk->exists($srcDir)) {
+    protected function syncFileSetsForLessonBlock(
+        LessonBlock $block,
+        array $schema,
+        array $flatSettings,
+    ): void {
+        if (empty($schema) || empty($flatSettings)) {
             return;
         }
 
-        $disk->makeDirectory($dstDir);
+        $fullTree = SettingsNormalizer::applyFlat($schema, $flatSettings);
 
-        foreach ($disk->files($srcDir) as $path) {
-            $filename = basename($path);
-
-            if ($filename === '.gitignore' || str_starts_with($filename, '.')) {
-                continue;
-            }
-
-            $disk->copy($path, "{$dstDir}/{$filename}");
+        if (empty($fullTree)) {
+            return;
         }
+
+        // Передается по ссылке, заменяет temp ссылки на store
+        $block->syncFileSetsFromSettings($fullTree);
+
+        // Сохраняем изменения, если они были
+        $block->update(['settings' => $fullTree]);
     }
 
     public function list(Request $request): JsonResponse

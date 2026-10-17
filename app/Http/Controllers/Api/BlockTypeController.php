@@ -128,8 +128,6 @@ class BlockTypeController extends Controller
                         'title'         => $t?->title,
                         'description'   => $t?->description,
                         'settings'      => $b->settings ?? [],
-                        'images'        => $b->storedImages(),
-                        'files'         => $b->storedPlainFiles(),
                     ];
                 })->values(),
             ];

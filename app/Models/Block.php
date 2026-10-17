@@ -1,31 +1,27 @@
 <?php
+// app/Models/Block.php
 
 namespace App\Models;
 
-use App\Traits\FilesContainer;
-use App\Traits\HasFileSets;
+use App\Enums\FilePurpose;
+use Bifurcator\FileSets\Concerns\HasFileSets;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Enums\FilePurpose;
 
 class Block extends Model
 {
-    use SoftDeletes, FilesContainer, HasFileSets;
+    use SoftDeletes, HasFileSets;
 
     protected $fillable = [
         'block_type_id',
         'user_id',
         'settings',
-        'images',
-        'files',
     ];
 
     protected $casts = [
         'settings' => 'array',
-        'images' => 'array',
-        'files'  => 'array',
     ];
 
     /**
@@ -36,6 +32,7 @@ class Block extends Model
     protected static array $filePurposes = [
         FilePurpose::Cover,
         FilePurpose::BackgroundImage,
+        FilePurpose::Gallery1,
     ];
 
     public function lessonBlocks(): HasMany
@@ -83,23 +80,14 @@ class Block extends Model
     }
 
     /**
-     * Процессоры, применяемые к перенесённым файлам.
-     * Каждый класс должен реализовать метод handle($model, array $filenames): void
-     */
-    protected array $fileProcessors = [
-        \App\Files\Processors\ThumbnailProcessor::class,
-    ];
-
-    /**
      * Правила для валидации на бэке и подсказок на фронте.
      */
     public static array $fileRules = [
-        'image_mimes'    => ['image/jpeg', 'image/png', 'image/webp'],
-        'file_mimes'     => ['application/pdf', 'application/zip'],
-        'max_images'     => 10,
-        'max_files'      => 10,
-        'max_size_kb'    => 10240,
-        'ratios'         => ['1x1', '1x2', '1x3', '1x4', '2x1', '3x1', '4x1'],
+        'image_mimes' => ['image/jpeg', 'image/png', 'image/webp'],
+        'file_mimes'  => ['application/pdf', 'application/zip'],
+        'max_images'  => 10,
+        'max_files'   => 10,
+        'max_size_kb' => 10240,
+        'ratios'      => ['1x1', '1x2', '1x3', '1x4', '2x1', '3x1', '4x1'],
     ];
-
 }

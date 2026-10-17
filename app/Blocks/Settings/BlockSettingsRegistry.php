@@ -242,7 +242,7 @@ class BlockSettingsRegistry
                     public: true,
                     type: SettingType::Image,
                     default: [],
-                    allowed: [FilePurpose::BackgroundImage, 1],
+                    params: ['purpose' => FilePurpose::BackgroundImage, 'count' => 1, 'display-images' => true],
                     label: 'Фоновое изображение',
                 ),
                 new SettingDefinition(
@@ -287,61 +287,71 @@ class BlockSettingsRegistry
                         label: 'Количество изображений',
                     ),
                     new SettingDefinition(
-                        key: 'columns',
-                        type: SettingType::Int,
-                        default: 1,
-                        label: 'Количество колонок',
+                        key: FilePurpose::Gallery1->value,
+                        public: true,
+                        type: SettingType::Image,
+                        default: [],
+                        params: ['purpose' => FilePurpose::Gallery1, 'count' => 'images.count', 'display-images' => false],
+                        label: 'Галерея',
+                        children: [
+                                new SettingDefinition(
+                                    key: 'columns',
+                                    type: SettingType::Int,
+                                    default: 1,
+                                    label: 'Количество колонок',
+                                ),
+                                new SettingDefinition(
+                                    key: 'distance',
+                                    type: SettingType::Int,
+                                    default: 1,
+                                    label: 'Расстояние',
+                                ),
+                                new SettingDefinition(
+                                    key: 'background-color',
+                                    type: SettingType::Color,
+                                    default: 'bg-default',
+                                    allowed: ColorPalette::bgTokens(),
+                                    label: 'Цвет фона',
+                                ),
+                                new SettingDefinition(
+                                    key: 'flex-direction',
+                                    type: SettingType::Select,
+                                    default: 'column',
+                                    allowed: ['column', 'row', 'masonry'],
+                                    label: 'Расположение изображений',
+                                ),
+                                new SettingDefinition(
+                                    key: 'image-size-strategy',
+                                    type: SettingType::Select,
+                                    default: 'fill',
+                                    allowed: ['fill', 'contain', 'cover', 'none', 'scale-down'],
+                                    label: 'Масштабирование изображений',
+                                ),
+                                new SettingDefinition(
+                                    key: 'image-height',
+                                    type: SettingType::Int,
+                                    default: 200,
+                                    label: 'Высота ряда',
+                                ),
+                                new SettingDefinition(
+                                    key: 'image-outline',
+                                    type: SettingType::Int,
+                                    default: 0,
+                                    label: 'Ширина линии',
+                                ),
+                                new SettingDefinition(
+                                    key: 'image-outline-color',
+                                    type: SettingType::Color,
+                                    default: 'border-default',
+                                    allowed: ColorPalette::borderTokens(),
+                                    label: 'Цвет линии',
+                                ),
+                                self::getBordersDefinition('image-border', 'Рамки изображений'),
+                                self::getPaddingsDefinition(),
+                                self::getMarginDefinition(),
+                                self::getBordersDefinition(),
+                            ],
                     ),
-                    new SettingDefinition(
-                        key: 'distance',
-                        type: SettingType::Int,
-                        default: 1,
-                        label: 'Расстояние',
-                    ),
-                    new SettingDefinition(
-                        key: 'background-color',
-                        type: SettingType::Color,
-                        default: 'bg-default',
-                        allowed: ColorPalette::bgTokens(),
-                        label: 'Цвет фона',
-                    ),
-                    new SettingDefinition(
-                        key: 'flex-direction',
-                        type: SettingType::Select,
-                        default: 'column',
-                        allowed: ['column', 'row', 'masonry'],
-                        label: 'Расположение изображений',
-                    ),
-                    new SettingDefinition(
-                        key: 'image-size-strategy',
-                        type: SettingType::Select,
-                        default: 'fill',
-                        allowed: ['fill', 'contain', 'cover', 'none', 'scale-down'],
-                        label: 'Масштабирование изображений',
-                    ),
-                    new SettingDefinition(
-                        key: 'image-height',
-                        type: SettingType::Int,
-                        default: 200,
-                        label: 'Высота ряда',
-                    ),
-                    new SettingDefinition(
-                        key: 'image-outline',
-                        type: SettingType::Int,
-                        default: 0,
-                        label: 'Ширина линии',
-                    ),
-                    new SettingDefinition(
-                        key: 'image-outline-color',
-                        type: SettingType::Color,
-                        default: 'border-default',
-                        allowed: ColorPalette::borderTokens(),
-                        label: 'Цвет линии',
-                    ),
-                    self::getBordersDefinition('image-border', 'Рамки изображений'),
-                    self::getPaddingsDefinition(),
-                    self::getMarginDefinition(),
-                    self::getBordersDefinition(),
                 ],
                 ),
 
@@ -408,157 +418,157 @@ class BlockSettingsRegistry
             ],
 
             'table' => [
-                new SettingDefinition(
-                    key: 'icon',
-                    type: SettingType::String,
-                    default: 'i-lucide-table',
-                ),
-                new SettingDefinition(
-                    key: 'rows',
-                    type: SettingType::Int,
-                    default: 3,
-                    label: 'Строк',
-                ),
-                new SettingDefinition(
-                    key: 'cols',
-                    type: SettingType::Int,
-                    default: 3,
-                    label: 'Столбцов',
-                ),
-                new SettingDefinition(
-                    key: 'border',
-                    type: SettingType::Bool,
-                    default: true,
-                    label: 'Границы',
-                ),
-            ],
+        new SettingDefinition(
+            key: 'icon',
+            type: SettingType::String,
+            default: 'i-lucide-table',
+        ),
+        new SettingDefinition(
+            key: 'rows',
+            type: SettingType::Int,
+            default: 3,
+            label: 'Строк',
+        ),
+        new SettingDefinition(
+            key: 'cols',
+            type: SettingType::Int,
+            default: 3,
+            label: 'Столбцов',
+        ),
+        new SettingDefinition(
+            key: 'border',
+            type: SettingType::Bool,
+            default: true,
+            label: 'Границы',
+        ),
+    ],
 
             'diagram' => [
-                new SettingDefinition(
-                    key: 'icon',
-                    type: SettingType::String,
-                    default: 'i-lucide-chart-column',
-                ),
-                new SettingDefinition(
-                    key: 'type',
-                    type: SettingType::Select,
-                    default: 'bar',
-                    allowed: ['bar', 'line', 'pie', 'doughnut'],
-                    label: 'Тип диаграммы',
-                ),
-                new SettingDefinition(
-                    key: 'height',
-                    type: SettingType::Int,
-                    default: 300,
-                    label: 'Высота',
-                ),
-                new SettingDefinition(
-                    key: 'show_legend',
-                    type: SettingType::Bool,
-                    default: true,
-                    label: 'Легенда',
-                ),
-            ],
+        new SettingDefinition(
+            key: 'icon',
+            type: SettingType::String,
+            default: 'i-lucide-chart-column',
+        ),
+        new SettingDefinition(
+            key: 'type',
+            type: SettingType::Select,
+            default: 'bar',
+            allowed: ['bar', 'line', 'pie', 'doughnut'],
+            label: 'Тип диаграммы',
+        ),
+        new SettingDefinition(
+            key: 'height',
+            type: SettingType::Int,
+            default: 300,
+            label: 'Высота',
+        ),
+        new SettingDefinition(
+            key: 'show_legend',
+            type: SettingType::Bool,
+            default: true,
+            label: 'Легенда',
+        ),
+    ],
 
             'cover' => [
-                new SettingDefinition(
-                    key: 'icon',
-                    type: SettingType::String,
-                    default: 'i-lucide-image',
-                ),
-                new SettingDefinition(
-                    key: 'bg_src',
-                    type: SettingType::String,
-                    default: '',
-                    label: 'Фоновое изображение',
-                ),
-                new SettingDefinition(
-                    key: 'title',
-                    type: SettingType::String,
-                    default: 'Заголовок',
-                    label: 'Заголовок',
-                ),
-                new SettingDefinition(
-                    key: 'subtitle',
-                    type: SettingType::String,
-                    default: '',
-                    label: 'Подзаголовок',
-                ),
-                new SettingDefinition(
-                    key: 'align',
-                    type: SettingType::Select,
-                    default: 'center',
-                    allowed: ['left', 'center', 'right'],
-                    label: 'Выравнивание',
-                ),
-                new SettingDefinition(
-                    key: 'height_vh',
-                    type: SettingType::Int,
-                    default: 100,
-                    label: 'Высота (vh)',
-                ),
-            ],
+        new SettingDefinition(
+            key: 'icon',
+            type: SettingType::String,
+            default: 'i-lucide-image',
+        ),
+        new SettingDefinition(
+            key: 'bg_src',
+            type: SettingType::String,
+            default: '',
+            label: 'Фоновое изображение',
+        ),
+        new SettingDefinition(
+            key: 'title',
+            type: SettingType::String,
+            default: 'Заголовок',
+            label: 'Заголовок',
+        ),
+        new SettingDefinition(
+            key: 'subtitle',
+            type: SettingType::String,
+            default: '',
+            label: 'Подзаголовок',
+        ),
+        new SettingDefinition(
+            key: 'align',
+            type: SettingType::Select,
+            default: 'center',
+            allowed: ['left', 'center', 'right'],
+            label: 'Выравнивание',
+        ),
+        new SettingDefinition(
+            key: 'height_vh',
+            type: SettingType::Int,
+            default: 100,
+            label: 'Высота (vh)',
+        ),
+    ],
 
             'index' => [
-                new SettingDefinition(
-                    key: 'icon',
-                    type: SettingType::String,
-                    default: 'i-lucide-list',
-                ),
-                new SettingDefinition(
-                    key: 'style',
-                    type: SettingType::Select,
-                    default: 'list',
-                    allowed: ['list', 'numbered', 'compact'],
-                    label: 'Стиль',
-                ),
-                new SettingDefinition(
-                    key: 'max_depth',
-                    type: SettingType::Int,
-                    default: 3,
-                    label: 'Макс. глубина',
-                ),
-                new SettingDefinition(
-                    key: 'sticky',
-                    type: SettingType::Bool,
-                    default: false,
-                    label: 'Прилипание',
-                ),
-            ],
+        new SettingDefinition(
+            key: 'icon',
+            type: SettingType::String,
+            default: 'i-lucide-list',
+        ),
+        new SettingDefinition(
+            key: 'style',
+            type: SettingType::Select,
+            default: 'list',
+            allowed: ['list', 'numbered', 'compact'],
+            label: 'Стиль',
+        ),
+        new SettingDefinition(
+            key: 'max_depth',
+            type: SettingType::Int,
+            default: 3,
+            label: 'Макс. глубина',
+        ),
+        new SettingDefinition(
+            key: 'sticky',
+            type: SettingType::Bool,
+            default: false,
+            label: 'Прилипание',
+        ),
+    ],
 
             'divider' => [
-                new SettingDefinition(
-                    key: 'icon',
-                    type: SettingType::String,
-                    default: 'i-lucide-minus',
-                ),
-                new SettingDefinition(
-                    key: 'style',
-                    type: SettingType::Select,
-                    default: 'solid',
-                    allowed: ['solid', 'dashed', 'dotted', 'double'],
-                    label: 'Стиль',
-                ),
-                new SettingDefinition(
-                    key: 'color',
-                    type: SettingType::Select,
-                    default: 'default',
-                    allowed: ['default', 'primary', 'muted', 'danger'],
-                    label: 'Цвет',
-                ),
-                new SettingDefinition(
-                    key: 'thickness',
-                    type: SettingType::Int,
-                    default: 1,
-                    label: 'Толщина (px)',
-                ),
-                new SettingDefinition(
-                    key: 'margin_y',
-                    type: SettingType::Int,
-                    default: 16,
-                    label: 'Отступ сверху/снизу',
-                ),
-            ],
+        new SettingDefinition(
+            key: 'icon',
+            type: SettingType::String,
+            default: 'i-lucide-minus',
+        ),
+        new SettingDefinition(
+            key: 'style',
+            type: SettingType::Select,
+            default: 'solid',
+            allowed: ['solid', 'dashed', 'dotted', 'double'],
+            label: 'Стиль',
+        ),
+        new SettingDefinition(
+            key: 'color',
+            type: SettingType::Select,
+            default: 'default',
+            allowed: ['default', 'primary', 'muted', 'danger'],
+            label: 'Цвет',
+        ),
+        new SettingDefinition(
+            key: 'thickness',
+            type: SettingType::Int,
+            default: 1,
+            label: 'Толщина (px)',
+        ),
+        new SettingDefinition(
+            key: 'margin_y',
+            type: SettingType::Int,
+            default: 16,
+            label: 'Отступ сверху/снизу',
+        ),
+    ],
         ];
     }
 
@@ -597,28 +607,6 @@ class BlockSettingsRegistry
         );
     }
 
-    /*public static function serializeDefinition(SettingDefinition $def): array
-    {
-        $node = [
-            'key' => $def->key,
-            'type' => $def->type->value,
-            'label' => $def->label,
-            'description' => $def->description,
-            'required' => $def->required,
-            'allowed' => $def->allowed,
-            'default' => $def->default,
-        ];
-
-        // Для контейнеров — children как есть (плоский список)
-        if ($def->isContainer()) {
-            $node['children'] = array_map(
-                fn(SettingDefinition $child) => self::serializeDefinition($child),
-                $def->children ?? [],
-            );
-        }
-
-        return $node;
-    }*/
 
     public static function serializeDefinition(SettingDefinition $def): array
     {
@@ -652,7 +640,9 @@ class BlockSettingsRegistry
             $node[$field] = $value;
         }
 
-        if ($def->isContainer()) {
+// children сериализуем не только для чистых контейнеров (Object/Array),
+// но и для узлов типа Image, у которых могут быть собственные стили.
+        if ($def->isContainer() || !empty($def->children)) {
             $node['children'] = array_map(
                 fn(SettingDefinition $child) => self::serializeDefinition($child),
                 $def->children ?? [],

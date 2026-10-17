@@ -13,8 +13,6 @@ class LessonBlockResource extends JsonResource
             'block_id'        => $this->block_id,
             'block_type_code' => $this->block?->blockType?->code,
             'settings'        => $this->settings,
-            'images'          => $this->storedImages(),
-            'files'           => $this->storedPlainFiles(),
             'order'           => $this->order,
         ];
     }

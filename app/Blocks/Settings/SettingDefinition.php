@@ -15,6 +15,7 @@ class SettingDefinition
         public readonly ?string $description = null,
         public readonly bool $required = false,
         public readonly ?array $children = null,
+        public readonly ?array $params = null,
     ) {}
 
     public function isContainer(): bool

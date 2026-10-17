@@ -3,39 +3,48 @@
 
 namespace App\Files\Processors;
 
-use App\Files\ThumbnailMaker;
-use Illuminate\Support\Facades\Storage;
+use Bifurcator\FileSets\Contracts\FileStorage;
+use Bifurcator\FileSets\Contracts\ThumbnailMakerContract; // <-- ИНТЕРФЕЙС
+use Bifurcator\FileSets\FileStorageKeys;
 
 class ThumbnailProcessor
 {
     public function __construct(
-        protected ThumbnailMaker $thumbs,
+        protected ThumbnailMakerContract $thumbs, // <-- ИНТЕРФЕЙС
     ) {}
 
+    /**
+     * @param mixed $model Модель с трейтом FilesContainer (например, FileSet)
+     * @param array $filenames Имена файлов (оригиналов)
+     */
     public function handle($model, array $filenames): void
     {
         if (empty($filenames)) {
             return;
         }
 
+        $storage = app(FileStorageKeys::STORE);
+
+        // ВАЖНО: берем storeDir() у самой модели (FileSet),
+        // так как файлы лежат в папке этого FileSet, а не родительского блока
         $storeDir = $model->storeDir();
-        $disk = Storage::disk('public');
+
         $images = $model->imageList();
         $changed = false;
 
         foreach ($filenames as $filename) {
             $path = "{$storeDir}/{$filename}";
 
-            if (!$disk->exists($path)) {
+            if (!$storage->exists($path)) {
                 continue;
             }
 
-            if (!$this->isImage($path)) {
+            if (!$this->isImage($path, $storage)) {
                 continue;
             }
 
-            // Генерим (или переиспользуем) тумб
-            $thumbName = $this->thumbs->make($path);
+            // Генерим тумб
+            $thumbName = $this->thumbs->make($path, $storage);
             if (!$thumbName) {
                 continue;
             }
@@ -56,9 +65,9 @@ class ThumbnailProcessor
         }
     }
 
-    protected function isImage(string $path): bool
+    protected function isImage(string $path, FileStorage $storage): bool
     {
-        $mime = Storage::disk('public')->mimeType($path) ?? '';
+        $mime = $storage->mimeType($path) ?? '';
         return str_starts_with($mime, 'image/');
     }
 }

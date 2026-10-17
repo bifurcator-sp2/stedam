@@ -1,12 +1,13 @@
 <?php
+// app/Providers/AppServiceProvider.php
 
 namespace App\Providers;
 
 use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -15,7 +16,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Биндинги FileUrlResolver и FileStorage регистрирует
+        // Bifurcator\FileSets\FileSetsServiceProvider (пакет).
+        // Здесь ничего не нужно.
     }
 
     /**
@@ -26,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
             return config('app.frontend_url')."/password-reset/$token?email={$notifiable->getEmailForPasswordReset()}";
         });
+
         RateLimiter::for('files-upload', function (Request $request) {
             return Limit::perMinute(30)
                 ->by(optional($request->user())->id ?: $request->ip());

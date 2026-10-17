@@ -1,17 +1,17 @@
 <?php
+// app/Models/LessonBlock.php
 
 namespace App\Models;
 
 use App\Enums\FilePurpose;
-use App\Traits\FilesContainer;
-use App\Traits\HasFileSets;
+use Bifurcator\FileSets\Concerns\HasFileSets;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LessonBlock extends Model
 {
-    use SoftDeletes, FilesContainer, HasFileSets;
+    use SoftDeletes, HasFileSets;
 
     protected $fillable = [
         'user_id',
@@ -19,24 +19,17 @@ class LessonBlock extends Model
         'block_id',
         'order',
         'settings',
-        'files',
-        'images',
     ];
 
     protected $casts = [
         'settings' => 'array',
-        'files'    => 'array',
-        'images'   => 'array',
         'order'    => 'integer',
     ];
 
     protected static array $filePurposes = [
         FilePurpose::Cover,
         FilePurpose::BackgroundImage,
-    ];
-
-    protected array $fileProcessors = [
-        \App\Files\Processors\ThumbnailProcessor::class,
+        FilePurpose::Gallery1,
     ];
 
     public static array $fileRules = [

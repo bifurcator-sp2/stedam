@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0d7b26cb50b034be4199a5d54743c37f",
+    "content-hash": "770f592fd26ef9e6c168acc2e763e323",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -147,6 +147,49 @@
                 "source": "https://github.com/asignua/filament-json-yaml-editor"
             },
             "time": "2026-10-05T09:33:24+00:00"
+        },
+        {
+            "name": "bifurcator/laravel-file-sets",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "packages/bifurcator/laravel-file-sets",
+                "reference": "d68d725d408b8565bb37c2bdf70040dc8fe42d88"
+            },
+            "require": {
+                "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/filesystem": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "intervention/image": "^3.0"
+            },
+            "suggest": {
+                "intervention/image": "Нужен для генерации thumbnail'ов (^3.0)"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Bifurcator\\FileSets\\FileSetsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Bifurcator\\FileSets\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "File sets and file containers for Laravel models",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "blade-ui-kit/blade-heroicons",
@@ -11184,7 +11227,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "bifurcator/laravel-file-sets": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

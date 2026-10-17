@@ -4,36 +4,15 @@
 namespace App\Models;
 
 use App\Enums\FilePurpose;
-use App\Traits\FilesContainer;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Bifurcator\FileSets\Models\FileSet as BaseFileSet;
 
-class FileSet extends Model
+class FileSet extends BaseFileSet
 {
-    use SoftDeletes, FilesContainer;
-
-    protected $fillable = [
-        'model',
-        'model_id',
-        'purpose',
-        'images',
-        'files',
-    ];
-
     protected $casts = [
         'images'  => 'array',
         'files'   => 'array',
-        'purpose' => FilePurpose::class,   // ← авто-каст в enum
+        'purpose' => FilePurpose::class,
     ];
-
-    /**
-     * Полиморфная связь с владельцем.
-     */
-    public function owner(): MorphTo
-    {
-        return $this->morphTo(null, 'model', 'model_id');
-    }
 
     /**
      * Процессоры.
