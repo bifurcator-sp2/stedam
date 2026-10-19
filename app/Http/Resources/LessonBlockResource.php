@@ -23,93 +23,60 @@ class LessonBlockResource extends JsonResource
 
     public static function fillPublicDefaults($settings, $schema)
     {
-        // ---- нормализуем схему ----
-        if (is_object($schema)) {
-            $wasObject = true;
-            $schema    = (array) $schema;
-        } elseif (is_array($schema)) {
-            $wasObject = false;
-        } else {
-            // Скалярная схема — это шаблон-значение. Побеждает settings (данные пользователя).
-            return $settings ?? $schema;
+        // 1. Запоминаем, был ли объект, чтобы вернуть правильный тип в конце
+        $wasObject = is_object($schema);
+
+        // 2. Приводим к массивам для удобной работы
+        // (null или строка превратятся в пустой массив)
+        $schema = (array) $schema;
+        $settings = (array) $settings;
+
+        // Если схема пустая (например, "default": []), то это чистый слот для данных.
+        // Просто возвращаем то, что пришло в настройках, сохраняя тип.
+        if (empty($schema)) {
+            return $wasObject ? (object) $settings : $settings;
         }
 
-        // ---- FAST PATH 1: пустая схема = слот данных ("default": []) ----
-        // Здесь нечего форсить (public у элементов данных не участвует в схеме),
-        // поэтому просто возвращаем settings. COW → копий нет вообще.
-        if ($schema === []) {
-            if ($settings === null) {
-                return $wasObject ? (object) [] : [];
-            }
-            return $settings;
-        }
-
-        // ---- нормализуем settings ----
-        if (is_object($settings)) {
-            $settings = (array) $settings;
-        } elseif (!is_array($settings)) {
-            $settings = [];
-        }
-
-        // public всегда берём из схемы; из settings выкидываем, только если он там есть
-        if (array_key_exists('public', $settings)) {
-            unset($settings['public']);
-        }
-
-        // ---- FAST PATH 2: settings пустой → только форсим public по схеме ----
-        if ($settings === []) {
-            return self::forcePublic($schema, $wasObject);
-        }
-
-        // ---- общий случай ----
         $result = [];
+
+        // 3. Идем по ключам СХЕМЫ
         foreach ($schema as $key => $schemaVal) {
             if ($key === 'public') {
+                continue; // Обработаем в самом конце
+            }
+
+            // --- ГЛАВНОЕ ПРАВИЛО ---
+            // Если ключ называется 'default', мы НЕ крутим его вглубь.
+            // Мы просто берем значение из настроек. Если его там нет — оставляем из схемы.
+            if ($key === 'default') {
+                $result['default'] = array_key_exists('default', $settings) ? $settings['default'] : $schemaVal;
                 continue;
             }
 
+            // --- ДЛЯ ВСЕХ ОСТАЛЬНЫХ КЛЮЧЕЙ ---
             $hasSetting = array_key_exists($key, $settings);
 
             if (is_array($schemaVal) || is_object($schemaVal)) {
+                // Если это вложенный массив/объект — идем в рекурсию
                 $result[$key] = self::fillPublicDefaults(
                     $hasSetting ? $settings[$key] : null,
                     $schemaVal
                 );
             } else {
-                // Скалярный шаблон — данные из settings имеют приоритет
+                // Если это скаляр (строка, число, bool) — берем из настроек, иначе из схемы
                 $result[$key] = $hasSetting ? $settings[$key] : $schemaVal;
             }
         }
 
+        // 4. Возвращаем 'public' на место, если он был в схеме
         if (array_key_exists('public', $schema)) {
+            // Принудительно делаем true, если в схеме true
             $result['public'] = $schema['public'] ? true : $schema['public'];
         }
 
         return $wasObject ? (object) $result : $result;
     }
 
-    private static function forcePublic(array $schema, bool $wasObject): array|object
-    {
-        if ($schema === []) {
-            return $wasObject ? (object) [] : [];
-        }
-        $result = [];
-        foreach ($schema as $key => $val) {
-            if ($key === 'public') {
-                continue;
-            }
-            if (is_object($val)) {
-                $result[$key] = self::forcePublic((array) $val, true);
-            } elseif (is_array($val)) {
-                $result[$key] = self::forcePublic($val, false);
-            } else {
-                $result[$key] = $val;
-            }
-        }
-        if (array_key_exists('public', $schema)) {
-            $result['public'] = $schema['public'] ? true : $schema['public'];
-        }
-        return $wasObject ? (object) $result : $result;
-    }
+
 
 }
