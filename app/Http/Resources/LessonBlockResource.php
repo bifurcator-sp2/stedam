@@ -4,125 +4,112 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Log;
 
 class LessonBlockResource extends JsonResource
 {
     public function toArray($request): array
     {
-        $settings = $this->stripPublicKeys($this->settings ?? []);
-        $settings = $this->restorePublicFlags(
-            $settings,
-            $this->block?->settings ?? [],
-        );
 
         return [
             'id'              => $this->id,
             'block_id'        => $this->block_id,
             'block_type_code' => $this->block?->blockType?->code,
-            'settings'        => $settings,
+            'settings'        => self::fillPublicDefaults($this->settings ?? [], $this->block->settings??[]),
             'order'           => $this->order,
         ];
+
     }
 
-    /**
-     * Рекурсивно удаляет все ключи `public` из дерева настроек
-     * (независимо от значения и уровня вложенности).
-     */
-    protected function stripPublicKeys(array $settings): array
+    public static function fillPublicDefaults($settings, $schema)
     {
-        $result = [];
+        // ---- нормализуем схему ----
+        if (is_object($schema)) {
+            $wasObject = true;
+            $schema    = (array) $schema;
+        } elseif (is_array($schema)) {
+            $wasObject = false;
+        } else {
+            // Скалярная схема — это шаблон-значение. Побеждает settings (данные пользователя).
+            return $settings ?? $schema;
+        }
 
-        foreach ($settings as $key => $value) {
+        // ---- FAST PATH 1: пустая схема = слот данных ("default": []) ----
+        // Здесь нечего форсить (public у элементов данных не участвует в схеме),
+        // поэтому просто возвращаем settings. COW → копий нет вообще.
+        if ($schema === []) {
+            if ($settings === null) {
+                return $wasObject ? (object) [] : [];
+            }
+            return $settings;
+        }
+
+        // ---- нормализуем settings ----
+        if (is_object($settings)) {
+            $settings = (array) $settings;
+        } elseif (!is_array($settings)) {
+            $settings = [];
+        }
+
+        // public всегда берём из схемы; из settings выкидываем, только если он там есть
+        if (array_key_exists('public', $settings)) {
+            unset($settings['public']);
+        }
+
+        // ---- FAST PATH 2: settings пустой → только форсим public по схеме ----
+        if ($settings === []) {
+            return self::forcePublic($schema, $wasObject);
+        }
+
+        // ---- общий случай ----
+        $result = [];
+        foreach ($schema as $key => $schemaVal) {
             if ($key === 'public') {
                 continue;
             }
 
-            $result[$key] = is_array($value)
-                ? $this->stripPublicKeys($value)
-                : $value;
+            $hasSetting = array_key_exists($key, $settings);
+
+            if (is_array($schemaVal) || is_object($schemaVal)) {
+                $result[$key] = self::fillPublicDefaults(
+                    $hasSetting ? $settings[$key] : null,
+                    $schemaVal
+                );
+            } else {
+                // Скалярный шаблон — данные из settings имеют приоритет
+                $result[$key] = $hasSetting ? $settings[$key] : $schemaVal;
+            }
         }
 
-        return $result;
+        if (array_key_exists('public', $schema)) {
+            $result['public'] = $schema['public'] ? true : $schema['public'];
+        }
+
+        return $wasObject ? (object) $result : $result;
     }
 
-    /**
-     * Рекурсивно обходит ВСЁ дерево настроек и возвращает `public: true`
-     * в тех узлах, где в аналогичном месте эталона ($this->block->settings)
-     * стояло `public === true`.
-     *
-     * Сопоставление узлов:
-     *  - в списке узлов схемы (элемент с полем `key`) — по `key`;
-     *  - в ассоциативном массиве — по тому же строковому ключу;
-     *  - в прочих списках (например, `default` у Image) — по индексу.
-     */
-    protected function restorePublicFlags(array $settings, array $reference): array
+    private static function forcePublic(array $schema, bool $wasObject): array|object
     {
+        if ($schema === []) {
+            return $wasObject ? (object) [] : [];
+        }
         $result = [];
-
-        foreach ($settings as $key => $value) {
-            if (!is_array($value)) {
-                $result[$key] = $value;
+        foreach ($schema as $key => $val) {
+            if ($key === 'public') {
                 continue;
             }
-
-            $refNode = $this->findReferenceNode($value, $key, $reference);
-
-            // Рекурсия по всем вложенным массивам, а не только по children
-            $node = $this->restorePublicFlags(
-                $value,
-                is_array($refNode) ? $refNode : [],
-            );
-
-            // Восстанавливаем public: true, если в эталоне на этом месте он был.
-            // Списки (чисто числовые массивы) не трогаем — иначе сломается структура.
-            if (
-                is_array($refNode)
-                && ($refNode['public'] ?? false) === true
-                && !array_is_list($node)
-            ) {
-                $node['public'] = true;
+            if (is_object($val)) {
+                $result[$key] = self::forcePublic((array) $val, true);
+            } elseif (is_array($val)) {
+                $result[$key] = self::forcePublic($val, false);
+            } else {
+                $result[$key] = $val;
             }
-
-            $result[$key] = $node;
         }
-
-        return $result;
+        if (array_key_exists('public', $schema)) {
+            $result['public'] = $schema['public'] ? true : $schema['public'];
+        }
+        return $wasObject ? (object) $result : $result;
     }
 
-    /**
-     * Ищет соответствующий узел в эталоне.
-     *
-     * @param mixed      $value     Текущее значение из настроек экземпляра.
-     * @param int|string $key       Ключ, под которым $value лежит у родителя.
-     * @param array      $reference Эталонный массив того же уровня.
-     */
-    protected function findReferenceNode(mixed $value, int|string $key, array $reference): ?array
-    {
-        // Эталон — список (schema-узлы, children, default-массивы и т.п.)
-        if (array_is_list($reference)) {
-            // Узел схемы: у него есть строковый `key` — матчим по нему
-            if (isset($value['key']) && is_string($value['key'])) {
-                foreach ($reference as $refItem) {
-                    if (is_array($refItem) && ($refItem['key'] ?? null) === $value['key']) {
-                        return $refItem;
-                    }
-                }
-                return null;
-            }
-
-            // Обычный список — по индексу
-            if (is_int($key) && isset($reference[$key]) && is_array($reference[$key])) {
-                return $reference[$key];
-            }
-
-            return null;
-        }
-
-        // Эталон — ассоциативный массив: матчим по тому же ключу
-        if (isset($reference[$key]) && is_array($reference[$key])) {
-            return $reference[$key];
-        }
-
-        return null;
-    }
 }

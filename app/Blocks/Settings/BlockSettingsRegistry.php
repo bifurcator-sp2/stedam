@@ -91,25 +91,25 @@ class BlockSettingsRegistry
             new SettingDefinition(
                 key: 'left',
                 type: SettingType::Int,
-                default: 1,
+                default: 0,
                 label: 'Слева',
             ),
             new SettingDefinition(
                 key: 'right',
                 type: SettingType::Int,
-                default: 1,
+                default: 0,
                 label: 'Справа',
             ),
             new SettingDefinition(
                 key: 'top',
                 type: SettingType::Int,
-                default: 1,
+                default: 0,
                 label: 'Сверху',
             ),
             new SettingDefinition(
                 key: 'bottom',
                 type: SettingType::Int,
-                default: 1,
+                default: 0,
                 label: 'Снизу',
             ),
         ],
@@ -181,25 +181,25 @@ class BlockSettingsRegistry
             new SettingDefinition(
                 key: 'left',
                 type: SettingType::Int,
-                default: 1,
+                default: 0,
                 label: 'Слева',
             ),
             new SettingDefinition(
                 key: 'right',
                 type: SettingType::Int,
-                default: 1,
+                default: 0,
                 label: 'Справа',
             ),
             new SettingDefinition(
                 key: 'top',
                 type: SettingType::Int,
-                default: 1,
+                default: 0,
                 label: 'Сверху',
             ),
             new SettingDefinition(
                 key: 'bottom',
                 type: SettingType::Int,
-                default: 1,
+                default: 0,
                 label: 'Снизу',
             ),
         ],
@@ -247,7 +247,7 @@ class BlockSettingsRegistry
             new SettingDefinition(
                 key: 'distance',
                 type: SettingType::Int,
-                default: 1,
+                default: 0,
                 label: 'Расстояние',
             ),
             new SettingDefinition(
