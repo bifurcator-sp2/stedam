@@ -31,7 +31,7 @@ case Gallery2 = 'gallery2';
         self::Cover => 'Обложка',
         self::BackgroundImage => 'Фоновое изображение',
         self::Gallery1 => 'Галерея 1',
-        self::Gallery1 => 'Галерея 2',
+        self::Gallery2 => 'Галерея 2',
     };
 }
 }

@@ -30,6 +30,7 @@ class LessonBlock extends Model
         FilePurpose::Cover,
         FilePurpose::BackgroundImage,
         FilePurpose::Gallery1,
+        FilePurpose::Gallery2,
     ];
 
     public static array $fileRules = [

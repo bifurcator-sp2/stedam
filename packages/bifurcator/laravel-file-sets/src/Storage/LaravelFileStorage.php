@@ -7,21 +7,11 @@ use Bifurcator\FileSets\Contracts\FileStorage;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * Реализация FileStorage поверх Laravel Storage.
- *
- * Ничего не знает про конкретный диск — работает с тем,
- * чьё имя передано в конструктор.
- */
 class LaravelFileStorage implements FileStorage
 {
     public function __construct(
         protected string $disk,
     ) {}
-
-    // ============================================================
-    // Служебное
-    // ============================================================
 
     public function diskName(): string
     {

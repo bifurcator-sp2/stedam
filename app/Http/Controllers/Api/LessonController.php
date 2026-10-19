@@ -3,7 +3,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Blocks\Settings\SettingsNormalizer;
 use App\Http\Resources\LessonBlockResource;
 use App\Http\Resources\LessonResource;
 use App\Models\Block;
@@ -12,6 +11,7 @@ use App\Models\LessonBlock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class LessonController
 {
@@ -58,19 +58,33 @@ class LessonController
                     ->update(['order' => DB::raw('`order` + 1')]);
             }
 
+            // Сохраняем ПУСТОЙ settings (diff), так как он наследует всё от прототипа
             $block = $lesson->blocks()->create([
                 'user_id'  => $user->id,
                 'block_id' => $prototype->id,
-                'settings' => $prototype->settings,
+                'settings' => [],
                 'order'    => $order,
             ]);
 
-            // Синхронизация FileSet (копирование/перенос файлов прототипа)
-            $this->syncFileSetsForLessonBlock(
-                $block,
-                $prototype->blockType?->default_settings ?? [],
-                $prototype->settings ?? [],
-            );
+            // Синхронизируем FileSets из прототипа и физически копируем файлы
+            if (!empty($prototype->settings)) {
+                $settings = $prototype->settings;
+                $code = $prototype->blockType?->code;
+
+                // 1. Подтягиваем temp-файлы (если были) и обновляем реестр
+                $block->syncFileSetsFromSettings($settings, $code);
+
+                // 2. Физически копируем store-файлы из FileSet'ов прототипа
+                //    в FileSet'ы урока и заменяем URL в $settings на новые
+                $settings = $block->cloneFileSetsFromModel(
+                    $prototype,
+                    $settings,
+                    $code,
+                );
+
+                // 3. Сохраняем итоговые настройки (с URL файлов урока)
+                $block->update(['settings' => $settings]);
+            }
 
             return $block;
         });
@@ -127,7 +141,7 @@ class LessonController
         }
 
         $lesson->load(['blocks.block.blockType']);
-
+        //Log::info((new LessonResource($lesson))->toJson());
         return response()->json(new LessonResource($lesson));
     }
 
@@ -135,7 +149,6 @@ class LessonController
     {
         $lesson->blocks()->update(['order' => DB::raw('`order` + 1000000')]);
 
-        // Подгружаем сразу с block.blockType, чтобы не делать N+1
         $existing = $lesson->blocks()
             ->with('block.blockType')
             ->get()
@@ -175,28 +188,6 @@ class LessonController
         foreach ($toDelete as $b) {
             $b->delete();
         }
-    }
-
-    protected function syncFileSetsForLessonBlock(
-        LessonBlock $block,
-        array $schema,
-        array $flatSettings,
-    ): void {
-        if (empty($schema) || empty($flatSettings)) {
-            return;
-        }
-
-        $fullTree = SettingsNormalizer::applyFlat($schema, $flatSettings);
-
-        if (empty($fullTree)) {
-            return;
-        }
-
-        // Передается по ссылке, заменяет temp ссылки на store
-        $block->syncFileSetsFromSettings($fullTree);
-
-        // Сохраняем изменения, если они были
-        $block->update(['settings' => $fullTree]);
     }
 
     public function list(Request $request): JsonResponse

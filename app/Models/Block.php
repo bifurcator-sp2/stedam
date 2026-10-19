@@ -33,6 +33,7 @@ class Block extends Model
         FilePurpose::Cover,
         FilePurpose::BackgroundImage,
         FilePurpose::Gallery1,
+        FilePurpose::Gallery2,
     ];
 
     public function lessonBlocks(): HasMany

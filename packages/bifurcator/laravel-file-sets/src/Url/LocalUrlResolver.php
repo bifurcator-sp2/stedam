@@ -9,24 +9,42 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Резолвер URL для локальных дисков.
  *
- * temp- и store-диски могут быть разными (например, temp = public,
- * store = public), но оба локальные и публичные.
+ * Возвращает ОТНОСИТЕЛЬНЫЕ пути ("/storage/...") — их можно сохранять
+ * в settings и переносить проект между доменами.
  *
- * Использует обычный Storage::url() для обоих дисков.
+ * Браузер резолвит такие URL против origin текущей страницы.
  */
 class LocalUrlResolver implements FileUrlResolver
 {
     public function tempUrl(string $path): string
     {
-        return Storage::disk(
-            config('file-sets.temp_disk', 'public')
-        )->url($path);
+        return $this->relative(
+            Storage::disk(config('file-sets.temp_disk', 'public'))->url($path)
+        );
     }
 
     public function storeUrl(string $path): string
     {
-        return Storage::disk(
-            config('file-sets.store_disk', 'public')
-        )->url($path);
+        return $this->relative(
+            Storage::disk(config('file-sets.store_disk', 'public'))->url($path)
+        );
+    }
+
+    /**
+     * Срезает origin: "http://host/storage/x.jpg" → "/storage/x.jpg".
+     * Если URL уже относительный — возвращает как есть.
+     */
+    private function relative(string $url): string
+    {
+        $parts = parse_url($url);
+        if (empty($parts['host'])) {
+            return $url;
+        }
+
+        $path = $parts['path'] ?? '/';
+        if (isset($parts['query'])) {
+            $path .= '?' . $parts['query'];
+        }
+        return $path;
     }
 }

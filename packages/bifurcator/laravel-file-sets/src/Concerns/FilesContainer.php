@@ -54,10 +54,6 @@ trait FilesContainer
 
     /**
      * Переносит файл между хранилищами.
-     *
-     * Если диски совпадают — использует быстрый move().
-     * Если диски разные — копирует через поток (readStream → writeStream)
-     * и удаляет исходник.
      */
     protected function transferFile(
         FileStorage $from,
@@ -66,12 +62,10 @@ trait FilesContainer
         string $toPath,
     ): void {
         if ($from->diskName() === $to->diskName()) {
-            // Один диск — быстрый move
             $from->move($fromPath, $toPath);
             return;
         }
 
-        // Разные диски — потоковая передача
         $stream = $from->readStream($fromPath);
         if ($stream === null) {
             throw new \RuntimeException(
@@ -106,7 +100,6 @@ trait FilesContainer
     public function storeDir(): string
     {
         if (!$this->getKey()) {
-            // Новая модель — папка ещё не нужна, но путь должен быть валидным
             return "models/{$this->getTable()}/_new";
         }
 
@@ -514,10 +507,6 @@ trait FilesContainer
             "temp/users/{$userId}/models/{$modelName}/0",
         ]);
 
-        // ============================================================
-        // 1. Считаем оригиналы в temp (thumb не считаем)
-        // ============================================================
-
         $tempImages = [];
         $tempFiles  = [];
 
@@ -541,10 +530,6 @@ trait FilesContainer
             }
         }
 
-        // ============================================================
-        // 2. Проверка лимитов ДО переноса
-        // ============================================================
-
         $totalImages = count($images) + count($tempImages);
         if ($totalImages > $maxImages) {
             throw new FileLimitExceededException(
@@ -562,10 +547,6 @@ trait FilesContainer
                 $totalFiles,
             );
         }
-
-        // ============================================================
-        // 3. Перенос temp → store
-        // ============================================================
 
         $movedImages = [];
         $movedFiles  = [];
@@ -587,7 +568,6 @@ trait FilesContainer
                 );
 
                 if ($isThumb) {
-                    // Тумбы не попадают в реестр — они привязаны к оригиналам
                     continue;
                 }
 
@@ -600,10 +580,6 @@ trait FilesContainer
 
             $tempStorage->deleteDirectory($tempDir);
         }
-
-        // ============================================================
-        // 4. Обновление реестра в БД
-        // ============================================================
 
         if ($movedImages || $movedFiles) {
             foreach ($movedImages as $name) {
@@ -628,10 +604,6 @@ trait FilesContainer
             $this->saveQuietly();
         }
 
-        // ============================================================
-        // 5. Fallback-обработка тумбов
-        // ============================================================
-
         if ($movedImages) {
             $needProcessing = [];
             foreach ($movedImages as $name) {
@@ -644,10 +616,6 @@ trait FilesContainer
             }
         }
 
-        // ============================================================
-        // 6. Прунинг сирот
-        // ============================================================
-
         if ($movedImages || $movedFiles) {
             $this->pruneOrphans();
         }
@@ -657,15 +625,6 @@ trait FilesContainer
      *  СИНХРОНИЗАЦИЯ ПО ЗАПРОСУ С ФРОНТА
      * ============================================================ */
 
-    /**
-     * Синхронизирует файлы модели с тем, что пришло с фронта.
-     *
-     * Порядок:
-     *  1. moveTempToStore — переносит temp → store, актуализирует реестр, прунит сирот.
-     *  2. Удаляем из реестра то, чего нет в payload.
-     *  3. Применяем title из payload.
-     *  4. Переупорядочиваем реестр по порядку из payload.
-     */
     public function syncFilesFromRequest(?array $images, ?array $files): void
     {
         // 1. Перенос temp → store (внутри проверяет лимиты)
@@ -694,22 +653,30 @@ trait FilesContainer
         // 3. Удаляем из реестра то, чего нет в payload
         if ($images !== null) {
             $incoming = $this->extractNamesFromUrls($images);
+            $existing = $this->imageList();
 
-            foreach ($this->imageList() as $img) {
-                $original = $img['original'] ?? null;
-                if ($original && !isset($incoming[$original])) {
-                    $this->deleteStoredImageByName($original);
+            // Если реестр пуст — удалять нечего (файлы могут принадлежать
+            // прототипу; их скопирует cloneFileSetsFromModel).
+            if (!empty($existing)) {
+                foreach ($existing as $img) {
+                    $original = $img['original'] ?? null;
+                    if ($original && !isset($incoming[$original])) {
+                        $this->deleteStoredImageByName($original);
+                    }
                 }
             }
         }
 
         if ($files !== null) {
             $incoming = $this->extractNamesFromUrls($files);
+            $existing = $this->fileList();
 
-            foreach ($this->fileList() as $f) {
-                $name = $f['name'] ?? null;
-                if ($name && !isset($incoming[$name])) {
-                    $this->deleteStoredFileByName($name);
+            if (!empty($existing)) {
+                foreach ($existing as $f) {
+                    $name = $f['name'] ?? null;
+                    if ($name && !isset($incoming[$name])) {
+                        $this->deleteStoredFileByName($name);
+                    }
                 }
             }
         }
@@ -726,12 +693,6 @@ trait FilesContainer
         }
     }
 
-    /**
-     * Собирает множество basename'ов из массива URL'ов.
-     *
-     * @param array $items [['url' => '...', ...], ...]
-     * @return array<string, true>
-     */
     protected function extractNamesFromUrls(array $items): array
     {
         $names = [];
@@ -749,9 +710,6 @@ trait FilesContainer
         return $names;
     }
 
-    /**
-     * Применяет title из пришедших данных к реестру.
-     */
     protected function applyTitlesFromRequest(?array $images, ?array $files): void
     {
         $urlResolver = $this->urlResolver();
@@ -804,9 +762,6 @@ trait FilesContainer
         }
     }
 
-    /**
-     * @return array<string, string|null> [url => title]
-     */
     protected function extractTitlesByUrl(array $items): array
     {
         $result = [];
@@ -818,13 +773,15 @@ trait FilesContainer
         return $result;
     }
 
-    /**
-     * Переупорядочивает $this->images по порядку из payload.
-     * Элементы, которых нет в payload, уже удалены на шаге 2.
-     */
     protected function reorderImagesByPayload(array $incoming): void
     {
         $current = collect($this->imageList())->keyBy('original');
+
+        // Реестр пуст — нечего сортировать, не трогаем (файлы могут
+        // принадлежать прототипу; их скопирует cloneFileSetsFromModel).
+        if ($current->isEmpty()) {
+            return;
+        }
 
         $ordered = [];
         foreach ($incoming as $item) {
@@ -841,12 +798,13 @@ trait FilesContainer
         $this->saveQuietly();
     }
 
-    /**
-     * Переупорядочивает $this->files по порядку из payload.
-     */
     protected function reorderFilesByPayload(array $incoming): void
     {
         $current = collect($this->fileList())->keyBy('name');
+
+        if ($current->isEmpty()) {
+            return;
+        }
 
         $ordered = [];
         foreach ($incoming as $item) {
@@ -876,9 +834,6 @@ trait FilesContainer
         $this->tempStorage()->deleteDirectory($this->tempDir());
     }
 
-    /**
-     * Удаляет изображение по URL.
-     */
     public function deleteStoredImage(string $url): void
     {
         $name = basename(parse_url($url, PHP_URL_PATH) ?: $url);
@@ -887,9 +842,6 @@ trait FilesContainer
         }
     }
 
-    /**
-     * Удаляет изображение по имени оригинала.
-     */
     public function deleteStoredImageByName(string $original): void
     {
         $storage = $this->storeStorage();
@@ -913,9 +865,6 @@ trait FilesContainer
         $this->saveQuietly();
     }
 
-    /**
-     * Удаляет файл по URL.
-     */
     public function deleteStoredFile(string $url): void
     {
         $name = basename(parse_url($url, PHP_URL_PATH) ?: $url);
@@ -924,9 +873,6 @@ trait FilesContainer
         }
     }
 
-    /**
-     * Удаляет файл по имени.
-     */
     public function deleteStoredFileByName(string $name): void
     {
         $storage = $this->storeStorage();
@@ -983,10 +929,6 @@ trait FilesContainer
         return $storage->exists("{$dir}/{$thumbName}") ? $thumbName : null;
     }
 
-    /**
-     * Шардированный префикс для модели.
-     * Пример: для id=123456 вернёт "e1/0a".
-     */
     public function shardPrefix(): string
     {
         $id = (string) ($this->getKey() ?? 0);
@@ -1007,10 +949,6 @@ trait FilesContainer
     {
         return (int) config('files.max_files', 20);
     }
-
-    /* ============================================================
-     *  СИНХРОНИЗАЦИЯ (задел на будущее)
-     * ============================================================ */
 
     public function synchronizeFiles(): void
     {

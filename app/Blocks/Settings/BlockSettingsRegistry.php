@@ -125,12 +125,6 @@ class BlockSettingsRegistry
             type: SettingType::Array,
             children: [
                 new SettingDefinition(
-                    key: 'editor',
-                    type: SettingType::Bool,
-                    default: 0,
-                    label: 'Разрешить редактор',
-                ),
-                new SettingDefinition(
                     key: 'text-block-align',
                     type: SettingType::Select,
                     default: 'left',
@@ -212,7 +206,7 @@ class BlockSettingsRegistry
         );
     }
 
-    public static function getGalleryDefinition($key = 'images', $label='Изображения'){
+    public static function getTypeGalleryDefinition($key = 'images', $label='Изображения', $imagesPurpose = FilePurpose::Gallery1){
         return new SettingDefinition(
             key: $key,
             type: SettingType::Array,
@@ -237,11 +231,11 @@ class BlockSettingsRegistry
                 label: 'Количество изображений',
             ),
             new SettingDefinition(
-                key: FilePurpose::Gallery1->value,
-                        public: true,
+                key: $imagesPurpose->value,
+                        public: false,
                         type: SettingType::Image,
                         default: [],
-                        params: ['purpose' => FilePurpose::Gallery1, 'count' => 'images.count', 'display-images' => false],
+                        params: ['purpose' => $imagesPurpose->value, 'count' => 'parent.count', 'display-images' => false],
                         label: 'Галерея',
                         children: [
             new SettingDefinition(
@@ -306,8 +300,208 @@ class BlockSettingsRegistry
                 );
     }
 
+    public static function getTypeHtmltextDefinition($key = 'htmltext', $label='Текст'){
+        return new SettingDefinition(
+            key: $key,
+            type: SettingType::String,
+            label: $label,
+            default: '<p>Этот текст можно редактировать во встроенном редакторе</p>',
+            children: [
+
+            new SettingDefinition(
+                key: 'background-color',
+                type: SettingType::Color,
+                default: 'bg-default',
+                allowed: ColorPalette::bgTokens(),
+                label: 'Цвет фона',
+            ),
+            self::getPaddingsDefinition(),
+            self::getMarginDefinition(),
+            self::getBordersDefinition(),
+        ],
+        );
+    }
+
+    public static function getTypeTextDefinition($key = 'text', $label='Текст'){
+        return new SettingDefinition(
+            key: $key,
+            type: SettingType::Array,
+            label: $label,
+            default: [],
+            children: [
+            new SettingDefinition(
+                key: 'title',
+                type: SettingType::String,
+                public: false,
+                default: 'Одно кольцо, чтобы править всеми',
+                label: 'Заголовок',
+                children: [
+                self::getTextSettingsDefinition(),
+            ],
+            ),
+            new SettingDefinition(
+                key: 'summary',
+                type: SettingType::String,
+                public: false,
+                default: 'Хотелось бы мне, чтобы это случилось в другое время — не в моё. — И мне бы тоже, да и всем, кто дожил до таких времён. Но выбирать не дано. Мы можем только решить, как распорядиться своим временем',
+                label: 'Сводка',
+                children: [
+                self::getTextSettingsDefinition(),
+            ],
+            ),
+            new SettingDefinition(
+                key: 'text',
+                type: SettingType::String,
+                public: false,
+                default: 'А быть может, каждый из вас уже начал — не заметив этого — тот единственный путь, который предназначен ему судьбой. В странные времена довелось мне жить! Мы веками разводили скот, пахали землю, строили дома, мастерили орудия, помогали гондорцам в битвах за Минас Тирит. Все это мы называли обычной человеческой жизнью, и нам казалось, что таким путем идет весь мир. Нас мало беспокоило, что происходит за пределами нашей страны. Об этом пелось в песнях, но мы забывали эти песни или пели их только детям, просто так, бездумно, по привычке. И вот эти песни напомнили о себе, отыскали нас в самом неожиданном месте и обрели видимое обличье!',
+                label: 'Тект',
+                children: [
+                self::getTextSettingsDefinition(),
+            ],
+            ),
+            new SettingDefinition(
+                key: 'cols',
+                type: SettingType::Int,
+                default: 12,
+                label: 'Ширина блока, колонок',
+            ),
+            new SettingDefinition(
+                key: 'text-block-position',
+                type: SettingType::Select,
+                default: 'center',
+                allowed: [
+                'flex-start',
+                'center',
+                'flex-end',
+            ],
+                label: 'Позиция блока текста',
+            ),
+            new SettingDefinition(
+                key: 'background-color',
+                type: SettingType::Color,
+                default: 'bg-default',
+                allowed: ColorPalette::bgTokens(),
+                label: 'Цвет фона',
+            ),
+
+            self::getPaddingsDefinition(),
+            self::getMarginDefinition(),
+            self::getBordersDefinition(),
+        ],
+        );
+    }
+
+    public static function getContentTypes($imagesPurpose = FilePurpose::Gallery1)
+    {
+        return [
+            self::getTypeTextDefinition('text3', 'Текст'),
+            self::getTypeHtmltextDefinition('htmltext', 'Текст'),
+            self::getTypeGalleryDefinition('gallery', 'Изображения', $imagesPurpose),
+        ];
+    }
+
+
     /** @return array<string, SettingDefinition[]> */
     public static function map(): array
+    {
+        return [
+            'text_image' => [
+                new SettingDefinition(
+                    key: 'type',
+                    type: SettingType::Layout,
+                    default: 'single',
+                    allowed: ['single', 'row', 'col'],
+                    label: 'Раскладка',
+                    children: [
+                        new SettingDefinition(
+                            key: 'icon',
+                            type: SettingType::Icon,
+                            default: 'i-lucide-layout-panel-left',
+                            label: 'Иконка',
+                        ),
+                        new SettingDefinition(
+                            key: 'first-block-cols',
+                            type: SettingType::Int,
+                            default: 12,
+                            label: 'Ширина первого блока, колонок',
+                        ),
+                        new SettingDefinition(
+                            key: 'first-block-position',
+                            type: SettingType::Select,
+                            default: 'center',
+                            allowed: [
+                            'flex-start',
+                            'center',
+                            'flex-end',
+                        ],
+                            label: 'Позиция первого блока',
+                        ),
+                        new SettingDefinition(
+                            key: 'background-color',
+                            type: SettingType::Color,
+                            default: 'bg-default',
+                            allowed: ColorPalette::bgTokens(),
+                            label: 'Цвет фона',
+                        ),
+                        new SettingDefinition(
+                            key: 'background-image',
+                            public: false,
+                            type: SettingType::Image,
+                            default: [],
+                            params: ['purpose' => FilePurpose::BackgroundImage, 'count' => 1, 'display-images' => true],
+                            label: 'Фоновое изображение',
+                        ),
+                        new SettingDefinition(
+                            key: 'background-size',
+                            type: SettingType::Select,
+                            default: 'auto',
+                            allowed: ['auto', 'cover', 'contain', '50%', '100%'],
+                            label: 'Размер фона',
+                        ),
+                        new SettingDefinition(
+                            key: 'background-position',
+                            type: SettingType::Select,
+                            default: 'top',
+                            allowed: ['top', 'left', 'center', 'top left', 'top right', 'bottom left', 'bottom right', 'center center'],
+                            label: 'Положение фона',
+                        ),
+                        self::getPaddingsDefinition(),
+                        self::getMarginDefinition(),
+                        self::getBordersDefinition(),
+                        new SettingDefinition(
+                            key: 'content-blocks',
+                            type: SettingType::Array,
+                            default: [],
+                            label: 'Блоки',
+                            children: [
+                                new SettingDefinition(
+                                    key: 'block1',
+                                    type: SettingType::ContentType,
+                                    default: 'text',
+                                    allowed: ['text', 'gallery', 'htmltext'],
+                                    label: 'Блок1',
+                                    children: self::getContentTypes(FilePurpose::Gallery1)
+                                ),
+                                new SettingDefinition(
+                                    key: 'block2',
+                                    type: SettingType::ContentType,
+                                    default: 'gallery',
+                                    allowed: ['text', 'gallery', 'htmltext'],
+                                    label: 'Блок2',
+                                    children: self::getContentTypes(FilePurpose::Gallery2)
+                                ),
+                            ]
+                        ),
+                    ],
+                ),
+
+            ]
+        ];
+    }
+
+
+    /** @return array<string, SettingDefinition[]> */
+    public static function map_(): array
     {
         return [
             'text_image' => [
@@ -333,7 +527,7 @@ class BlockSettingsRegistry
                 ),
                 new SettingDefinition(
                     key: 'background-image',
-                    public: true,
+                    public: false,
                     type: SettingType::Image,
                     default: [],
                     params: ['purpose' => FilePurpose::BackgroundImage, 'count' => 1, 'display-images' => true],
@@ -357,7 +551,7 @@ class BlockSettingsRegistry
                 self::getMarginDefinition(),
                 self::getBordersDefinition(),
                 // Array изображений: children — плоский список полей элемента
-                self::getGalleryDefinition(),
+                self::getTypeGalleryDefinition(),
 
                 // Array текстов: children — плоский список полей элемента
                 new SettingDefinition(
@@ -369,7 +563,7 @@ class BlockSettingsRegistry
                     new SettingDefinition(
                         key: 'title',
                         type: SettingType::String,
-                        public: true,
+                        public: false,
                         default: 'Одно кольцо, чтобы править всеми',
                         label: 'Заголовок',
                         children: [
@@ -379,7 +573,7 @@ class BlockSettingsRegistry
                     new SettingDefinition(
                         key: 'summary',
                         type: SettingType::String,
-                        public: true,
+                        public: false,
                         default: 'Хотелось бы мне, чтобы это случилось в другое время — не в моё. — И мне бы тоже, да и всем, кто дожил до таких времён. Но выбирать не дано. Мы можем только решить, как распорядиться своим временем',
                         label: 'Сводка',
                         children: [
@@ -389,7 +583,7 @@ class BlockSettingsRegistry
                     new SettingDefinition(
                         key: 'text',
                         type: SettingType::String,
-                        public: true,
+                        public: false,
                         default: 'А быть может, каждый из вас уже начал — не заметив этого — тот единственный путь, который предназначен ему судьбой. В странные времена довелось мне жить! Мы веками разводили скот, пахали землю, строили дома, мастерили орудия, помогали гондорцам в битвах за Минас Тирит. Все это мы называли обычной человеческой жизнью, и нам казалось, что таким путем идет весь мир. Нас мало беспокоило, что происходит за пределами нашей страны. Об этом пелось в песнях, но мы забывали эти песни или пели их только детям, просто так, бездумно, по привычке. И вот эти песни напомнили о себе, отыскали нас в самом неожиданном месте и обрели видимое обличье!',
                         label: 'Тект',
                         children: [

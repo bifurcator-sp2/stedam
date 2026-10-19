@@ -16,5 +16,7 @@ case Json = 'json';
 case Color = 'color';
 case Icon = 'icon';
 case Image = 'image';
+case ContentType = 'content-type';
+case Layout = 'layout';
 
 }

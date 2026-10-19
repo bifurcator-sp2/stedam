@@ -134,6 +134,7 @@ trait HasFileSets
         });
     }
 
+
     /**
      * Синхронизирует FileSet'ы модели с плоскими настройками (settings).
      *
@@ -159,45 +160,42 @@ trait HasFileSets
             return;
         }
 
-        foreach (static::filePurposes() as $purpose) {
-            $value = $purpose instanceof \BackedEnum ? $purpose->value : $purpose;
+        // 1. Собираем ВСЕ image-узлы из схемы
+        $imageNodes = [];
+        $this->collectImageNodes($schema, $imageNodes);
 
-            $found = $this->findSettingNodeWithPath(
-                $schema,
-                function (array $n) use ($value): bool {
-                    if (($n['type'] ?? null) !== 'image') return false;
+        foreach ($imageNodes as $found) {
+            $node = $found['node'];
+            $path = $found['path'];
 
-                    $nodePurpose = $n['params']['purpose'] ?? null;
-                    if ($nodePurpose instanceof \BackedEnum) {
-                        $nodePurpose = $nodePurpose->value;
+            $purposeValue = $node['params']['purpose'] ?? null;
+            if ($purposeValue instanceof \BackedEnum) {
+                $purposeValue = $purposeValue->value;
+            }
+
+            if (!$purposeValue) {
+                $allowed = $node['allowed'] ?? null;
+                if (is_array($allowed) && isset($allowed[0])) {
+                    $purposeValue = $allowed[0];
+                    if ($purposeValue instanceof \BackedEnum) {
+                        $purposeValue = $purposeValue->value;
                     }
-
-                    if ($nodePurpose !== null) {
-                        return $nodePurpose === $value;
-                    }
-
-                    $allowed = $n['allowed'] ?? null;
-                    if (is_array($allowed) && isset($allowed[0])) {
-                        $allowedPurpose = $allowed[0];
-                        if ($allowedPurpose instanceof \BackedEnum) {
-                            $allowedPurpose = $allowedPurpose->value;
-                        }
-                        return $allowedPurpose === $value;
-                    }
-
-                    return false;
                 }
-            );
+            }
 
-            if ($found === null) {
+            if (!$purposeValue) {
                 continue;
             }
 
-            $path = $found['path'];
             $rawValue = $this->getValueByPath($flatSettings, $path);
 
+            // Если узла нет в переданных настройках, пропускаем.
+            if ($rawValue === null) {
+                continue;
+            }
+
             // ========================================================
-            // ИЗВЛЕЧЕНИЕ картинок из плоских настроек
+            // ИЗВЛЕЧЕНИЕ картинок
             // ========================================================
             $images = [];
             if (is_array($rawValue)) {
@@ -208,16 +206,14 @@ trait HasFileSets
                 }
             }
 
-            // 1. Получаем целевой FileSet для текущего блока
-            $fileSet = $this->fileSet($value);
+            $fileSet = $this->fileSet($purposeValue);
 
-            // 2. Переносим файлы из FileSet'а временной модели (model_id = 0)
-            // Это нужно при создании нового блока, так как картинки загрузились в model_id=0
+            // Перенос из временного FileSet'а (model_id = 0)
             $class = static::fileSetModel();
             $stubFileSet = $class::where([
                 'model'    => static::class,
                 'model_id' => 0,
-                'purpose'  => $value,
+                'purpose'  => $purposeValue,
             ])->first();
 
             if ($stubFileSet && $stubFileSet->getKey() !== $fileSet->getKey()) {
@@ -231,21 +227,27 @@ trait HasFileSets
                         $filename = basename($filePath);
                         $tempStorage->move($filePath, "{$toDir}/{$filename}");
                     }
-                    // После переноса удаляем пустую папку временного FileSet
                     $tempStorage->deleteDirectory($fromDir);
                 }
             }
 
-            // 3. Синхронизируем (переносит temp -> store и обновляет БД)
+            // Синхронизируем
             $fileSet->syncFilesFromRequest($images, null);
 
-            // 4. Забираем актуальные файлы (уже с постоянными URL)
+            // Забираем актуальные файлы
             $actualFiles = array_merge(
                 $fileSet->storedImages(),
                 $fileSet->storedPlainFiles()
             );
 
-            // 5. Подменяем временные URL в переданных настройках
+            // Если в FileSet'е ничего не нашли, а в settings был непустой
+            // массив — не затираем. Файлы могут принадлежать прототипу
+            // (Block) и будут скопированы отдельно (cloneFileSetsFromModel).
+            if (empty($actualFiles) && !empty($images)) {
+                continue;
+            }
+
+            // Подменяем временные URL
             if (is_array($rawValue) && array_key_exists('default', $rawValue)) {
                 $rawValue['default'] = $actualFiles;
                 $this->setValueByPath($flatSettings, $path, $rawValue);
@@ -256,9 +258,181 @@ trait HasFileSets
     }
 
     /**
-     * Рекурсивный поиск узла в дереве схемы с запоминанием пути.
+     * Клонирует store-файлы из FileSet'ов другой модели в FileSet'ы этой модели
+     * и возвращает обновлённые $flatSettings с новыми URL.
+     *
+     * Используется, когда Block-прототип копируется в LessonBlock:
+     * URL файлов прототипа продолжали бы указывать на FileSet прототипа,
+     * пока мы физически не скопируем файлы в FileSet урока.
+     *
+     * @param  \Illuminate\Database\Eloquent\Model&\Bifurcator\FileSets\Concerns\HasFileSets  $source
+     * @param  array  $flatSettings  Дерево настроек текущей модели
+     * @param  string|null  $code  Код типа блока (для получения схемы)
+     * @return array  Настройки с подменёнными URL
      */
-    protected function findSettingNodeWithPath(array $nodes, callable $predicate, array $currentPath = []): ?array
+    public function cloneFileSetsFromModel($source, array $flatSettings, ?string $code = null): array
+    {
+        if (!$code || !class_exists(\App\Blocks\Settings\BlockSettingsRegistry::class)) {
+            return $flatSettings;
+        }
+
+        $schema = \App\Blocks\Settings\BlockSettingsRegistry::serializeSchema($code);
+        if (empty($schema)) {
+            return $flatSettings;
+        }
+
+        $imageNodes = [];
+        $this->collectImageNodes($schema, $imageNodes);
+
+        $storeStorage = app(FileStorageKeys::STORE);
+
+        foreach ($imageNodes as $found) {
+            $node = $found['node'];
+            $path = $found['path'];
+
+            $purposeValue = $node['params']['purpose'] ?? null;
+            if ($purposeValue instanceof \BackedEnum) {
+                $purposeValue = $purposeValue->value;
+            }
+            if (!$purposeValue) {
+                continue;
+            }
+
+            $rawValue = $this->getValueByPath($flatSettings, $path);
+            if ($rawValue === null) {
+                continue;
+            }
+
+            // Нормализуем в $images
+            $images = [];
+            if (is_array($rawValue)) {
+                if (array_key_exists('default', $rawValue) && is_array($rawValue['default'])) {
+                    $images = $rawValue['default'];
+                } else {
+                    $images = $rawValue;
+                }
+            }
+            if (empty($images)) {
+                continue;
+            }
+
+            // FileSet прототипа (может отсутствовать)
+            $sourceFileSet = $source->findFileSet($purposeValue);
+            if (!$sourceFileSet) {
+                continue;
+            }
+
+            // FileSet урока (создадим, если нет)
+            $targetFileSet = $this->fileSet($purposeValue);
+
+            // Каталоги store
+            $sourceStoreDir = $sourceFileSet->storeDir();
+            $targetStoreDir = $targetFileSet->storeDir();
+
+            if (!$storeStorage->exists($targetStoreDir)) {
+                $storeStorage->makeDirectory($targetStoreDir);
+            }
+
+            // Копируем физические файлы и собираем новые записи реестра
+            $sourceImages = $sourceFileSet->imageList();
+            $targetImages = $targetFileSet->imageList();
+
+            // Индекс по original для дедупа
+            $existingByOriginal = [];
+            foreach ($targetImages as $t) {
+                if (!empty($t['original'])) {
+                    $existingByOriginal[$t['original']] = $t;
+                }
+            }
+
+            // Индекс source по original
+            $sourceByOriginal = [];
+            foreach ($sourceImages as $s) {
+                if (!empty($s['original'])) {
+                    $sourceByOriginal[$s['original']] = $s;
+                }
+            }
+
+            // Какие original'ы запрошены в settings
+            $requested = [];
+            foreach ($images as $img) {
+                $url = $img['url'] ?? null;
+                if (!$url) continue;
+                $name = basename(parse_url($url, PHP_URL_PATH) ?: $url);
+                if ($name) {
+                    $requested[$name] = $img;
+                }
+            }
+
+            $newList = [];
+
+            foreach ($requested as $name => $incomingItem) {
+                // Если уже есть в реестре target — переиспользуем
+                if (isset($existingByOriginal[$name])) {
+                    $entry = $existingByOriginal[$name];
+                    $entry['title'] = $incomingItem['title'] ?? ($entry['title'] ?? null);
+                    $newList[] = $entry;
+                    continue;
+                }
+
+                // Нет в source — файл-сирота, не копируем
+                if (!isset($sourceByOriginal[$name])) {
+                    continue;
+                }
+
+                $sourceEntry = $sourceByOriginal[$name];
+
+                // Копируем оригинал
+                $fromOriginal = "{$sourceStoreDir}/{$sourceEntry['original']}";
+                $toOriginal   = "{$targetStoreDir}/{$sourceEntry['original']}";
+
+                if (!$storeStorage->exists($toOriginal)) {
+                    $storeStorage->copy($fromOriginal, $toOriginal);
+                }
+
+                // Копируем thumbnail (если есть)
+                $newThumb = null;
+                if (!empty($sourceEntry['thumbnail'])) {
+                    $fromThumb = "{$sourceStoreDir}/{$sourceEntry['thumbnail']}";
+                    $toThumb   = "{$targetStoreDir}/{$sourceEntry['thumbnail']}";
+                    if ($storeStorage->exists($fromThumb) && !$storeStorage->exists($toThumb)) {
+                        $storeStorage->copy($fromThumb, $toThumb);
+                    }
+                    $newThumb = $sourceEntry['thumbnail'];
+                }
+
+                $newList[] = [
+                    'original'  => $sourceEntry['original'],
+                    'thumbnail' => $newThumb,
+                    'title'     => $incomingItem['title'] ?? ($sourceEntry['title'] ?? null),
+                ];
+            }
+
+            // Сохраняем реестр
+            $targetFileSet->images = $newList ?: null;
+            $targetFileSet->saveQuietly();
+
+            // Формируем новые URL и пишем обратно в $flatSettings
+            $newUrlItems = array_merge(
+                $targetFileSet->storedImages(),
+                $targetFileSet->storedPlainFiles(),
+            );
+
+            if (is_array($rawValue) && array_key_exists('default', $rawValue)) {
+                $rawValue['default'] = $newUrlItems;
+                $this->setValueByPath($flatSettings, $path, $rawValue);
+            } else {
+                $this->setValueByPath($flatSettings, $path, $newUrlItems);
+            }
+        }
+
+        return $flatSettings;
+    }
+
+    /**
+     * Рекурсивно собирает все узлы с type === 'image' и их пути в плоской структуре.
+     */
+    protected function collectImageNodes(array $nodes, array &$result, array $currentPath = []): void
     {
         foreach ($nodes as $node) {
             if (!is_array($node)) continue;
@@ -266,19 +440,14 @@ trait HasFileSets
             $nodeKey = $node['key'] ?? null;
             $path = $nodeKey !== null ? array_merge($currentPath, [$nodeKey]) : $currentPath;
 
-            if ($predicate($node)) {
-                return ['node' => $node, 'path' => $path];
+            if (($node['type'] ?? null) === 'image') {
+                $result[] = ['node' => $node, 'path' => $path];
             }
 
             if (!empty($node['children']) && is_array($node['children'])) {
-                $found = $this->findSettingNodeWithPath($node['children'], $predicate, $path);
-                if ($found !== null) {
-                    return $found;
-                }
+                $this->collectImageNodes($node['children'], $result, $path);
             }
         }
-
-        return null;
     }
 
     /**
