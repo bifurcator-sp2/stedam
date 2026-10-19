@@ -21,62 +21,30 @@ class LessonBlockResource extends JsonResource
 
     }
 
-    public static function fillPublicDefaults($settings, $schema)
-    {
-        // 1. Запоминаем, был ли объект, чтобы вернуть правильный тип в конце
-        $wasObject = is_object($schema);
+    public static function fillPublicDefaults($settings, $schema){
 
-        // 2. Приводим к массивам для удобной работы
-        // (null или строка превратятся в пустой массив)
-        $schema = (array) $schema;
-        $settings = (array) $settings;
+        if (is_array($schema)) {
+            if (array_is_list($schema)) {
 
-        // Если схема пустая (например, "default": []), то это чистый слот для данных.
-        // Просто возвращаем то, что пришло в настройках, сохраняя тип.
-        if (empty($schema)) {
-            return $wasObject ? (object) $settings : $settings;
-        }
-
-        $result = [];
-
-        // 3. Идем по ключам СХЕМЫ
-        foreach ($schema as $key => $schemaVal) {
-            if ($key === 'public') {
-                continue; // Обработаем в самом конце
-            }
-
-            // --- ГЛАВНОЕ ПРАВИЛО ---
-            // Если ключ называется 'default', мы НЕ крутим его вглубь.
-            // Мы просто берем значение из настроек. Если его там нет — оставляем из схемы.
-            if ($key === 'default') {
-                $result['default'] = array_key_exists('default', $settings) ? $settings['default'] : $schemaVal;
-                continue;
-            }
-
-            // --- ДЛЯ ВСЕХ ОСТАЛЬНЫХ КЛЮЧЕЙ ---
-            $hasSetting = array_key_exists($key, $settings);
-
-            if (is_array($schemaVal) || is_object($schemaVal)) {
-                // Если это вложенный массив/объект — идем в рекурсию
-                $result[$key] = self::fillPublicDefaults(
-                    $hasSetting ? $settings[$key] : null,
-                    $schemaVal
-                );
+                foreach ($schema as $key => $val) {
+                    if (array_key_exists($key, $settings)) {
+                        $schema[$key] = self::fillPublicDefaults($settings[$key], $val);
+                    }
+                }
             } else {
-                // Если это скаляр (строка, число, bool) — берем из настроек, иначе из схемы
-                $result[$key] = $hasSetting ? $settings[$key] : $schemaVal;
+                foreach ($schema as $key => $val) {
+                    if (array_key_exists($key, $settings)) {
+                        $schema[$key] = self::fillPublicDefaults($settings[$key], $val);
+                    }
+                }
+                if (!empty($schema['public'])) {
+                    if (array_key_exists('default', $schema) && array_key_exists('default', $settings)) {
+                        $schema['default'] = $settings['default'];
+                    }
+                }
             }
         }
-
-        // 4. Возвращаем 'public' на место, если он был в схеме
-        if (array_key_exists('public', $schema)) {
-            // Принудительно делаем true, если в схеме true
-            $result['public'] = $schema['public'] ? true : $schema['public'];
-        }
-
-        return $wasObject ? (object) $result : $result;
+        return $schema;
     }
-
-
 
 }
