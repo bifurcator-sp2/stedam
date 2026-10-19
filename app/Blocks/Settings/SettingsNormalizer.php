@@ -21,7 +21,7 @@ class SettingsNormalizer
             return $saved ?? [];
         }
 
-        // Индексируем сохранённые узлы по ключу
+
         $savedByKey = [];
         foreach ($saved ?? [] as $item) {
             if (!empty($item['key'])) {
@@ -35,7 +35,6 @@ class SettingsNormalizer
             $key = $schemaItem['key'] ?? null;
             $savedItem = $key !== null ? ($savedByKey[$key] ?? null) : null;
 
-            // Нет сохранённого — берём схему как есть
             if ($savedItem === null) {
                 $result[] = $schemaItem;
                 continue;
@@ -44,10 +43,7 @@ class SettingsNormalizer
             // Мерж: базовая структура — из схемы, `default` — из saved
             $merged = $schemaItem;
 
-            /*if (array_key_exists('default', $savedItem)) {
-                $merged['default'] = $savedItem['default'];
-                $merged['public'] = $savedItem['public'];
-            }*/
+
             foreach ($schemaItem as $schenaKey => $schemaVal) {
                 if (
                     $schenaKey == 'label' || $schenaKey == 'public'
@@ -77,83 +73,7 @@ class SettingsNormalizer
     {
         return self::mergeSchemaWithSaved(BlockSettingsRegistry::serializeSchema($code), $saved ?? []);
     }
-    /**
-     * Применяет плоские переопределения (объект с путями через точку)
-     * к дереву SettingNode[].
-     *
-     * Используется, когда фронт присылает settings в «сжатом» виде:
-     *   { "images": { "gallery": [...] }, "background-image": [] }
-     *
-     * А на бэке нужно дерево:
-     *   [ { key: 'images', children: [ { key: 'gallery', default: [...] } ] }, ... ]
-     *
-     * @param array $schema Дерево узлов (обычно результат serializeSchema).
-     * @param array $flat Плоский объект переопределений.
-     * @return array Дерево с применёнными значениями.
-     */
-    public static function applyFlat(array $schema, array $flat): array
-    {
-        // Сначала нормализуем схему — чтобы гарантировать структуру узлов.
-        $tree = self::mergeSchemaWithSaved($schema, []);
 
-        foreach ($flat as $path => $value) {
-            $tree = self::applyAtPath($tree, (string) $path, $value);
-        }
-
-        return $tree;
-    }
-
-    /**
-     * Устанавливает значение по пути через точку в дереве узлов.
-     *
-     * Путь "images.gallery" означает: найти узел с key='images',
-     * в его children — узел с key='gallery', установить default = $value.
-     *
-     * Если узел не найден — ничего не делаем.
-     */
-    protected static function applyAtPath(array $nodes, string $path, mixed $value): array
-    {
-        $parts = explode('.', $path);
-        $head = array_shift($parts);
-
-        foreach ($nodes as $i => $node) {
-            if (!is_array($node)) {
-                continue;
-            }
-
-            if (($node['key'] ?? null) !== $head) {
-                continue;
-            }
-
-            if (empty($parts)) {
-                // Дошли до конечного узла — ставим default
-                $nodes[$i]['default'] = $value;
-                return $nodes;
-            }
-
-            // Идём глубже в children
-            if (!empty($node['children']) && is_array($node['children'])) {
-                $nodes[$i]['children'] = self::applyAtPath(
-                    $node['children'],
-                    implode('.', $parts),
-                    $value,
-                );
-            }
-
-            return $nodes;
-        }
-
-        return $nodes;
-    }
-    /**
-     * Преобразует абсолютные URL внутри settings в относительные пути.
-     *
-     * Рекурсивно обходит массивы (включая ассоциативные и списки)
-     * и заменяет строки вида "http://host/storage/path/to/file.jpg"
-     * на "path/to/file.jpg".
-     *
-     * Работает и с плоским объектом, и с деревом SettingNode[].
-     */
     public static function normalizeUrls(array $settings): array
     {
         $result = [];
@@ -178,16 +98,6 @@ class SettingsNormalizer
 
 
 
-    /**
-     * Преобразует абсолютный URL в относительный URI (путь).
-     *
-     * http://stedam.localhost/storage/models/file_sets/...
-     * превращается в:
-     * /storage/models/file_sets/...
-     *
-     * Если строка не URL или не относится к нашему домену/диску,
-     * возвращает как есть (blob: и прочее).
-     */
     public static function normalizeUrlToPath(string $value): string
     {
         // Если это не http/https — не трогаем (blob:, data:, относительный путь)
@@ -206,22 +116,106 @@ class SettingsNormalizer
     }
 
     /**
-     * Преобразует относительный путь в абсолютный URL диска.
+     * Рекурсивно заполняет схему значениями из настроек.
      *
-     * Пропускает уже абсолютные URL и blob:/data:-строки.
+     * Проходит по схеме и для каждого ключа, присутствующего в `$settings`,
+     * рекурсивно применяет ту же логику (глубокое слияние по структуре схемы).
+     *
+     * Поведение зависит от типа узла схемы:
+     *  - Список (индексированный массив) — рекурсивно обрабатывается по индексам.
+     *  - Ассоциативный массив — рекурсивно обрабатывается по ключам, а также
+     *    дополнительно переносит `default` из настроек, если узел помечен
+     *    как публичный (`public` не пустой) и в обоих массивах есть ключ `default`.
+     *  - Скаляр/иное — возвращается без изменений.
+     *
+     * @param array|mixed $settings Настройки (источник значений). Ожидается массив
+     *                              на верхнем уровне; вложенные значения могут быть
+     *                              любого типа.
+     * @param array|mixed $schema     Схема (шаблон структуры). Ожидается массив
+     *                                на верхнем уровне; вложенные значения могут быть
+     *                                любого типа.
+     *
+     * @return array|mixed Схема с подставленными значениями из `$settings`.
+     *                     Если `$schema` не массив — возвращается как есть.
      */
-    public static function pathToUrl(string $value): string
+    public static function fillPublicDefaults($settings, $schema){
+
+        if (is_array($schema)) {
+            if (array_is_list($schema)) {
+
+                foreach ($schema as $key => $val) {
+                    if (array_key_exists($key, $settings)) {
+                        $schema[$key] = self::fillPublicDefaults($settings[$key], $val);
+                    }
+                }
+            } else {
+                foreach ($schema as $key => $val) {
+                    if (array_key_exists($key, $settings)) {
+                        $schema[$key] = self::fillPublicDefaults($settings[$key], $val);
+                    }
+                }
+                if (!empty($schema['public'])) {
+                    if (array_key_exists('default', $schema) && array_key_exists('default', $settings)) {
+                        $schema['default'] = $settings['default'];
+                    }
+                }
+            }
+        }
+        return $schema;
+    }
+
+    /**
+     * Рекурсивно извлекает из настроек значения, описанные в схеме.
+     *
+     * Является обратной операцией к {@see self::fillPublicDefaults()}: вместо того
+     * чтобы подставлять значения из `$settings` в `$schema`, она строит новый
+     * массив, содержащий только те ключи, которые присутствуют в `$schema`,
+     * со значениями из `$settings`.
+     *
+     * Поведение зависит от типа узла схемы:
+     *  - Список (индексированный массив) — рекурсивно обходится по индексам;
+     *    в результат попадают только существующие в `$settings` индексы.
+     *  - Ассоциативный массив — рекурсивно обходится по ключам; дополнительно
+     *    переносит `default` из настроек, если узел помечен как публичный
+     *    (`public` не пустой) и в обоих массивах есть ключ `default`.
+     *  - Скаляр/иное — возвращается значение из `$settings` (или `null`, если
+     *    ключа нет на уровне вызывающего кода; см. примечание).
+     *
+     * @param array|mixed $settings Настройки (источник значений). Ожидается массив
+     *                              на верхнем уровне; вложенные значения могут быть
+     *                              любого типа.
+     * @param array|mixed $schema     Схема (шаблон структуры). Ожидается массив
+     *                                на верхнем уровне; вложенные значения могут быть
+     *                                любого типа.
+     *
+     * @return array|mixed Новый массив, содержащий только ключи из `$schema`,
+     *                     со значениями из `$settings`. Если `$schema` не массив —
+     *                     возвращается `$settings` как есть.
+     */
+    public static function extractPublicValues($settings, $schema)
     {
-        if (preg_match('#^(https?|blob|data):#i', $value)) {
-            return $value;
+        if (!is_array($schema)) {
+            return $settings;
         }
 
-        $diskName = config('file-sets.store_disk', 'public');
+        $result = [];
+        $isList = array_is_list($schema);
 
-        try {
-            return \Illuminate\Support\Facades\Storage::disk($diskName)->url($value);
-        } catch (\Throwable $e) {
-            return $value;
+        foreach ($schema as $key => $val) {
+            if (is_array($settings) && array_key_exists($key, $settings)) {
+                $result[$key] = self::extractPublicValues($settings[$key], $val);
+            }
         }
+
+        if (!$isList
+            && !empty($schema['public'])
+            && array_key_exists('default', $schema)
+            && is_array($settings)
+            && array_key_exists('default', $settings)
+        ) {
+            $result['default'] = $settings['default'];
+        }
+
+        return $result;
     }
 }

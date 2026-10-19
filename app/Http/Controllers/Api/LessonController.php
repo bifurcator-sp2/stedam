@@ -3,6 +3,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Blocks\Settings\SettingsNormalizer;
 use App\Http\Resources\LessonBlockResource;
 use App\Http\Resources\LessonResource;
 use App\Models\Block;
@@ -167,16 +168,14 @@ class LessonController
 
             $block = $existing->get($id);
             $newSettings = $data['settings'] ?? null;
-            //Log::info(1, $newSettings);
             // 1. Синхронизируем (мутирует $newSettings по ссылке)
             $code = $block->block?->blockType?->code;
             if ($code && $newSettings !== null) {
                 $block->syncFileSetsFromSettings($newSettings, $code);
             }
-            //Log::info(2, $newSettings);
             // 2. Сохраняем блок с уже обновленными настройками
             $block->fill([
-                'settings' => $newSettings,
+                'settings' => SettingsNormalizer::extractPublicValues($newSettings, $block->block->settings),
                 'order'    => $i,
             ]);
             $block->save();
