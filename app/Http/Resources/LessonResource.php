@@ -16,6 +16,7 @@ class LessonResource extends JsonResource
             'saved'       => (bool) $this->saved,
             'published'   => (bool) $this->published,
             'blocks'      => LessonBlockResource::collection($this->whenLoaded('blocks')),
+            'taxonomy_ids' => $this->whenLoaded('taxonomies', fn() => $this->taxonomies->pluck('id')->all(), []),
         ];
     }
 }

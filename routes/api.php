@@ -24,11 +24,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/roles', [\App\Http\Controllers\Api\RoleController::class, 'index']);
     Route::post('/set-user-roles', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'setPublicRoles']);
 
+
     Route::get('/user-data', [UserDataController::class, 'show']);
     Route::post('/user-data', [UserDataController::class, 'store']);
     Route::put('/user-data', [UserDataController::class, 'update']);
     Route::patch('/user-data', [UserDataController::class, 'update']);
     Route::delete('/user-data', [UserDataController::class, 'destroy']);
+
+    Route::get('/taxonomies/tree', [\App\Http\Controllers\Api\TaxonomyController::class, 'tree']);
 
     Route::get('/blocks-index', \App\Http\Controllers\Api\BlocksIndexController::class);
 

@@ -42,6 +42,11 @@ class LessonController
 
         abort_unless($isAdmin || $lesson->user_id === $user->id, 403);
 
+        // Защита: запрещаем добавлять блоки в опубликованный урок
+        if ($lesson->published) {
+            abort(403, 'Нельзя добавлять блоки в опубликованный урок. Сначала снимите его с публикации.');
+        }
+
         $validated = $request->validate([
             'block_id' => ['required', 'integer', 'exists:blocks,id'],
             'order'    => ['sometimes', 'integer', 'min:0'],
@@ -59,7 +64,6 @@ class LessonController
                     ->update(['order' => DB::raw('`order` + 1')]);
             }
 
-            // Сохраняем ПУСТОЙ settings (diff), так как он наследует всё от прототипа
             $block = $lesson->blocks()->create([
                 'user_id'  => $user->id,
                 'block_id' => $prototype->id,
@@ -67,23 +71,12 @@ class LessonController
                 'order'    => $order,
             ]);
 
-            // Синхронизируем FileSets из прототипа и физически копируем файлы
             if (!empty($prototype->settings)) {
                 $settings = $prototype->settings;
                 $code = $prototype->blockType?->code;
 
-                // 1. Подтягиваем temp-файлы (если были) и обновляем реестр
                 $block->syncFileSetsFromSettings($settings, $code);
-
-                // 2. Физически копируем store-файлы из FileSet'ов прототипа
-                //    в FileSet'ы урока и заменяем URL в $settings на новые
-                $settings = $block->cloneFileSetsFromModel(
-                    $prototype,
-                    $settings,
-                    $code,
-                );
-
-                // 3. Сохраняем итоговые настройки (с URL файлов урока)
+                $settings = $block->cloneFileSetsFromModel($prototype, $settings, $code);
                 $block->update(['settings' => $settings]);
             }
 
@@ -109,10 +102,23 @@ class LessonController
             'saved'       => ['sometimes', 'boolean'],
             'published'   => ['sometimes', 'boolean'],
 
+            'taxonomy_ids'   => ['sometimes', 'array'],
+            'taxonomy_ids.*' => ['integer', 'exists:taxonomies,id'],
+
             'blocks'            => ['sometimes', 'array'],
             'blocks.*.id'       => ['required_with:blocks', 'integer', 'distinct'],
             'blocks.*.settings' => ['sometimes', 'nullable', 'array'],
         ]);
+
+        // ==================== ЗАЩИТА ОТ РЕДАКТИРОВАНИЯ ====================
+        // Если урок сейчас опубликован, мы разрешаем только снятие с публикации.
+        // Если в запросе нет поля published или оно равно true — блокируем.
+        if ($lesson->published) {
+            if (!$request->has('published') || $request->boolean('published') === true) {
+                abort(403, 'Нельзя редактировать опубликованный урок. Сначала снимите его с публикации.');
+            }
+        }
+        // ===================================================================
 
         $result = DB::transaction(function () use ($lesson, &$validated, $user) {
             $lesson->fill(collect($validated)->only([
@@ -121,11 +127,16 @@ class LessonController
 
             $lesson->save();
 
+            // Синхронизация связей с Taxonomy
+            if (array_key_exists('taxonomy_ids', $validated)) {
+                $lesson->taxonomies()->sync($validated['taxonomy_ids']);
+            }
+
             if (array_key_exists('blocks', $validated)) {
                 $this->syncBlocks($lesson, $validated['blocks'], $user);
             }
 
-            return $lesson->load(['blocks.block.blockType']);
+            return $lesson->load(['blocks.block.blockType', 'taxonomies']);
         });
 
         return response()->json(new LessonResource($result));
@@ -141,8 +152,8 @@ class LessonController
             abort_unless($lesson->isSaved() && $lesson->isPublished(), 404);
         }
 
-        $lesson->load(['blocks.block.blockType']);
-        //Log::info((new LessonResource($lesson))->toJson());
+        $lesson->load(['blocks.block.blockType', 'taxonomies']);
+
         return response()->json(new LessonResource($lesson));
     }
 
@@ -168,12 +179,12 @@ class LessonController
 
             $block = $existing->get($id);
             $newSettings = $data['settings'] ?? null;
-            // 1. Синхронизируем (мутирует $newSettings по ссылке)
+
             $code = $block->block?->blockType?->code;
             if ($code && $newSettings !== null) {
                 $block->syncFileSetsFromSettings($newSettings, $code);
             }
-            // 2. Сохраняем блок с уже обновленными настройками
+
             $block->fill([
                 'settings' => SettingsNormalizer::extractPublicValues($newSettings, $block->block->settings),
                 'order'    => $i,
