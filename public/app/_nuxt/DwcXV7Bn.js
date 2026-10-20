@@ -1,1 +1,0 @@
-import{g as r,vn as t}from"./C-cToEAb.js";import{r as o}from"./Ca4B11UE.js";function s(s){const a=o({dir:t("ltr")});return r(()=>s?.value||a.dir?.value||"ltr")}export{s as t};

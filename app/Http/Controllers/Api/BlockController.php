@@ -25,7 +25,7 @@ class BlockController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
 
         $paginator = Block::query()
-            ->with(['blockType.translations', 'translations'])
+            ->with(['blockType.translations', 'translations', 'blockIndexes'])
             ->where('user_id', $user->id)
             ->when($request->filled('block_type_id'),
                 fn ($q) => $q->where('block_type_id', (int) $request->input('block_type_id')))
@@ -60,22 +60,28 @@ class BlockController extends Controller
         }
 
         $data = $request->validate([
-            'block_type_id' => ['required', 'integer', Rule::exists('block_types', 'id')],
-            'title'         => ['nullable', 'string', 'max:255'],
-            'description'   => ['nullable', 'string', 'max:2000'],
-            'settings'      => ['nullable', 'array'],
+            'block_type_id'            => ['required', 'integer', Rule::exists('block_types', 'id')],
+            'title'                    => ['nullable', 'string', 'max:255'],
+            'description'              => ['nullable', 'string', 'max:2000'],
+            'settings'                 => ['nullable', 'array'],
+            'parent_block_index_ids'   => ['nullable', 'array'],
+            'parent_block_index_ids.*' => [
+                'integer',
+                Rule::exists('block_indexes', 'id')->whereNull('deleted_at'),
+            ],
+            'published'                => ['sometimes', 'boolean'],
         ]);
 
         if (!empty($data['settings'])) {
             $data['settings'] = SettingsNormalizer::normalizeUrls($data['settings']);
         }
 
-        // Передаем $data по ссылке, чтобы syncFileSetsFromSettings обновил пути картинок
         $block = DB::transaction(function () use ($user, &$data) {
             $block = Block::create([
                 'user_id'       => $user->id,
                 'block_type_id' => $data['block_type_id'],
                 'settings'      => $data['settings'] ?? [],
+                'published'     => $data['published'] ?? false,
             ]);
 
             $block->translations()->create([
@@ -84,17 +90,19 @@ class BlockController extends Controller
                 'description' => $data['description'] ?? '',
             ]);
 
-            // Синхронизация и замена temp URL на store URL
             if (!empty($data['settings'])) {
                 $block->load('blockType');
                 $block->syncFileSetsFromSettings($data['settings'], $block->blockType->code);
                 $block->update(['settings' => $data['settings']]);
             }
 
+            // Привязка к узлам дерева: пустой/отсутствующий массив → без привязок
+            $this->syncBlockIndexes($block, $data['parent_block_index_ids'] ?? []);
+
             return $block;
         });
 
-        $block->load(['blockType.translations', 'translations']);
+        $block->load(['blockType.translations', 'translations', 'blockIndexes']);
 
         return (new BlockResource($block))->response()->setStatusCode(201);
     }
@@ -111,7 +119,7 @@ class BlockController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $block->load(['blockType.translations', 'translations']);
+        $block->load(['blockType.translations', 'translations', 'blockIndexes']);
 
         return (new BlockResource($block))->response();
     }
@@ -129,9 +137,16 @@ class BlockController extends Controller
         }
 
         $data = $request->validate([
-            'title'       => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:2000'],
-            'settings'    => ['nullable', 'array'],
+            'title'                    => ['nullable', 'string', 'max:255'],
+            'description'              => ['nullable', 'string', 'max:2000'],
+            'settings'                 => ['nullable', 'array'],
+            // sometimes: если клиент не прислал поле — не трогаем привязки
+            'parent_block_index_ids'   => ['sometimes', 'nullable', 'array'],
+            'parent_block_index_ids.*' => [
+                'integer',
+                Rule::exists('block_indexes', 'id')->whereNull('deleted_at'),
+            ],
+            'published'                => ['sometimes', 'boolean'],
         ]);
 
         if (!empty($data['settings'])) {
@@ -139,15 +154,14 @@ class BlockController extends Controller
         }
 
         DB::transaction(function () use ($block, &$data) {
-            // Синхронизация (мутирует $data['settings'])
             if (!empty($data['settings'])) {
                 $block->load('blockType');
                 $block->syncFileSetsFromSettings($data['settings'], $block->blockType->code);
             }
 
-            // Единое сохранение
             $block->update([
                 'settings' => $data['settings'] ?? $block->settings,
+                'published' => $data['published'] ?? $block->published,
             ]);
 
             $locale = app()->getLocale();
@@ -155,9 +169,14 @@ class BlockController extends Controller
             $translation->title       = $data['title'] ?? $translation->title ?? '';
             $translation->description = $data['description'] ?? $translation->description ?? '';
             $translation->save();
+
+            // Привязка: null / [] → отвязать всё; массив → заменить состав
+            if (array_key_exists('parent_block_index_ids', $data)) {
+                $this->syncBlockIndexes($block, $data['parent_block_index_ids']);
+            }
         });
 
-        $block->load(['blockType.translations', 'translations']);
+        $block->load(['blockType.translations', 'translations', 'blockIndexes']);
 
         return (new BlockResource($block))->response();
     }
@@ -177,5 +196,47 @@ class BlockController extends Controller
         $block->delete();
 
         return response()->json(['message' => 'Deleted'], 200);
+    }
+
+    /**
+     * Синхронизация привязок блока к узлам дерева.
+     *
+     * Правила:
+     *  • null или [] — отвязать от всех узлов.
+     *  • Существующие привязки сохраняют свой `order` (не сбиваем порядок).
+     *  • Новые — дописываются в конец конкретного узла (MAX(order)+1).
+     *  • Привязки, отсутствующие в $ids, отвязываются (sync).
+     */
+    private function syncBlockIndexes(Block $block, ?array $ids): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids ?? [])));
+
+        if ($ids === []) {
+            $block->blockIndexes()->sync([]);
+            return;
+        }
+
+        // Текущий порядок этого блока в каждом узле: [block_index_id => order]
+        $existingOrders = DB::table('block_block_index')
+            ->where('block_id', $block->id)
+            ->pluck('order', 'block_index_id')
+            ->all();
+
+        // Максимальный order по каждому целевому узлу (уже занятые позиции)
+        $maxOrders = DB::table('block_block_index')
+            ->selectRaw('block_index_id, MAX(`order`) as max_order')
+            ->whereIn('block_index_id', $ids)
+            ->groupBy('block_index_id')
+            ->pluck('max_order', 'block_index_id')
+            ->all();
+
+        $sync = [];
+        foreach ($ids as $bid) {
+            $sync[$bid] = [
+                'order' => $existingOrders[$bid] ?? ((int) ($maxOrders[$bid] ?? -1) + 1),
+            ];
+        }
+
+        $block->blockIndexes()->sync($sync);
     }
 }

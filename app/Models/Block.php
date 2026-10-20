@@ -7,6 +7,7 @@ use App\Enums\FilePurpose;
 use Bifurcator\FileSets\Concerns\HasFileSets;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -18,10 +19,12 @@ class Block extends Model
         'block_type_id',
         'user_id',
         'settings',
+        'published',
     ];
 
     protected $casts = [
-        'settings' => 'array',
+        'settings'  => 'array',
+        'published' => 'boolean',
     ];
 
     /**
@@ -91,4 +94,17 @@ class Block extends Model
         'max_size_kb' => 10240,
         'ratios'      => ['1x1', '1x2', '1x3', '1x4', '2x1', '3x1', '4x1'],
     ];
+
+    /**
+     * Во всех узлах дерева, где встречается этот блок.
+     * Порядок — внутри каждого узла свой.
+     */
+    public function blockIndexes(): BelongsToMany
+    {
+        return $this->belongsToMany(BlockIndex::class, 'block_block_index')
+            ->withPivot('order')
+            ->withTimestamps()
+            ->orderByPivot('order')
+            ->orderBy('block_indexes.id');
+    }
 }

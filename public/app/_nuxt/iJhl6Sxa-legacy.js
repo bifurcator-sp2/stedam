@@ -1,1 +1,0 @@
-System.register(["./BlGo2kzw-legacy.js"],function(n,t){var e,r;return n({n:function(n,t,e){return n.set(r(n,t),e),e},t:function(n,t){e(n,t),t.add(n)}}),{setters:[function(n){e=n.i,r=n.n}],execute:function(){}}});

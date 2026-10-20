@@ -30,6 +30,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/user-data', [UserDataController::class, 'update']);
     Route::delete('/user-data', [UserDataController::class, 'destroy']);
 
+    Route::get('/blocks-index', \App\Http\Controllers\Api\BlocksIndexController::class);
+
     Route::get('/block-types/struct', [\App\Http\Controllers\Api\BlockTypeController::class, 'struct']);
     Route::get('/block-types', [\App\Http\Controllers\Api\BlockTypeController::class, 'index']);
     Route::get('/block-types/{code}', [\App\Http\Controllers\Api\BlockTypeController::class, 'show']);
@@ -41,6 +43,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/lessons/{lesson}/blocks', [\App\Http\Controllers\Api\LessonController::class, 'storeBlock']);
     Route::put('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'save']);
     Route::get('/lessons',         [\App\Http\Controllers\Api\LessonController::class, 'list']);
+
+
 });
 
 Route::middleware('auth:sanctum')->prefix('files')->group(function () {

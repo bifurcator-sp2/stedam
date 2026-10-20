@@ -4,8 +4,10 @@ namespace App\Filament\Resources\BlockIndexes\Pages;
 
 use App\Filament\Resources\BlockIndexes\BlockIndexResource;
 use App\Filament\Resources\BlockIndexes\Actions\AddChildAction;
+use App\Models\BlockBlockIndex;
 use App\Models\BlockIndex;
 use Filament\Actions\CreateAction;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -36,13 +38,11 @@ class BlockIndexTree extends TreePage
         $this->rootId = $root;
     }
 
-    /**
-     * Дерево показывает только выбранный корень и его прямых потомков.
-     * Для глубоких деревьев замените на рекурсивный сбор ID.
-     */
     protected function getTreeQuery(): Builder
     {
         return BlockIndex::query()
+            ->withCount('blocks')
+            ->with(['blocks.translations'])
             ->where(function (Builder $q) {
                 $q->where('id', $this->rootId)
                     ->orWhere('parent_id', $this->rootId);
@@ -76,9 +76,6 @@ class BlockIndexTree extends TreePage
         return false;
     }
 
-    /**
-     * «+» на узле — открыть создание с parent_id = id узла.
-     */
     #[On('openCreateModal')]
     public function openCreateModal(int $parentId): void
     {
@@ -87,7 +84,7 @@ class BlockIndexTree extends TreePage
     }
 
     /**
-     * Форма без поля «Родитель» — parent_id ставится программно.
+     * Форма узла: переводы + сортировка блоков.
      */
     protected function getFormSchema(): array
     {
@@ -112,6 +109,23 @@ class BlockIndexTree extends TreePage
                 ->columns(3)
                 ->defaultItems(1)
                 ->addActionLabel('Добавить перевод'),
+
+            // === СОРТИРОВКА БЛОКОВ (через pivot-модель) ===
+            Repeater::make('blockPivots')
+                ->relationship('blockPivots')
+                ->label('Порядок блоков в узле')
+                ->orderColumn('order') // Сохраняет порядок в колонку order таблицы block_block_index
+                ->schema([
+                    Placeholder::make('block_info')
+                        ->hiddenLabel()
+                        ->content(fn (BlockBlockIndex $record) => $record->block
+                            ? "ID: {$record->block->id} — " . ($record->block->title ?? 'Без названия')
+                            : '—'),
+                ])
+                ->reorderable()     // Drag & Drop
+                ->addable(false)    // Запрещаем добавлять
+                ->deletable(false)  // Запрещаем удалять
+                ->visible(fn (?BlockIndex $record) => $record && $record->blockPivots()->exists()),
         ];
     }
 
@@ -119,19 +133,11 @@ class BlockIndexTree extends TreePage
     {
         return parent::configureCreateAction($action)
             ->mutateFormDataUsing(function (array $data, array $arguments): array {
-                // $arguments['parent_id'] приходит из AddChildAction::mountAction('create', ['parent_id' => ...])
                 $data['parent_id'] = $arguments['parent_id'] ?? $this->rootId ?? -1;
-
                 return $data;
             });
     }
 
-    /**
-     * При создании ставим parent_id:
-     * — если через «+», то preselectedParentId;
-     * — если через «Создать» в хедере, то сам корень (rootId);
-     * — fallback на сессию (на случай асинхронности).
-     */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['parent_id'] = $this->preselectedParentId
@@ -149,10 +155,12 @@ class BlockIndexTree extends TreePage
     public function getTitle(): string
     {
         $root = BlockIndex::find($this->rootId);
-
         return $root?->title ?? 'Иерархия блоков';
     }
 
+    /**
+     * Подпись узла в дереве.
+     */
     public function getTreeRecordTitle(?\Illuminate\Database\Eloquent\Model $record = null): string
     {
         if (! $record) {
@@ -161,6 +169,24 @@ class BlockIndexTree extends TreePage
 
         $title = $record->title ?? 'Без названия';
 
-        return "[{$record->id}] {$title}";
+        $blocks = $record->relationLoaded('blocks')
+            ? $record->blocks
+            : $record->blocks()->get();
+
+        $count = $blocks->count();
+
+        if ($count === 0) {
+            return "[{$record->id}] {$title}";
+        }
+
+        $blockTitles = $blocks
+            ->map(fn ($b) => $b->title ?: '—')
+            ->filter()
+            ->take(3)
+            ->implode(', ');
+
+        $suffix = $count > 3 ? " +" . ($count - 3) . " ещё" : "";
+
+        return "[{$record->id}] {$title}  ·  📦 {$count}" . ($blockTitles ? ": {$blockTitles}{$suffix}" : "");
     }
 }

@@ -1,1 +1,0 @@
-System.register(["./Cr2sIBow-legacy.js"],function(e,t){return{setters:[function(e){}],execute:function(){e("t",e=>{})}}});

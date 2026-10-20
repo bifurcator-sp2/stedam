@@ -1,0 +1,1 @@
+import{J as e,g as t,gt as n,k as r}from"./B4N7guxM.js";var i=Symbol(`nuxt-ui.field-group`);function a(n){let r=e(i,void 0);return{orientation:t(()=>r?.value.orientation),size:t(()=>n?.size??r?.value.size)}}var o=r({name:`FieldGroupReset`,setup(e,{slots:r}){return n(i,t(()=>({size:void 0,orientation:void 0}))),()=>r.default?.()}});export{a as n,o as t};

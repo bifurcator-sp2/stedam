@@ -1,1 +1,0 @@
-System.register(["./DQ3Scnp2-legacy.js"],function(e,t){var i;return e("t",function(){var e,t=null===(e=i().ui)||void 0===e?void 0:e.prefix;return e=>t&&e?e.split(/\s+/).filter(Boolean).map(e=>`${t}:${e}`).join(" "):e}),{setters:[function(e){i=e.i}],execute:function(){}}});
