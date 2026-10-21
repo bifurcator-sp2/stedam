@@ -121,7 +121,9 @@ class BlockIndexTree extends TreePage
     public function openCreateModal(int $parentId): void
     {
         $this->preselectedParentId = $parentId;
-        $this->mountAction('create');
+
+        // Передаем parent_id в аргументы действия
+        $this->mountAction('create', ['parent_id' => $parentId]);
     }
 
     /**
@@ -174,6 +176,7 @@ class BlockIndexTree extends TreePage
     {
         return parent::configureCreateAction($action)
             ->mutateFormDataUsing(function (array $data, array $arguments): array {
+                // Берем parent_id из аргументов, если он есть
                 $data['parent_id'] = $arguments['parent_id'] ?? $this->rootId ?? -1;
                 return $data;
             });

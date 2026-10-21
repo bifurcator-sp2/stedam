@@ -42,6 +42,10 @@ class BlockIndex extends Model
         });
     }
 
+    public function blockPivots(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(BlockBlockIndex::class, 'block_index_id')->orderBy('order');
+    }
     public function translations(): HasMany
     {
         return $this->hasMany(BlockIndexTranslation::class, 'block_index_id');

@@ -1,7 +1,9 @@
 <?php
+// app/Models/BlockBlockIndex.php
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
@@ -9,8 +11,14 @@ class BlockBlockIndex extends Pivot
 {
     protected $table = 'block_block_index';
 
-    public $incrementing = true; // Важно для Filament
+    public $incrementing = true;
+
     protected $fillable = ['block_index_id', 'block_id', 'order'];
+
+    // Добавляем касты для порядка, чтобы Filament корректно с ним работал
+    protected $casts = [
+        'order' => 'integer',
+    ];
 
     public function blockIndex(): BelongsTo
     {
