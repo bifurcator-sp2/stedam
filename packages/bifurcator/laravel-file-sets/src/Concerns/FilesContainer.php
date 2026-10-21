@@ -1,5 +1,5 @@
 <?php
-// app/Traits/FilesContainer.php
+// packages/bifurcator/laravel-file-sets/src/Concerns/FilesContainer.php
 
 namespace Bifurcator\FileSets\Concerns;
 
@@ -7,12 +7,9 @@ use Bifurcator\FileSets\Contracts\FileStorage;
 use Bifurcator\FileSets\Contracts\FileUrlResolver;
 use Bifurcator\FileSets\Exceptions\FileLimitExceededException;
 use Bifurcator\FileSets\FileStorageKeys;
-use Illuminate\Http\UploadedFile;
 
 trait FilesContainer
 {
-    public $tempId = null;
-
     /* ============================================================
      *  BOOT
      * ============================================================ */
@@ -245,6 +242,13 @@ trait FilesContainer
                 continue;
             }
 
+            // ВАЖНО: FileSet может хранить в одной папке и images, и files.
+            // pruneOrphanImages() не должен трогать не-image файлы —
+            // это зона ответственности pruneOrphanFiles().
+            if (!$this->isImagePath($path, $storage)) {
+                continue;
+            }
+
             $isThumb = str_starts_with($filename, 'thumb_');
 
             if ($isThumb) {
@@ -327,6 +331,73 @@ trait FilesContainer
             'images' => $this->pruneOrphanImages(),
             'files'  => $this->pruneOrphanFiles(),
         ];
+    }
+
+    /* ============================================================
+     *  ПРУНИНГ ПУСТЫХ ПАПОК
+     * ============================================================ */
+
+    /**
+     * Удаляет пустые папки в models/{table}:
+     *   - собственный storeDir()   (…/xx/yy/{id})
+     *   - родитель-шард           (…/xx/yy)
+     *   - прародитель-шард        (…/xx)
+     *
+     * Действует снизу вверх: как только встречается непустая папка —
+     * подъём прекращается. models/{table} не трогаем.
+     *
+     * Возвращает ['deleted' => [путь, ...]] в порядке удаления.
+     */
+    public function pruneEmptyStoreDirs(): array
+    {
+        $deleted = [];
+
+        if (!$this->getKey()) {
+            return ['deleted' => $deleted];
+        }
+
+        $storage  = $this->storeStorage();
+        $storeDir = $this->storeDir();
+
+        $candidates = [
+            $storeDir,
+            dirname($storeDir),
+            dirname(dirname($storeDir)),
+        ];
+
+        foreach ($candidates as $dir) {
+            if (!$storage->exists($dir)) {
+                continue;
+            }
+
+            if (!$this->isDirEmpty($dir, $storage)) {
+                break;
+            }
+
+            if (!$storage->deleteDirectory($dir)) {
+                break;
+            }
+
+            $deleted[] = $dir;
+        }
+
+        return ['deleted' => $deleted];
+    }
+
+    /**
+     * Папка пустая, если в ней нет ни файлов, ни подкаталогов.
+     */
+    protected function isDirEmpty(string $dir, FileStorage $storage): bool
+    {
+        if (!empty($storage->files($dir))) {
+            return false;
+        }
+
+        if (!empty($storage->directories($dir))) {
+            return false;
+        }
+
+        return true;
     }
 
     /* ============================================================
@@ -446,39 +517,6 @@ trait FilesContainer
             })
             ->values()
             ->toArray();
-    }
-
-    /* ============================================================
-     *  ДОБАВЛЕНИЕ В TEMP
-     * ============================================================ */
-
-    public function addTempImage(UploadedFile $file): string
-    {
-        $filename = $file->hashName();
-        $file->storeAs($this->tempDir(), $filename, $this->tempStorage()->diskName());
-
-        return $filename;
-    }
-
-    public function addTempFile(UploadedFile $file): string
-    {
-        $filename = $file->hashName();
-        $file->storeAs($this->tempDir(), $filename, $this->tempStorage()->diskName());
-
-        return $filename;
-    }
-
-    public function deleteTempFile(string $filename): void
-    {
-        $dir = $this->tempDir();
-        $storage = $this->tempStorage();
-
-        $storage->delete("{$dir}/{$filename}");
-
-        $thumbPath = "{$dir}/thumb_{$filename}";
-        if ($storage->exists($thumbPath)) {
-            $storage->delete($thumbPath);
-        }
     }
 
     /* ============================================================
@@ -948,11 +986,5 @@ trait FilesContainer
     public function maxFiles(): int
     {
         return (int) config('files.max_files', 20);
-    }
-
-    public function synchronizeFiles(): void
-    {
-        $this->moveTempToStore();
-        $this->pruneOrphans();
     }
 }

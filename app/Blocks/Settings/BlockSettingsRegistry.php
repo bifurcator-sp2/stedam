@@ -353,7 +353,7 @@ class BlockSettingsRegistry
                 type: SettingType::String,
                 public: false,
                 default: 'А быть может, каждый из вас уже начал — не заметив этого — тот единственный путь, который предназначен ему судьбой. В странные времена довелось мне жить! Мы веками разводили скот, пахали землю, строили дома, мастерили орудия, помогали гондорцам в битвах за Минас Тирит. Все это мы называли обычной человеческой жизнью, и нам казалось, что таким путем идет весь мир. Нас мало беспокоило, что происходит за пределами нашей страны. Об этом пелось в песнях, но мы забывали эти песни или пели их только детям, просто так, бездумно, по привычке. И вот эти песни напомнили о себе, отыскали нас в самом неожиданном месте и обрели видимое обличье!',
-                label: 'Тект',
+                label: 'Текст',
                 children: [
                 self::getTextSettingsDefinition(),
             ],
@@ -522,12 +522,6 @@ class BlockSettingsRegistry
     public static function for(string $code): ?SettingDefinition
     {
         return self::map()[$code] ?? null;
-    }
-
-    public static function defaults(string $code): array
-    {
-        $def = self::for($code);
-        return $def ? [$def->key => $def->default] : [];
     }
 
     public static function codes(): array

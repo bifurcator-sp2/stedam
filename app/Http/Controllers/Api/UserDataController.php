@@ -147,11 +147,7 @@ class UserDataController extends Controller
             'direction' => ['nullable', Rule::in(['ltr', 'rtl'])],
         ]);
 
-        /*if ($validator->fails()) {
-            abort(422, $validator->errors()->first());
-        }*/
         return $validator->validate();
-        //return $validator->validated();
     }
 
     /**

@@ -19,9 +19,13 @@ interface FileStorage
 
     public function files(string $dir): array;
 
-    public function mimeType(string $path): ?string;
+    /**
+     * Список подкаталогов (не рекурсивно) внутри $dir.
+     * Нужен для проверки «папка пустая» и для очистки шардов.
+     */
+    public function directories(string $dir): array;
 
-    public function size(string $path): int;
+    public function mimeType(string $path): ?string;
 
     // ============================================================
     // Запись

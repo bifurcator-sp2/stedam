@@ -64,9 +64,4 @@ class ThumbnailMaker implements ThumbnailMakerContract
             return null;
         }
     }
-
-    public function prefix(): string
-    {
-        return $this->prefix;
-    }
 }

@@ -3,17 +3,15 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Blocks\Settings\BlockSettingsRegistry;
 use App\Blocks\Settings\SettingsNormalizer;
-use App\Http\Resources\BlockResource;
 use App\Http\Resources\LessonBlockResource;
 use App\Http\Resources\LessonResource;
 use App\Models\Block;
 use App\Models\Lesson;
-use App\Models\LessonBlock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class LessonController
 {
@@ -53,7 +51,6 @@ class LessonController
             'order'    => ['sometimes', 'integer', 'min:0'],
         ]);
 
-        // Убрали with('blockType')
         $prototype = Block::findOrFail($validated['block_id']);
 
         $order = $validated['order']
@@ -75,7 +72,7 @@ class LessonController
 
             if (!empty($prototype->settings)) {
                 $settings = $prototype->settings;
-                $code = $prototype->code; // <-- Изменено
+                $code = $prototype->code;
 
                 SettingsNormalizer::syncFileSetsFromSettings($settings, $block, $code);
                 $settings = SettingsNormalizer::cloneFileSetsFromModel($settings, $block, $prototype, $code);
@@ -85,7 +82,7 @@ class LessonController
             return $block;
         });
 
-        $block->load('block'); // <-- Изменено
+        $block->load('block');
 
         return response()->json(new LessonBlockResource($block), 201);
     }
@@ -122,7 +119,7 @@ class LessonController
         }
         // ===================================================================
 
-        $result = DB::transaction(function () use ($lesson, &$validated, $user) {
+        $result = DB::transaction(function () use ($lesson, &$validated) {
             $lesson->fill(collect($validated)->only([
                 'title', 'description', 'locale', 'saved', 'published',
             ])->all());
@@ -135,10 +132,10 @@ class LessonController
             }
 
             if (array_key_exists('blocks', $validated)) {
-                $this->syncBlocks($lesson, $validated['blocks'], $user);
+                $this->syncBlocks($lesson, $validated['blocks']);
             }
 
-            return $lesson->load(['blocks.block', 'taxonomies']); // <-- Изменено
+            return $lesson->load(['blocks.block', 'taxonomies']);
         });
 
         return response()->json(new LessonResource($result));
@@ -154,16 +151,15 @@ class LessonController
             abort_unless($lesson->isSaved() && $lesson->isPublished(), 404);
         }
 
-        $lesson->load(['blocks.block', 'taxonomies']); // <-- Изменено
+        $lesson->load(['blocks.block', 'taxonomies']);
 
         return response()->json(new LessonResource($lesson));
     }
 
-    protected function syncBlocks(Lesson $lesson, array $blocks, $user): void
+    protected function syncBlocks(Lesson $lesson, array $blocks): void
     {
         $lesson->blocks()->update(['order' => DB::raw('`order` + 1000000')]);
 
-        // Убрали with('block.blockType')
         $existing = $lesson->blocks()
             ->with('block')
             ->get()
@@ -183,13 +179,13 @@ class LessonController
             $block = $existing->get($id);
             $newSettings = $data['settings'] ?? null;
 
-            $code = $block->block?->code; // <-- Изменено
+            $code = $block->block?->code;
             if ($code && $newSettings !== null) {
                 SettingsNormalizer::syncFileSetsFromSettings($newSettings, $block, $code);
             }
 
             $block->fill([
-                'settings' => $newSettings,
+                'settings' => SettingsNormalizer::extractPublicDefaults($newSettings, $block->block?->settings),
                 'order'    => $i,
             ]);
             $block->save();

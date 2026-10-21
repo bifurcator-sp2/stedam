@@ -14,9 +14,9 @@ use RuntimeException;
 class FileLimitExceededException extends RuntimeException
 {
     public function __construct(
-        protected string $kind,
-        protected int $max,
-        protected int $actual,
+        string $kind,
+        int $max,
+        int $actual,
         string $message = '',
         int $code = 0,
         ?\Throwable $previous = null,
@@ -29,23 +29,5 @@ class FileLimitExceededException extends RuntimeException
         );
 
         parent::__construct($message, $code, $previous);
-    }
-
-    /**
-     * 'images' или 'files'.
-     */
-    public function getKind(): string
-    {
-        return $this->kind;
-    }
-
-    public function getMax(): int
-    {
-        return $this->max;
-    }
-
-    public function getActual(): int
-    {
-        return $this->actual;
     }
 }

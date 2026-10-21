@@ -18,14 +18,9 @@ class SettingDefinition
         public readonly ?array $params = null,
     ) {}
 
-    public function isContainer(): bool
-    {
-        return in_array($this->type, [SettingType::Object, SettingType::Array], true);
-    }
-
-    public function isLeaf(): bool
-    {
-        return ! $this->isContainer();
-    }
+public function isContainer(): bool
+{
+    return in_array($this->type, [SettingType::Object, SettingType::Array], true);
+}
 
 }

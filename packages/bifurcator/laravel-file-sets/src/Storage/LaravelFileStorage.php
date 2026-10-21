@@ -47,14 +47,14 @@ class LaravelFileStorage implements FileStorage
         return $this->fs()->files($dir);
     }
 
+    public function directories(string $dir): array
+    {
+        return $this->fs()->directories($dir);
+    }
+
     public function mimeType(string $path): ?string
     {
         return $this->fs()->mimeType($path) ?: null;
-    }
-
-    public function size(string $path): int
-    {
-        return $this->fs()->size($path);
     }
 
     // ============================================================

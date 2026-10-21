@@ -6,7 +6,6 @@ namespace Bifurcator\FileSets;
 use Bifurcator\FileSets\Contracts\FileStorage;
 use Bifurcator\FileSets\Contracts\FileUrlResolver;
 use Bifurcator\FileSets\Contracts\ThumbnailMakerContract;
-use Illuminate\Http\UploadedFile;
 
 class FilesService
 {
@@ -33,11 +32,8 @@ class FilesService
     ): array {
         $tempStorage = app(FileStorageKeys::TEMP);
 
-        $fileSet = null;
-
         if ($purpose !== null) {
-            $fileSet = $this->resolveFileSet($modelClass, $modelId, $purpose);
-            $dir = $fileSet->tempDir();
+            $dir = $this->resolveFileSet($modelClass, $modelId, $purpose)->tempDir();
         } else {
             $userId = auth()->id() ?? 0;
             $modelName = (new $modelClass)->getTable();

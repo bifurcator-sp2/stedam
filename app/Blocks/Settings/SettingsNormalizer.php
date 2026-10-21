@@ -27,12 +27,12 @@ class SettingsNormalizer
 
             $merged = $schema;
 
-            foreach ($schema as $schenaKey => $schemaVal) {
-                if (in_array($schenaKey, ['label', 'public', 'key', 'type', 'children'], true)) {
+            foreach ($schema as $schemaKey => $schemaVal) {
+                if (in_array($schemaKey, ['label', 'public', 'key', 'type', 'children'], true)) {
                     continue;
                 }
-                if (array_key_exists($schenaKey, $saved)) {
-                    $merged[$schenaKey] = $saved[$schenaKey];
+                if (array_key_exists($schemaKey, $saved)) {
+                    $merged[$schemaKey] = $saved[$schemaKey];
                 }
             }
 
@@ -72,12 +72,12 @@ class SettingsNormalizer
 
             $merged = $schemaItem;
 
-            foreach ($schemaItem as $schenaKey => $schemaVal) {
-                if (in_array($schenaKey, ['label', 'public', 'key', 'type', 'children'], true)) {
+            foreach ($schemaItem as $schemaKey => $schemaVal) {
+                if (in_array($schemaKey, ['label', 'public', 'key', 'type', 'children'], true)) {
                     continue;
                 }
-                if (array_key_exists($schenaKey, $savedItem)) {
-                    $merged[$schenaKey] = $savedItem[$schenaKey];
+                if (array_key_exists($schemaKey, $savedItem)) {
+                    $merged[$schemaKey] = $savedItem[$schemaKey];
                 }
             }
 
@@ -92,11 +92,6 @@ class SettingsNormalizer
         }
 
         return $result;
-    }
-
-    public static function normalize(?string $code, ?array $saved): array
-    {
-        return self::mergeSchemaWithSaved(BlockSettingsRegistry::serializeSchema($code ?? ''), $saved ?? []);
     }
 
     public static function normalizeUrls(array $settings): array
@@ -487,5 +482,346 @@ class SettingsNormalizer
             }
             return;
         }
+    }
+
+
+    /**
+     * Возвращает сокращённое дерево defaults только публичных узлов.
+     *
+     * Обходит $schema на всю глубину и оставляет в ответе для каждого
+     * "нужного" узла только:
+     *   - key
+     *   - public (только если в схеме public === true)
+     *   - default (значение default из соответствующего узла $settings)
+     *   - children (рекурсивно, если есть)
+     *
+     * "Нужный" узел — тот, у которого в схеме public=true, либо тот,
+     * у которого в поддереве есть хотя бы один публичный узел.
+     * Так контейнеры без public сохраняются как путь к публичным листьям.
+     *
+     * Формат выхода совпадает по shape с $schema:
+     *   single-root (есть key на верхнем уровне) → single-узел или []
+     *   list узлов                                → list узлов
+     *
+     * @throws SettingsShapeException при фатальных расхождениях формы
+     */
+    public static function extractPublicDefaults(?array $settings, ?array $schema): array
+    {
+        return self::extractPublicDefaultsAt($settings, $schema, []);
+    }
+
+    /**
+     * Внутренняя реализация с прокидыванием $path для диагностики.
+     */
+    protected static function extractPublicDefaultsAt(?array $settings, ?array $schema, array $path): array
+    {
+        if (!is_array($schema)) {
+            return [];
+        }
+
+        $settings = is_array($settings) ? $settings : [];
+
+        $schemaIsSingle   = isset($schema['key']);
+        $settingsIsSingle = isset($settings['key']);
+
+        // ── Единичный корневой узел ──
+        if ($schemaIsSingle) {
+            if ($settingsIsSingle) {
+                // ок
+            } elseif (array_is_list($settings)) {
+                if (count($settings) > 1) {
+                    throw new SettingsShapeException(
+                        $path,
+                        'schema is single-node, but settings is a list with multiple items',
+                        'single node',
+                        'list of ' . count($settings) . ' items',
+                    );
+                }
+
+                if (count($settings) === 1) {
+                    if (!is_array($settings[0]) || !isset($settings[0]['key'])) {
+                        throw new SettingsShapeException(
+                            array_merge($path, ['#0']),
+                            'settings list item is not a node (missing key)',
+                            'node with key',
+                            $settings[0],
+                        );
+                    }
+                    $settings = $settings[0];
+                } else {
+                    $settings = [];
+                }
+            } elseif (!empty($settings)) {
+                throw new SettingsShapeException(
+                    $path,
+                    'schema is single-node, but settings has incompatible shape',
+                    'node or list',
+                    $settings,
+                );
+            } else {
+                $settings = [];
+            }
+
+            $node = self::extractPublicDefaultsNode($schema, $settings, $path);
+
+            return $node ?? [];
+        }
+
+        // ── Список узлов ──
+        if ($settingsIsSingle) {
+            throw new SettingsShapeException(
+                $path,
+                'schema is a list, but settings is a single node',
+                'list of nodes',
+                'single node',
+            );
+        }
+
+        if (!array_is_list($settings) && !empty($settings)) {
+            throw new SettingsShapeException(
+                $path,
+                'schema is a list, but settings is not a list',
+                'list of nodes',
+                $settings,
+            );
+        }
+
+        $settingsByKey = [];
+
+        foreach ($settings as $i => $item) {
+            if (!is_array($item)) {
+                throw new SettingsShapeException(
+                    array_merge($path, ["#{$i}"]),
+                    'settings list item is not an array',
+                    'array node',
+                    $item,
+                );
+            }
+
+            $key = $item['key'] ?? null;
+            if (!is_string($key) || $key === '') {
+                throw new SettingsShapeException(
+                    array_merge($path, ["#{$i}"]),
+                    'settings list item is missing string key',
+                    'node with string key',
+                    $item,
+                );
+            }
+
+            if (isset($settingsByKey[$key])) {
+                throw new SettingsShapeException(
+                    array_merge($path, [$key]),
+                    'duplicate key in settings list',
+                    'unique key',
+                    $key,
+                );
+            }
+
+            $settingsByKey[$key] = $item;
+        }
+
+        $result = [];
+
+        foreach ($schema as $schemaItem) {
+            if (!is_array($schemaItem)) {
+                continue;
+            }
+
+            $key = $schemaItem['key'] ?? null;
+            if ($key === null) {
+                continue;
+            }
+
+            $settingsItem = $settingsByKey[$key] ?? [];
+            $nodePath     = array_merge($path, [$key]);
+
+            $node = self::extractPublicDefaultsNode($schemaItem, $settingsItem, $nodePath);
+            if ($node !== null) {
+                $result[] = $node;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Обрабатывает один узел схемы. Возвращает null, если узел не нужен.
+     */
+    protected static function extractPublicDefaultsNode(array $schemaNode, array $settingsNode, array $path): ?array
+    {
+        $key = $schemaNode['key'] ?? null;
+        if ($key === null) {
+            return null;
+        }
+
+        $isPublic = !empty($schemaNode['public']);
+
+        $schemaChildren       = $schemaNode['children'] ?? null;
+        $hasSchemaChildren    = is_array($schemaChildren) && !empty($schemaChildren);
+
+        $settingsChildren     = $settingsNode['children'] ?? null;
+        $hasSettingsChildren  = $settingsChildren !== null;
+
+        if ($hasSettingsChildren && !is_array($settingsChildren)) {
+            throw new SettingsShapeException(
+                array_merge($path, ['children']),
+                'settings children is not an array',
+                'array',
+                $settingsChildren,
+            );
+        }
+
+        if ($hasSettingsChildren && !$hasSchemaChildren && !empty($settingsChildren)) {
+            throw new SettingsShapeException(
+                array_merge($path, ['children']),
+                'settings has children, but schema node is a leaf',
+                'leaf (no children)',
+                $settingsChildren,
+            );
+        }
+
+        $children = [];
+        if ($hasSchemaChildren) {
+            $childSettings = is_array($settingsChildren) ? $settingsChildren : [];
+            $children = self::extractPublicDefaultsAt(
+                $childSettings,
+                $schemaChildren,
+                array_merge($path, ['children']),
+            );
+        }
+
+        if (!$isPublic && empty($children)) {
+            return null;
+        }
+
+        $result = ['key' => $key];
+
+        if ($isPublic) {
+            $result['public'] = true;
+        }
+
+        $result['default'] = $settingsNode['default'] ?? null;
+
+        if (!empty($children)) {
+            $result['children'] = $children;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Заполняет схему значениями из снимка публичных defaults.
+     *
+     * Обратная операция к extractPublicDefaults: берёт $schema как эталон
+     * структуры и рекурсивно перезаписывает в её узлах:
+     *   - default — значением default из соответствующего узла $settings
+     *   - public  — значением public из соответствующего узла $settings
+     *
+     * Узлы, которых нет в $settings, остаются как в $schema (не трогаем).
+     * Быстро, без анализа и исключений — при несовпадении shape узел
+     * просто пропускается, схема возвращается частично заполненной.
+     *
+     * Идемпотентна: повторный вызов с тем же результатом не меняет его.
+     */
+    public static function fillPublicDefaults(?array $settings, ?array $schema): array
+    {
+        if (!is_array($schema) || empty($schema)) {
+            return is_array($schema) ? $schema : [];
+        }
+
+        if (!is_array($settings) || empty($settings)) {
+            return $schema;
+        }
+
+        // ── Единичный корневой узел ──
+        if (isset($schema['key'])) {
+            // settings пришёл как list с одним элементом
+            if (array_is_list($settings) && isset($settings[0]['key'])) {
+                if (count($settings) !== 1) {
+                    return $schema;
+                }
+                $settings = $settings[0];
+            }
+
+            if (!is_array($settings) || !isset($settings['key'])) {
+                return $schema;
+            }
+
+            if ($settings['key'] !== $schema['key']) {
+                return $schema;
+            }
+
+            return self::fillPublicDefaultsNode($schema, $settings);
+        }
+
+        // ── Список узлов ──
+        // settings пришёл как single-node — обернём в список
+        if (isset($settings['key'])) {
+            $settings = [$settings];
+        }
+
+        if (!is_array($settings)) {
+            return $schema;
+        }
+
+        $settingsByKey = [];
+        foreach ($settings as $item) {
+            if (is_array($item) && !empty($item['key'])) {
+                $settingsByKey[$item['key']] = $item;
+            }
+        }
+
+        if (empty($settingsByKey)) {
+            return $schema;
+        }
+
+        $result = [];
+
+        foreach ($schema as $schemaItem) {
+            if (!is_array($schemaItem)) {
+                $result[] = $schemaItem;
+                continue;
+            }
+
+            $key = $schemaItem['key'] ?? null;
+            $settingsItem = $key !== null ? ($settingsByKey[$key] ?? null) : null;
+
+            if ($settingsItem === null) {
+                $result[] = $schemaItem;
+                continue;
+            }
+
+            $result[] = self::fillPublicDefaultsNode($schemaItem, $settingsItem);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Накатывает default/public из одного узла снимка на один узел схемы
+     * и рекурсивно идёт в children.
+     */
+    protected static function fillPublicDefaultsNode(array $schemaNode, array $settingsNode): array
+    {
+        $merged = $schemaNode;
+
+        if (array_key_exists('default', $settingsNode)) {
+            $merged['default'] = $settingsNode['default'];
+        }
+
+        if (array_key_exists('public', $settingsNode)) {
+            $merged['public'] = $settingsNode['public'];
+        }
+
+        $schemaChildren   = $schemaNode['children'] ?? null;
+        $settingsChildren = $settingsNode['children'] ?? null;
+
+        if (is_array($schemaChildren) && !empty($schemaChildren)
+            && is_array($settingsChildren) && !empty($settingsChildren)
+        ) {
+            $merged['children'] = self::fillPublicDefaults($settingsChildren, $schemaChildren);
+        }
+
+        return $merged;
     }
 }
