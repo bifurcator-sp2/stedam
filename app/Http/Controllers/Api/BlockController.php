@@ -3,10 +3,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Blocks\Settings\BlockSettingsRegistry;
 use App\Blocks\Settings\SettingsNormalizer;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BlockResource;
 use App\Models\Block;
+use App\Models\BlockType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +16,20 @@ use Illuminate\Validation\Rule;
 
 class BlockController extends Controller
 {
+
+
+    public function template(string $code): JsonResponse
+    {
+
+        $type = BlockType::getByCode($code);
+        $block = new Block();
+        $block->block_type_id = $type->id;
+        $block->settings = $type->normalized_settings;
+
+        return response()->json(new BlockResource($block));
+    }
+
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();

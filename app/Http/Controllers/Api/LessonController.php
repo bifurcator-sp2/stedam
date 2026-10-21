@@ -4,6 +4,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Blocks\Settings\SettingsNormalizer;
+use App\Http\Resources\BlockResource;
 use App\Http\Resources\LessonBlockResource;
 use App\Http\Resources\LessonResource;
 use App\Models\Block;
@@ -184,9 +185,9 @@ class LessonController
             if ($code && $newSettings !== null) {
                 $block->syncFileSetsFromSettings($newSettings, $code);
             }
-
+            //dd(SettingsNormalizer::extractPublicValues($newSettings, $block->block->settings));
             $block->fill([
-                'settings' => SettingsNormalizer::extractPublicValues($newSettings, $block->block->settings),
+                'settings' => $newSettings, //SettingsNormalizer::extractPublicValues($newSettings, $block->block->settings),
                 'order'    => $i,
             ]);
             $block->save();

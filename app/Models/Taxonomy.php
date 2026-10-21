@@ -8,11 +8,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use SolutionForest\FilamentTree\Concern\ModelTree;
+use Staudenmeir\LaravelAdjacencyList\Eloquent\HasRecursiveRelationships;
 
 class Taxonomy extends Model
 {
     use SoftDeletes;
-    use ModelTree;
+
+    // Разрешаем конфликт трейтов (оба имеют scopeIsRoot)
+    use ModelTree, HasRecursiveRelationships {
+        ModelTree::scopeIsRoot insteadof HasRecursiveRelationships;
+        HasRecursiveRelationships::scopeIsRoot as scopeIsRootAdjacency;
+    }
 
     protected $fillable = [
         'parent_id',

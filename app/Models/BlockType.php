@@ -86,4 +86,9 @@ class BlockType extends Model
     {
         return $this->hasMany(Block::class);
     }
+
+    public static function getByCode($code){
+        return self::where('code', $code)->firstOrFail();
+    }
+
 }

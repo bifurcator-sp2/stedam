@@ -13,7 +13,10 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\On;
+use SolutionForest\FilamentTree\Actions\DeleteAction;
+use SolutionForest\FilamentTree\Actions\EditAction;
 use SolutionForest\FilamentTree\Resources\Pages\TreePage;
 
 class BlockIndexTree extends TreePage
@@ -38,15 +41,43 @@ class BlockIndexTree extends TreePage
         $this->rootId = $root;
     }
 
+    /**
+     * Загружаем корень И ВСЕХ его потомков (на любую глубину).
+     */
     protected function getTreeQuery(): Builder
     {
+        $descendantIds = $this->getDescendantIds($this->rootId);
+
         return BlockIndex::query()
             ->withCount('blocks')
             ->with(['blocks.translations'])
-            ->where(function (Builder $q) {
-                $q->where('id', $this->rootId)
-                    ->orWhere('parent_id', $this->rootId);
-            });
+            ->whereIn('id', $descendantIds);
+    }
+
+    /**
+     * Рекурсивно собирает ID корня и всех его потомков.
+     */
+    protected function getDescendantIds(?int $rootId): array
+    {
+        if (!$rootId) {
+            return [];
+        }
+
+        $ids = [$rootId];
+        $parentIds = [$rootId];
+
+        // Проходим по уровням дерева, пока находим новых детей
+        // withTrashed() гарантирует, что мы найдем детей, даже если родитель удален
+        while (!empty($parentIds)) {
+            $parentIds = BlockIndex::withTrashed()
+                ->whereIn('parent_id', $parentIds)
+                ->pluck('id')
+                ->toArray();
+
+            $ids = array_merge($ids, $parentIds);
+        }
+
+        return $ids;
     }
 
     protected function getTreeToolbarActions(): array
@@ -57,7 +88,17 @@ class BlockIndexTree extends TreePage
     protected function getTreeActions(): array
     {
         $actions = parent::getTreeActions();
+
+        // Подменяем авторизацию на безопасную для всех действий
+        foreach ($actions as $action) {
+            if (in_array($action->getName(), ['edit', 'delete'])) {
+                $action->authorize(fn (?Model $record = null) => $record !== null);
+            }
+        }
+
+        // Добавляем ваше кастомное действие
         array_unshift($actions, AddChildAction::make());
+
         return $actions;
     }
 
@@ -114,7 +155,7 @@ class BlockIndexTree extends TreePage
             Repeater::make('blockPivots')
                 ->relationship('blockPivots')
                 ->label('Порядок блоков в узле')
-                ->orderColumn('order') // Сохраняет порядок в колонку order таблицы block_block_index
+                ->orderColumn('order')
                 ->schema([
                     Placeholder::make('block_info')
                         ->hiddenLabel()
@@ -122,9 +163,9 @@ class BlockIndexTree extends TreePage
                             ? "ID: {$record->block->id} — " . ($record->block->title ?? 'Без названия')
                             : '—'),
                 ])
-                ->reorderable()     // Drag & Drop
-                ->addable(false)    // Запрещаем добавлять
-                ->deletable(false)  // Запрещаем удалять
+                ->reorderable()
+                ->addable(false)
+                ->deletable(false)
                 ->visible(fn (?BlockIndex $record) => $record && $record->blockPivots()->exists()),
         ];
     }
@@ -161,7 +202,7 @@ class BlockIndexTree extends TreePage
     /**
      * Подпись узла в дереве.
      */
-    public function getTreeRecordTitle(?\Illuminate\Database\Eloquent\Model $record = null): string
+    public function getTreeRecordTitle(?Model $record = null): string
     {
         if (! $record) {
             return '';
@@ -188,5 +229,19 @@ class BlockIndexTree extends TreePage
         $suffix = $count > 3 ? " +" . ($count - 3) . " ещё" : "";
 
         return "[{$record->id}] {$title}  ·  📦 {$count}" . ($blockTitles ? ": {$blockTitles}{$suffix}" : "");
+    }
+
+    // ==================== ФИКС ДЕЙСТВИЙ ====================
+
+    protected function configureEditAction(EditAction $action): EditAction
+    {
+        return parent::configureEditAction($action)
+            ->authorize(fn (?Model $record = null) => $record !== null);
+    }
+
+    protected function configureDeleteAction(DeleteAction $action): DeleteAction
+    {
+        return parent::configureDeleteAction($action)
+            ->authorize(fn (?Model $record = null) => $record !== null);
     }
 }
