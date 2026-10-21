@@ -53,7 +53,8 @@ class LessonController
             'order'    => ['sometimes', 'integer', 'min:0'],
         ]);
 
-        $prototype = Block::with('blockType')->findOrFail($validated['block_id']);
+        // Убрали with('blockType')
+        $prototype = Block::findOrFail($validated['block_id']);
 
         $order = $validated['order']
             ?? ($lesson->blocks()->max('order') + 1);
@@ -74,17 +75,17 @@ class LessonController
 
             if (!empty($prototype->settings)) {
                 $settings = $prototype->settings;
-                $code = $prototype->blockType?->code;
+                $code = $prototype->code; // <-- Изменено
 
-                $block->syncFileSetsFromSettings($settings, $code);
-                $settings = $block->cloneFileSetsFromModel($prototype, $settings, $code);
+                SettingsNormalizer::syncFileSetsFromSettings($settings, $block, $code);
+                $settings = SettingsNormalizer::cloneFileSetsFromModel($settings, $block, $prototype, $code);
                 $block->update(['settings' => $settings]);
             }
 
             return $block;
         });
 
-        $block->load('block.blockType');
+        $block->load('block'); // <-- Изменено
 
         return response()->json(new LessonBlockResource($block), 201);
     }
@@ -137,7 +138,7 @@ class LessonController
                 $this->syncBlocks($lesson, $validated['blocks'], $user);
             }
 
-            return $lesson->load(['blocks.block.blockType', 'taxonomies']);
+            return $lesson->load(['blocks.block', 'taxonomies']); // <-- Изменено
         });
 
         return response()->json(new LessonResource($result));
@@ -153,7 +154,7 @@ class LessonController
             abort_unless($lesson->isSaved() && $lesson->isPublished(), 404);
         }
 
-        $lesson->load(['blocks.block.blockType', 'taxonomies']);
+        $lesson->load(['blocks.block', 'taxonomies']); // <-- Изменено
 
         return response()->json(new LessonResource($lesson));
     }
@@ -162,8 +163,9 @@ class LessonController
     {
         $lesson->blocks()->update(['order' => DB::raw('`order` + 1000000')]);
 
+        // Убрали with('block.blockType')
         $existing = $lesson->blocks()
-            ->with('block.blockType')
+            ->with('block')
             ->get()
             ->keyBy('id');
 
@@ -181,13 +183,13 @@ class LessonController
             $block = $existing->get($id);
             $newSettings = $data['settings'] ?? null;
 
-            $code = $block->block?->blockType?->code;
+            $code = $block->block?->code; // <-- Изменено
             if ($code && $newSettings !== null) {
-                $block->syncFileSetsFromSettings($newSettings, $code);
+                SettingsNormalizer::syncFileSetsFromSettings($newSettings, $block, $code);
             }
-            //dd(SettingsNormalizer::extractPublicValues($newSettings, $block->block->settings));
+
             $block->fill([
-                'settings' => $newSettings, //SettingsNormalizer::extractPublicValues($newSettings, $block->block->settings),
+                'settings' => $newSettings,
                 'order'    => $i,
             ]);
             $block->save();

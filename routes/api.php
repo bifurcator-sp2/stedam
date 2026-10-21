@@ -35,20 +35,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/blocks-index', \App\Http\Controllers\Api\BlocksIndexController::class);
 
+    // --- Блоки и типы ---
     Route::get('/block-types/struct', [\App\Http\Controllers\Api\BlockTypeController::class, 'struct']);
     Route::get('/block-types', [\App\Http\Controllers\Api\BlockTypeController::class, 'index']);
-    Route::get('/block-types/{code}', [\App\Http\Controllers\Api\BlockTypeController::class, 'show']);
+    // Route::get('/block-types/{code}', ...); // УДАЛЕНО
 
     Route::apiResource('blocks', \App\Http\Controllers\Api\BlockController::class);
     Route::get('/block/template/{code}', [\App\Http\Controllers\Api\BlockController::class, 'template']);
 
+    // --- Уроки ---
     Route::get('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'show']);
     Route::post('/lessons/make',            [\App\Http\Controllers\Api\LessonController::class, 'make']);
     Route::post('/lessons/{lesson}/blocks', [\App\Http\Controllers\Api\LessonController::class, 'storeBlock']);
     Route::put('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'save']);
-    Route::get('/lessons',         [\App\Http\Controllers\Api\LessonController::class, 'list']);
-
-
+    Route::get('/lessons',                  [\App\Http\Controllers\Api\LessonController::class, 'list']);
 });
 
 Route::middleware('auth:sanctum')->prefix('files')->group(function () {

@@ -7,7 +7,6 @@ use App\Blocks\Settings\BlockSettingsRegistry;
 use App\Http\Controllers\Controller;
 use App\Models\Block;
 use App\Models\BlockIndex;
-use App\Models\BlockType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +15,7 @@ class BlockTypeController extends Controller
 {
     /**
      * GET /api/block-types
+     * Возвращает список доступных типов блоков (для админки).
      */
     public function index(Request $request): JsonResponse
     {
@@ -25,27 +25,16 @@ class BlockTypeController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $locale = app()->getLocale();
-        $fallback = config('app.fallback_locale', 'en');
-
-        $query = BlockType::query()
-            ->with(['translations' => function ($q) use ($locale, $fallback) {
-                $q->whereIn('locale', [$locale, $fallback]);
-            }])
-            ->orderBy('code');
-
-        $items = $query->get()->map(function (BlockType $type) use ($locale, $fallback) {
-            $translation = $type->translations->firstWhere('locale', $locale)
-                ?? $type->translations->firstWhere('locale', $fallback)
-                ?? $type->translations->first();
+        $items = collect(BlockSettingsRegistry::codes())->map(function ($code) {
+            $meta = BlockSettingsRegistry::getMeta($code);
 
             return [
-                'id' => $type->id,
-                'code' => $type->code,
-                'type' => $type->type,
-                'name' => $translation?->name ?? $type->code,
-                'description' => $translation?->description,
-                'default_settings' => $type->normalizedSettings,
+                'code' => $code,
+                'type' => 'info', // Условный тип
+                'name' => $meta['name'] ?? $code,
+                'description' => $meta['description'] ?? null,
+                'icon' => $meta['icon'] ?? 'i-lucide-square',
+                'default_settings' => BlockSettingsRegistry::serializeSchema($code),
             ];
         })->values();
 
@@ -64,39 +53,30 @@ class BlockTypeController extends Controller
         $locale   = app()->getLocale();
         $fallback = config('app.fallback_locale', 'en');
 
-        // 1. Загружаем типы блоков (для default_settings)
-        $types = BlockType::query()
-            ->with(['translations' => fn($q) => $q->whereIn('locale', [$locale, $fallback])])
-            ->get()
-            ->keyBy('id');
-
-        // 2. Загружаем блоки пользователя (только опубликованные)
+        // 1. Загружаем блоки пользователя (только опубликованные)
         $blocks = Block::query()
             ->with(['translations' => fn($q) => $q->whereIn('locale', [$locale, $fallback])])
             ->where('user_id', $user->id)
-            ->where('published', true) // <-- ДОБАВЛЕНО
+            ->where('published', true)
             ->get();
 
         // Форматируем блоки, добавляя им default_settings и code типа
-        $formattedBlocks = $blocks->map(function (Block $b) use ($locale, $fallback, $types) {
+        $formattedBlocks = $blocks->map(function (Block $b) use ($locale, $fallback) {
             $t = $b->translations->firstWhere('locale', $locale)
                 ?? $b->translations->firstWhere('locale', $fallback)
                 ?? $b->translations->first();
 
-            $type = $types->get($b->block_type_id);
-
             return [
                 'id' => $b->id,
-                'block_type_id' => $b->block_type_id,
-                'block_type_code' => $type?->code ?? 'unknown',
-                'default_settings' => $type?->normalizedSettings ?? [],
+                'block_type_code' => $b->code,
+                'default_settings' => BlockSettingsRegistry::serializeSchema($b->code),
                 'title' => $t?->title,
                 'description' => $t?->description,
                 'settings' => $b->settings ?? [],
             ];
         })->values();
 
-        // 3. Загружаем привязки блоков к узлам
+        // 2. Загружаем привязки блоков к узлам
         $pivot = DB::table('block_block_index')
             ->whereIn('block_id', $blocks->pluck('id'))
             ->get()
@@ -112,7 +92,7 @@ class BlockTypeController extends Controller
             }
         }
 
-        // 4. Загружаем все узлы BlockIndex (дерево)
+        // 3. Загружаем все узлы BlockIndex (дерево)
         $indices = BlockIndex::query()
             ->with(['translations' => fn($q) => $q->whereIn('locale', [$locale, $fallback])])
             ->orderBy('order')
@@ -126,7 +106,10 @@ class BlockTypeController extends Controller
                 ?? $index->translations->first();
 
             $nodeBlockIds = $blocksByIndex[$index->id] ?? [];
-            $nodeBlocks = collect($nodeBlockIds)->map(fn($id) => $formattedBlocks->firstWhere('id', $id))->filter()->values();
+            $nodeBlocks = collect($nodeBlockIds)
+                ->map(fn($id) => $formattedBlocks->firstWhere('id', $id))
+                ->filter()
+                ->values();
 
             $nodesById[$index->id] = [
                 'id' => $index->id,
@@ -135,14 +118,14 @@ class BlockTypeController extends Controller
                 'type' => 'info',
                 'name' => $t?->title ?? 'Без названия',
                 'description' => $t?->description,
-                'default_settings' => [],
+                'default_settings' => null,
                 'blocks_count' => $nodeBlocks->count(),
                 'blocks' => $nodeBlocks,
                 'children' => [],
             ];
         }
 
-        // 5. Собираем дерево
+        // 4. Собираем дерево
         $tree = [];
         foreach ($nodesById as $id => &$node) {
             $parentId = $node['parent_id'];
@@ -154,7 +137,7 @@ class BlockTypeController extends Controller
         }
         unset($node);
 
-        // 6. Блоки без привязки → "Разное"
+        // 5. Блоки без привязки → "Разное"
         $miscBlocks = $formattedBlocks->filter(fn($b) => !isset($attachedBlockIds[$b['id']]))->values();
         if ($miscBlocks->isNotEmpty()) {
             $tree[] = [
@@ -164,7 +147,7 @@ class BlockTypeController extends Controller
                 'type' => 'info',
                 'name' => 'Разное',
                 'description' => 'Блоки общего назначения',
-                'default_settings' => [],
+                'default_settings' => null,
                 'blocks_count' => $miscBlocks->count(),
                 'blocks' => $miscBlocks,
                 'children' => [],
@@ -173,6 +156,4 @@ class BlockTypeController extends Controller
 
         return response()->json(['data' => $tree]);
     }
-
-    // ... метод show без изменений ...
 }

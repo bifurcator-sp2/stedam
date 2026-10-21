@@ -8,7 +8,6 @@ use App\Blocks\Settings\SettingsNormalizer;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BlockResource;
 use App\Models\Block;
-use App\Models\BlockType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,19 +15,18 @@ use Illuminate\Validation\Rule;
 
 class BlockController extends Controller
 {
-
-
     public function template(string $code): JsonResponse
     {
+        if (!BlockSettingsRegistry::has($code)) {
+            abort(404, 'Block type not found');
+        }
 
-        $type = BlockType::getByCode($code);
         $block = new Block();
-        $block->block_type_id = $type->id;
-        $block->settings = $type->normalized_settings;
+        $block->code = $code;
+        $block->settings = BlockSettingsRegistry::serializeSchema($code);
 
         return response()->json(new BlockResource($block));
     }
-
 
     public function index(Request $request): JsonResponse
     {
@@ -41,13 +39,10 @@ class BlockController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
 
         $paginator = Block::query()
-            ->with(['blockType.translations', 'translations', 'blockIndexes'])
+            ->with(['translations', 'blockIndexes'])
             ->where('user_id', $user->id)
-            ->when($request->filled('block_type_id'),
-                fn ($q) => $q->where('block_type_id', (int) $request->input('block_type_id')))
             ->when($request->filled('code'),
-                fn ($q) => $q->whereHas('blockType',
-                    fn ($bq) => $bq->where('code', $request->input('code'))))
+                fn ($q) => $q->where('code', $request->input('code')))
             ->when($request->filled('title'),
                 fn ($q) => $q->whereHas('translations',
                     fn ($tq) => $tq->where('title', 'like', '%'.$request->input('title').'%')))
@@ -76,7 +71,7 @@ class BlockController extends Controller
         }
 
         $data = $request->validate([
-            'block_type_id'            => ['required', 'integer', Rule::exists('block_types', 'id')],
+            'code'                     => ['required', 'string', Rule::in(BlockSettingsRegistry::codes())],
             'title'                    => ['nullable', 'string', 'max:255'],
             'description'              => ['nullable', 'string', 'max:2000'],
             'settings'                 => ['nullable', 'array'],
@@ -95,7 +90,7 @@ class BlockController extends Controller
         $block = DB::transaction(function () use ($user, &$data) {
             $block = Block::create([
                 'user_id'       => $user->id,
-                'block_type_id' => $data['block_type_id'],
+                'code'          => $data['code'],
                 'settings'      => $data['settings'] ?? [],
                 'published'     => $data['published'] ?? false,
             ]);
@@ -107,8 +102,7 @@ class BlockController extends Controller
             ]);
 
             if (!empty($data['settings'])) {
-                $block->load('blockType');
-                $block->syncFileSetsFromSettings($data['settings'], $block->blockType->code);
+                SettingsNormalizer::syncFileSetsFromSettings($data['settings'], $block, $block->code);
                 $block->update(['settings' => $data['settings']]);
             }
 
@@ -118,7 +112,7 @@ class BlockController extends Controller
             return $block;
         });
 
-        $block->load(['blockType.translations', 'translations', 'blockIndexes']);
+        $block->load(['translations', 'blockIndexes']);
 
         return (new BlockResource($block))->response()->setStatusCode(201);
     }
@@ -135,7 +129,7 @@ class BlockController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $block->load(['blockType.translations', 'translations', 'blockIndexes']);
+        $block->load(['translations', 'blockIndexes']);
 
         return (new BlockResource($block))->response();
     }
@@ -171,8 +165,7 @@ class BlockController extends Controller
 
         DB::transaction(function () use ($block, &$data) {
             if (!empty($data['settings'])) {
-                $block->load('blockType');
-                $block->syncFileSetsFromSettings($data['settings'], $block->blockType->code);
+                SettingsNormalizer::syncFileSetsFromSettings($data['settings'], $block, $block->code);
             }
 
             $block->update([
@@ -192,7 +185,7 @@ class BlockController extends Controller
             }
         });
 
-        $block->load(['blockType.translations', 'translations', 'blockIndexes']);
+        $block->load(['translations', 'blockIndexes']);
 
         return (new BlockResource($block))->response();
     }
@@ -216,12 +209,6 @@ class BlockController extends Controller
 
     /**
      * Синхронизация привязок блока к узлам дерева.
-     *
-     * Правила:
-     *  • null или [] — отвязать от всех узлов.
-     *  • Существующие привязки сохраняют свой `order` (не сбиваем порядок).
-     *  • Новые — дописываются в конец конкретного узла (MAX(order)+1).
-     *  • Привязки, отсутствующие в $ids, отвязываются (sync).
      */
     private function syncBlockIndexes(Block $block, ?array $ids): void
     {

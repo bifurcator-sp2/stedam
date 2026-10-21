@@ -6,8 +6,6 @@ use App\Enums\FilePurpose;
 
 class BlockSettingsRegistry
 {
-
-
     public static function getBordersDefinition($key = 'border', $label = 'Границы'): SettingDefinition
     {
         return new SettingDefinition(
@@ -116,7 +114,6 @@ class BlockSettingsRegistry
         );
     }
 
-
     public static function getTextSettingsDefinition()
     {
         return new SettingDefinition(
@@ -206,7 +203,8 @@ class BlockSettingsRegistry
         );
     }
 
-    public static function getTypeGalleryDefinition($key = 'images', $label='Изображения', $imagesPurpose = FilePurpose::Gallery1){
+    public static function getTypeGalleryDefinition($key = 'images', $label = 'Изображения', $imagesPurpose = FilePurpose::Gallery1)
+    {
         return new SettingDefinition(
             key: $key,
             type: SettingType::Array,
@@ -232,82 +230,82 @@ class BlockSettingsRegistry
             ),
             new SettingDefinition(
                 key: $imagesPurpose->value,
-                        public: false,
-                        type: SettingType::Image,
-                        default: [],
-                        params: ['purpose' => $imagesPurpose->value, 'count' => 'parent.count', 'display-images' => false],
-                        label: 'Галерея',
-                        children: [
-            new SettingDefinition(
-                key: 'columns',
-                type: SettingType::Int,
-                default: 1,
-                label: 'Количество колонок',
+                public: false,
+                type: SettingType::Image,
+                default: [],
+                params: ['purpose' => $imagesPurpose->value, 'count' => 'parent.count', 'display-images' => false],
+                label: 'Галерея',
+                children: [
+                new SettingDefinition(
+                    key: 'columns',
+                    type: SettingType::Int,
+                    default: 1,
+                    label: 'Количество колонок',
+                ),
+                new SettingDefinition(
+                    key: 'distance',
+                    type: SettingType::Int,
+                    default: 0,
+                    label: 'Расстояние',
+                ),
+                new SettingDefinition(
+                    key: 'background-color',
+                    type: SettingType::Color,
+                    default: 'bg-default',
+                    allowed: ColorPalette::bgTokens(),
+                    label: 'Цвет фона',
+                ),
+                new SettingDefinition(
+                    key: 'flex-direction',
+                    type: SettingType::Select,
+                    default: 'column',
+                    allowed: ['column', 'row', 'masonry'],
+                    label: 'Расположение изображений',
+                ),
+                new SettingDefinition(
+                    key: 'image-size-strategy',
+                    type: SettingType::Select,
+                    default: 'fill',
+                    allowed: ['fill', 'contain', 'cover', 'none', 'scale-down'],
+                    label: 'Масштабирование изображений',
+                ),
+                new SettingDefinition(
+                    key: 'image-height',
+                    type: SettingType::Int,
+                    default: 200,
+                    label: 'Высота ряда',
+                ),
+                new SettingDefinition(
+                    key: 'image-outline',
+                    type: SettingType::Int,
+                    default: 0,
+                    label: 'Ширина линии',
+                ),
+                new SettingDefinition(
+                    key: 'image-outline-color',
+                    type: SettingType::Color,
+                    default: 'border-default',
+                    allowed: ColorPalette::borderTokens(),
+                    label: 'Цвет линии',
+                ),
+                self::getBordersDefinition('image-border', 'Рамки изображений'),
+                self::getPaddingsDefinition(),
+                self::getMarginDefinition(),
+                self::getBordersDefinition(),
+            ],
             ),
-            new SettingDefinition(
-                key: 'distance',
-                type: SettingType::Int,
-                default: 0,
-                label: 'Расстояние',
-            ),
-            new SettingDefinition(
-                key: 'background-color',
-                type: SettingType::Color,
-                default: 'bg-default',
-                allowed: ColorPalette::bgTokens(),
-                label: 'Цвет фона',
-            ),
-            new SettingDefinition(
-                key: 'flex-direction',
-                type: SettingType::Select,
-                default: 'column',
-                allowed: ['column', 'row', 'masonry'],
-                label: 'Расположение изображений',
-            ),
-            new SettingDefinition(
-                key: 'image-size-strategy',
-                type: SettingType::Select,
-                default: 'fill',
-                allowed: ['fill', 'contain', 'cover', 'none', 'scale-down'],
-                label: 'Масштабирование изображений',
-            ),
-            new SettingDefinition(
-                key: 'image-height',
-                type: SettingType::Int,
-                default: 200,
-                label: 'Высота ряда',
-            ),
-            new SettingDefinition(
-                key: 'image-outline',
-                type: SettingType::Int,
-                default: 0,
-                label: 'Ширина линии',
-            ),
-            new SettingDefinition(
-                key: 'image-outline-color',
-                type: SettingType::Color,
-                default: 'border-default',
-                allowed: ColorPalette::borderTokens(),
-                label: 'Цвет линии',
-            ),
-            self::getBordersDefinition('image-border', 'Рамки изображений'),
-            self::getPaddingsDefinition(),
-            self::getMarginDefinition(),
-            self::getBordersDefinition(),
         ],
-                    ),
-                ],
-                );
+        );
     }
 
-    public static function getTypeHtmltextDefinition($key = 'htmltext', $label='Текст'){
+    public static function getTypeHtmltextDefinition($key = 'htmltext', $label = 'Текст')
+    {
         return new SettingDefinition(
             key: $key,
             type: SettingType::String,
             label: $label,
             default: '<p>Этот текст можно редактировать во встроенном редакторе</p>',
             children: [
-
             new SettingDefinition(
                 key: 'background-color',
                 type: SettingType::Color,
@@ -322,7 +320,8 @@ class BlockSettingsRegistry
         );
     }
 
-    public static function getTypeTextDefinition($key = 'text', $label='Текст'){
+    public static function getTypeTextDefinition($key = 'text', $label = 'Текст')
+    {
         return new SettingDefinition(
             key: $key,
             type: SettingType::Array,
@@ -383,7 +382,6 @@ class BlockSettingsRegistry
                 allowed: ColorPalette::bgTokens(),
                 label: 'Цвет фона',
             ),
-
             self::getPaddingsDefinition(),
             self::getMarginDefinition(),
             self::getBordersDefinition(),
@@ -400,120 +398,136 @@ class BlockSettingsRegistry
         ];
     }
 
-
-    /** @return array<string, SettingDefinition[]> */
+    /** @return array<string, SettingDefinition> */
     public static function map(): array
     {
         return [
-            'text_image' => [
+            'text_image' => new SettingDefinition(
+                key: 'type',
+                type: SettingType::Layout,
+                default: 'single',
+                allowed: ['single', 'row', 'col'],
+                label: 'Текст + Изображение',
+                description: 'Блок с текстом и галереей',
+                children: [
                 new SettingDefinition(
-                    key: 'type',
-                    type: SettingType::Layout,
-                    default: 'single',
-                    allowed: ['single', 'row', 'col'],
-                    label: 'Раскладка',
+                    key: 'icon',
+                    type: SettingType::Icon,
+                    default: 'i-lucide-layout-panel-left',
+                    label: 'Иконка',
+                ),
+                new SettingDefinition(
+                    key: 'first-block-cols',
+                    type: SettingType::Int,
+                    default: 12,
+                    label: 'Ширина первого блока, колонок',
+                ),
+                new SettingDefinition(
+                    key: 'first-block-position',
+                    type: SettingType::Select,
+                    default: 'center',
+                    allowed: [
+                    'flex-start',
+                    'center',
+                    'flex-end',
+                ],
+                    label: 'Позиция первого блока',
+                ),
+                new SettingDefinition(
+                    key: 'background-color',
+                    type: SettingType::Color,
+                    default: 'bg-default',
+                    allowed: ColorPalette::bgTokens(),
+                    label: 'Цвет фона',
+                ),
+                new SettingDefinition(
+                    key: 'background-image',
+                    public: false,
+                    type: SettingType::Image,
+                    default: [],
+                    params: ['purpose' => FilePurpose::BackgroundImage, 'count' => 1, 'display-images' => true],
+                    label: 'Фоновое изображение',
+                ),
+                new SettingDefinition(
+                    key: 'background-size',
+                    type: SettingType::Select,
+                    default: 'auto',
+                    allowed: ['auto', 'cover', 'contain', '50%', '100%'],
+                    label: 'Размер фона',
+                ),
+                new SettingDefinition(
+                    key: 'background-position',
+                    type: SettingType::Select,
+                    default: 'top',
+                    allowed: ['top', 'left', 'center', 'top left', 'top right', 'bottom left', 'bottom right', 'center center'],
+                    label: 'Положение фона',
+                ),
+                self::getPaddingsDefinition(),
+                self::getMarginDefinition(),
+                self::getBordersDefinition(),
+                new SettingDefinition(
+                    key: 'content-blocks',
+                    type: SettingType::Array,
+                    default: [],
+                    label: 'Блоки',
                     children: [
                         new SettingDefinition(
-                            key: 'icon',
-                            type: SettingType::Icon,
-                            default: 'i-lucide-layout-panel-left',
-                            label: 'Иконка',
+                            key: 'block1',
+                            type: SettingType::ContentType,
+                            default: 'text',
+                            allowed: ['text', 'gallery', 'htmltext'],
+                            label: 'Блок1',
+                            children: self::getContentTypes(FilePurpose::Gallery1)
                         ),
                         new SettingDefinition(
-                            key: 'first-block-cols',
-                            type: SettingType::Int,
-                            default: 12,
-                            label: 'Ширина первого блока, колонок',
+                            key: 'block2',
+                            type: SettingType::ContentType,
+                            default: 'gallery',
+                            allowed: ['text', 'gallery', 'htmltext'],
+                            label: 'Блок2',
+                            children: self::getContentTypes(FilePurpose::Gallery2)
                         ),
-                        new SettingDefinition(
-                            key: 'first-block-position',
-                            type: SettingType::Select,
-                            default: 'center',
-                            allowed: [
-                            'flex-start',
-                            'center',
-                            'flex-end',
-                        ],
-                            label: 'Позиция первого блока',
-                        ),
-                        new SettingDefinition(
-                            key: 'background-color',
-                            type: SettingType::Color,
-                            default: 'bg-default',
-                            allowed: ColorPalette::bgTokens(),
-                            label: 'Цвет фона',
-                        ),
-                        new SettingDefinition(
-                            key: 'background-image',
-                            public: false,
-                            type: SettingType::Image,
-                            default: [],
-                            params: ['purpose' => FilePurpose::BackgroundImage, 'count' => 1, 'display-images' => true],
-                            label: 'Фоновое изображение',
-                        ),
-                        new SettingDefinition(
-                            key: 'background-size',
-                            type: SettingType::Select,
-                            default: 'auto',
-                            allowed: ['auto', 'cover', 'contain', '50%', '100%'],
-                            label: 'Размер фона',
-                        ),
-                        new SettingDefinition(
-                            key: 'background-position',
-                            type: SettingType::Select,
-                            default: 'top',
-                            allowed: ['top', 'left', 'center', 'top left', 'top right', 'bottom left', 'bottom right', 'center center'],
-                            label: 'Положение фона',
-                        ),
-                        self::getPaddingsDefinition(),
-                        self::getMarginDefinition(),
-                        self::getBordersDefinition(),
-                        new SettingDefinition(
-                            key: 'content-blocks',
-                            type: SettingType::Array,
-                            default: [],
-                            label: 'Блоки',
-                            children: [
-                                new SettingDefinition(
-                                    key: 'block1',
-                                    type: SettingType::ContentType,
-                                    default: 'text',
-                                    allowed: ['text', 'gallery', 'htmltext'],
-                                    label: 'Блок1',
-                                    children: self::getContentTypes(FilePurpose::Gallery1)
-                                ),
-                                new SettingDefinition(
-                                    key: 'block2',
-                                    type: SettingType::ContentType,
-                                    default: 'gallery',
-                                    allowed: ['text', 'gallery', 'htmltext'],
-                                    label: 'Блок2',
-                                    children: self::getContentTypes(FilePurpose::Gallery2)
-                                ),
-                            ]
-                        ),
-                    ],
+                    ]
                 ),
-
-            ]
+            ],
+            ),
         ];
     }
 
-
-
-    /** @return SettingDefinition[] */
-    public static function for(string $code): array
+    /**
+     * Возвращает метаданные блока для палитры конструктора.
+     */
+    public static function getMeta(string $code): ?array
     {
-        return self::map()[$code] ?? [];
+        $def = self::for($code);
+        if (!$def) return null;
+
+        // Ищем иконку в дереве настроек
+        $icon = 'i-lucide-square';
+        foreach ($def->children ?? [] as $child) {
+            if ($child->key === 'icon') {
+                $icon = $child->default ?? $icon;
+                break;
+            }
+        }
+
+        return [
+            'code' => $code,
+            'name' => $def->label ?? $code,
+            'description' => $def->description ?? '',
+            'icon' => $icon,
+        ];
+    }
+
+    public static function for(string $code): ?SettingDefinition
+    {
+        return self::map()[$code] ?? null;
     }
 
     public static function defaults(string $code): array
     {
-        $defaults = [];
-        foreach (self::for($code) as $def) {
-            $defaults[$def->key] = $def->defaultValue();
-        }
-        return $defaults;
+        $def = self::for($code);
+        return $def ? [$def->key => $def->default] : [];
     }
 
     public static function codes(): array
@@ -530,12 +544,9 @@ class BlockSettingsRegistry
 
     public static function serializeSchema(string $code): array
     {
-        return array_map(
-            fn(SettingDefinition $def) => self::serializeDefinition($def),
-            self::for($code),
-        );
+        $def = self::for($code);
+        return $def ? self::serializeDefinition($def) : [];
     }
-
 
     public static function serializeDefinition(SettingDefinition $def): array
     {
@@ -553,15 +564,12 @@ class BlockSettingsRegistry
         $node = [];
 
         foreach ($fields as $field) {
-
-            // children обрабатываем отдельно — только для контейнеров
             if ($field === 'children') {
                 continue;
             }
 
             $value = $def->{$field};
 
-            // enum -> скаляр
             if ($value instanceof \BackedEnum) {
                 $value = $value->value;
             }
@@ -569,8 +577,6 @@ class BlockSettingsRegistry
             $node[$field] = $value;
         }
 
-// children сериализуем не только для чистых контейнеров (Object/Array),
-// но и для узлов типа Image, у которых могут быть собственные стили.
         if ($def->isContainer() || !empty($def->children)) {
             $node['children'] = array_map(
                 fn(SettingDefinition $child) => self::serializeDefinition($child),

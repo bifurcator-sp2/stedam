@@ -16,7 +16,7 @@ class Block extends Model
     use SoftDeletes, HasFileSets;
 
     protected $fillable = [
-        'block_type_id',
+        'code',
         'user_id',
         'settings',
         'published',
@@ -42,11 +42,6 @@ class Block extends Model
     public function lessonBlocks(): HasMany
     {
         return $this->hasMany(LessonBlock::class);
-    }
-
-    public function blockType(): BelongsTo
-    {
-        return $this->belongsTo(BlockType::class);
     }
 
     public function owner(): BelongsTo
