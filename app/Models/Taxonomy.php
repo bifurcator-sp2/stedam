@@ -43,7 +43,20 @@ class Taxonomy extends Model
                 $taxonomy->parent_id = session()->pull('taxonomy_parent_id');
             }
         });
+
+
+        // ==================== СБРОС КЭША ====================
+        // При создании, изменении или удалении узла — чистим кэш
+        static::saved(function () {
+            Cache::forget('api_taxonomy_tree');
+        });
+
+        static::deleted(function () {
+            Cache::forget('api_taxonomy_tree');
+        });
     }
+
+
 
     public function translations(): HasMany
     {

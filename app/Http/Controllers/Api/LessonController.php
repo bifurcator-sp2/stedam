@@ -6,9 +6,11 @@ namespace App\Http\Controllers\Api;
 use App\Blocks\Settings\BlockSettingsRegistry;
 use App\Blocks\Settings\SettingsNormalizer;
 use App\Http\Resources\LessonBlockResource;
+use App\Http\Resources\LessonListResource;
 use App\Http\Resources\LessonResource;
 use App\Models\Block;
 use App\Models\Lesson;
+use App\Models\Taxonomy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,10 +24,10 @@ class LessonController
         ]);
 
         $lesson = Lesson::create([
-            'user_id'   => $request->user()->id,
-            'locale'    => $validated['locale'] ?? $request->user()->locale ?? config('app.locale'),
-            'title'     => '',
-            'saved'     => false,
+            'user_id' => $request->user()->id,
+            'locale' => $validated['locale'] ?? $request->user()->locale ?? config('app.locale'),
+            'title' => '',
+            'saved' => false,
             'published' => false,
         ]);
 
@@ -36,7 +38,7 @@ class LessonController
 
     public function storeBlock(Request $request, Lesson $lesson): JsonResponse
     {
-        $user    = $request->user();
+        $user = $request->user();
         $isAdmin = $user->hasRole('admin');
 
         abort_unless($isAdmin || $lesson->user_id === $user->id, 403);
@@ -48,7 +50,7 @@ class LessonController
 
         $validated = $request->validate([
             'block_id' => ['required', 'integer', 'exists:blocks,id'],
-            'order'    => ['sometimes', 'integer', 'min:0'],
+            'order' => ['sometimes', 'integer', 'min:0'],
         ]);
 
         $prototype = Block::findOrFail($validated['block_id']);
@@ -64,10 +66,10 @@ class LessonController
             }
 
             $block = $lesson->blocks()->create([
-                'user_id'  => $user->id,
+                'user_id' => $user->id,
                 'block_id' => $prototype->id,
                 'settings' => [],
-                'order'    => $order,
+                'order' => $order,
             ]);
 
             if (!empty($prototype->settings)) {
@@ -89,23 +91,23 @@ class LessonController
 
     public function save(Request $request, Lesson $lesson): JsonResponse
     {
-        $user    = $request->user();
+        $user = $request->user();
         $isAdmin = $user->hasRole('admin');
 
         abort_unless($isAdmin || $lesson->user_id === $user->id, 403);
 
         $validated = $request->validate([
-            'title'       => ['sometimes', 'nullable', 'string', 'max:255'],
+            'title' => ['sometimes', 'nullable', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
-            'locale'      => ['sometimes', 'string', 'max:10'],
-            'saved'       => ['sometimes', 'boolean'],
-            'published'   => ['sometimes', 'boolean'],
+            'locale' => ['sometimes', 'string', 'max:10'],
+            'saved' => ['sometimes', 'boolean'],
+            'published' => ['sometimes', 'boolean'],
 
-            'taxonomy_ids'   => ['sometimes', 'array'],
+            'taxonomy_ids' => ['sometimes', 'array'],
             'taxonomy_ids.*' => ['integer', 'exists:taxonomies,id'],
 
-            'blocks'            => ['sometimes', 'array'],
-            'blocks.*.id'       => ['required_with:blocks', 'integer', 'distinct'],
+            'blocks' => ['sometimes', 'array'],
+            'blocks.*.id' => ['required_with:blocks', 'integer', 'distinct'],
             'blocks.*.settings' => ['sometimes', 'nullable', 'array'],
         ]);
 
@@ -143,7 +145,7 @@ class LessonController
 
     public function show(Request $request, Lesson $lesson): JsonResponse
     {
-        $user    = $request->user();
+        $user = $request->user();
         $isAdmin = $user->hasRole('admin');
         $isOwner = $lesson->user_id === $user->id;
 
@@ -186,7 +188,7 @@ class LessonController
 
             $block->fill([
                 'settings' => SettingsNormalizer::extractPublicDefaults($newSettings, $block->block?->settings),
-                'order'    => $i,
+                'order' => $i,
             ]);
             $block->save();
 
@@ -202,37 +204,130 @@ class LessonController
     public function list(Request $request): JsonResponse
     {
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $perPage = max(1, min((int)$request->integer('per_page', 20), 100));
+
+        $query = Lesson::query()
+            ->withCount('blocks')
+            ->with(['taxonomies:id'])
+            ->where('user_id', $user->id);
+
+        // Фильтрация по таксономии
+        $taxId = $request->integer('tax');
+        if ($taxId > 0) {
+            $taxonomy = Taxonomy::find($taxId);
+            if ($taxonomy) {
+                $taxIds = $taxonomy->descendantsAndSelf()->pluck('id')->toArray();
+                $query->whereHas('taxonomies', fn($q) => $q->whereIn('taxonomies.id', $taxIds));
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        // ==================== ПОИСК (BOOLEAN MODE с префиксами) ====================
+        $search = $request->input('search');
+        if ($search) {
+            // 1. Удаляем спецсимволы, которые могут сломать синтаксис BOOLEAN MODE
+            $cleanSearch = preg_replace('/[+\-><\(\)~*\"@]+/', ' ', $search);
+            $cleanSearch = trim(preg_replace('/\s+/', ' ', $cleanSearch));
+
+            if (!empty($cleanSearch)) {
+                // 2. Разбиваем на слова и добавляем * к каждому слову
+                $words = explode(' ', $cleanSearch);
+                // Символ + перед каждым словом означает, что слово ОБЯЗАТЕЛЬНО должно быть в тексте
+                $booleanSearch = '+' . implode('* +', $words) . '*';
+
+                // 3. Выполняем запрос
+                // Пример: если ввели "кост огонь", запрос будет: +кост* +огонь*
+                $query->whereRaw("MATCH(title, description) AGAINST(? IN BOOLEAN MODE)", [$booleanSearch]);
+            }
+        }
+        // =======================================================================
+
+        $paginator = $query->orderByDesc('id')->simplePaginate($perPage);
+
+        return response()->json([
+            'data' => LessonListResource::collection($paginator->getCollection())->resolve($request),
+            'meta' => [
+                'current_page'   => $paginator->currentPage(),
+                'per_page'       => $paginator->perPage(),
+                'has_more_pages' => $paginator->hasMorePages(),
+                'from'           => $paginator->firstItem(),
+                'to'             => $paginator->lastItem(),
+            ],
+        ]);
+    }
+
+
+    /**
+     * Список уроков текущего пользователя с фильтрацией / выборкой колонок / пагинацией.
+     *
+     * Отличия от `list()`:
+     *  - поддерживает `?select[]=` и `?filters[...]=` (через трейт RequestFilterable);
+     *  - поддерживает `?limit=` (алиас `per_page` для обратной совместимости);
+     *  - ответ отдаётся через `LessonListResource`.
+     */
+    public function listFilterable(Request $request): JsonResponse
+    {
+        $user = $request->user();
 
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
+        // Обратная совместимость: per_page → limit
+        if ($request->has('per_page') && !$request->has('limit')) {
+            $request->merge(['limit' => (int)$request->input('per_page')]);
+        }
 
-        $paginator = Lesson::query()
-            ->withCount('blocks')
-            ->where('user_id', $user->id)
-            ->orderByDesc('id')
-            ->paginate($perPage);
+        // Ограничиваем размер страницы [1..100], дефолт 20 (как в старом list())
+        $request->merge([
+            'limit' => max(1, min((int)$request->input('limit', 20), 100)),
+        ]);
+
+        // Базовый запрос: только свои уроки
+        $query = Lesson::query()->where('user_id', $user->id);
+        $query->with([
+            'taxonomies.translations',
+            'taxonomies.ancestors.translations',
+        ]);
+
+        // ==================== ФИЛЬТРАЦИЯ ПО ТАКСОНОМИИ (кастомная) ====================
+        // Не через трейт, т.к. это не колонка и требует обхода дерева.
+        $taxId = $request->integer('tax');
+        if ($taxId > 0) {
+            $taxonomy = Taxonomy::find($taxId);
+            if ($taxonomy) {
+                $taxIds = $taxonomy->descendantsAndSelf()->pluck('id')->toArray();
+                $query->whereHas('taxonomies', fn($q) => $q->whereIn('taxonomies.id', $taxIds));
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+        // ==============================================================================
+
+        // Трейт: select / with / filters
+        $query->filterFromRequest($request);
+
+        // ВАЖНО: withCount — ПОСЛЕ select(), иначе subquery счётчика будет затёрт.
+        $query->withCount('blocks')->orderByDesc('id');
+
+        $paginator = $query->paginate((int)$request->input('limit'));
 
         return response()->json([
-            'data' => $paginator->getCollection()->map(fn (Lesson $l) => [
-                'id'          => $l->id,
-                'title'       => $l->title,
-                'description' => $l->description,
-                'blocks_count'=> $l->blocks_count,
-                'saved'       => (bool) $l->saved,
-                'published'   => (bool) $l->published,
-                'created_at'  => $l->created_at?->toISOString(),
-                'updated_at'  => $l->updated_at?->toISOString(),
-            ])->values(),
+            'data' => $paginator->getCollection()
+                ->map(fn(Lesson $lesson) => (new LessonListResource($lesson))->resolve($request))
+                ->values(),
             'meta' => [
                 'current_page' => $paginator->currentPage(),
-                'per_page'     => $paginator->perPage(),
-                'total'        => $paginator->total(),
-                'last_page'    => $paginator->lastPage(),
-                'from'         => $paginator->firstItem(),
-                'to'           => $paginator->lastItem(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
             ],
         ]);
     }
