@@ -27,6 +27,10 @@ class SeedLotrLessonsCommand extends Command
 
     # Свой пользователь, своё количество блоков
     php artisan lessons:seed-lotr --user=2 --min-blocks=2 --max-blocks=4
+
+    # Graceful stop через файл (Windows / remote / CI)
+    php artisan lessons:seed-lotr --stop-file=/tmp/stop
+    # в другом терминале: touch /tmp/stop
     */
 
     protected $signature = 'lessons:seed-lotr
@@ -34,9 +38,11 @@ class SeedLotrLessonsCommand extends Command
         {--min-blocks=3 : Minimum LessonBlocks per lesson}
         {--max-blocks=5 : Maximum LessonBlocks per lesson}
         {--user=1 : Owner user id}
+        {--chunk=100 : Lessons per atomic transaction}
         {--keep : Do not delete existing lessons}
         {--safe : Safe delete (per-model, slow). Default: fast truncate}
-        {--force : Skip confirmation prompt}';
+        {--force : Skip confirmation prompt}
+        {--stop-file= : Path to a file; when it appears, stop gracefully after current chunk}';
 
     protected $description = 'Delete all lessons (blocks, pivots, filesets) and seed LOTR-themed lessons';
 
@@ -49,6 +55,9 @@ class SeedLotrLessonsCommand extends Command
 
     protected array $pendingBlocks = [];
     protected array $pendingPivots = [];
+
+    protected bool $stopRequested = false;
+    protected ?string $stopFile = null;
 
     /** @var array<string, array> схема (сериализованная) по code */
     protected array $schemaCache = [];
@@ -429,6 +438,10 @@ class SeedLotrLessonsCommand extends Command
 
     public function handle(): int
     {
+        $this->stopFile  = $this->option('stop-file') ?: null;
+        $this->chunkSize = max(1, (int) $this->option('chunk'));
+        $this->installSignalHandlers();
+
         $userId    = (int) $this->option('user');
         $count     = (int) $this->option('count');
         $minBlocks = (int) $this->option('min-blocks');
@@ -471,7 +484,7 @@ class SeedLotrLessonsCommand extends Command
             $this->error("No leaf taxonomies found for user {$userId}");
             return self::FAILURE;
         }
-        $this->info("Leaf taxonomies: ".count($leaves));
+        $this->info("Leaf taxonomies: " . count($leaves));
 
         // кэшируем схемы по code
         foreach ($blocks as $block) {
@@ -485,25 +498,91 @@ class SeedLotrLessonsCommand extends Command
         $bar->start();
 
         $created = 0;
+        $stopped = false;
+
         foreach ($leaves as $i => $leafId) {
+            if ($this->shouldStop()) {
+                $stopped = true;
+                break;
+            }
+
             $n = $distribution[$i];
-            if ($n <= 0) continue;
+            if ($n <= 0) {
+                continue;
+            }
 
             for ($off = 0; $off < $n; $off += $this->chunkSize) {
+                if ($this->shouldStop()) {
+                    $stopped = true;
+                    break 2;
+                }
+
                 $chunk = min($this->chunkSize, $n - $off);
-                $this->createChunk($leafId, $chunk, $userId, $blocks, $minBlocks, $maxBlocks);
-                $created += $chunk;
-                $bar->advance($chunk);
+                $done  = $this->createChunk($leafId, $chunk, $userId, $blocks, $minBlocks, $maxBlocks);
+
+                $created += $done;
+                $bar->advance($done);
+
+                // Если внутри createChunk сработал стоп — выходим из всех циклов
+                if ($done < $chunk) {
+                    $stopped = true;
+                    break 2;
+                }
             }
         }
 
-        $this->flushBuffers();
         $bar->finish();
         $this->newLine(2);
+
+        if ($stopped) {
+            $this->warn("Остановлено. Создано {$created} из {$count} уроков.");
+            $this->line('Данные консистентны: последний чанк закоммичен, буферы сброшены.');
+            return self::SUCCESS;
+        }
 
         $this->info("Done. Created {$created} lessons.");
 
         return self::SUCCESS;
+    }
+
+    // ============================================================
+    // Graceful stop
+    // ============================================================
+
+    protected function installSignalHandlers(): void
+    {
+        if (!function_exists('pcntl_signal') || !function_exists('pcntl_async_signals')) {
+            $this->warn('pcntl недоступен (Windows?) — Ctrl+C завершит процесс жёстко. Используйте --stop-file.');
+            return;
+        }
+
+        pcntl_async_signals(true);
+
+        $onStop = function (string $label) {
+            if ($this->stopRequested) {
+                $this->newLine();
+                $this->warn("Повторный {$label} — принудительный выход (текущий чанк откатится).");
+                exit(130);
+            }
+            $this->stopRequested = true;
+            $this->newLine();
+            $this->warn("{$label}: завершаю текущий чанк и корректно выхожу. Повторный {$label} — форс-выход.");
+        };
+
+        pcntl_signal(SIGINT,  fn () => $onStop('SIGINT'));
+        pcntl_signal(SIGTERM, fn () => $onStop('SIGTERM'));
+    }
+
+    protected function shouldStop(): bool
+    {
+        if ($this->stopRequested) {
+            return true;
+        }
+        if ($this->stopFile && file_exists($this->stopFile)) {
+            $this->stopRequested = true;
+            return true;
+        }
+        return false;
     }
 
     // ============================================================
@@ -619,6 +698,10 @@ class SeedLotrLessonsCommand extends Command
     // Создание
     // ============================================================
 
+    /**
+     * Создаёт один чанк уроков в рамках одной транзакции.
+     * Возвращает число реально созданных уроков (может быть < $n, если сработал стоп).
+     */
     protected function createChunk(
         int $leafId,
         int $n,
@@ -626,57 +709,72 @@ class SeedLotrLessonsCommand extends Command
         $blocks,
         int $minBlocks,
         int $maxBlocks
-    ): void {
-        $now = now();
+    ): int {
+        $created = 0;
 
-        for ($i = 0; $i < $n; $i++) {
-            $ts = $now->copy()->subMinutes(random_int(0, 60 * 24 * 90));
+        DB::transaction(function () use ($leafId, $n, $userId, $blocks, $minBlocks, $maxBlocks, &$created) {
+            $now = now();
 
-            $lessonId = DB::table('lessons')->insertGetId([
-                'user_id'     => $userId,
-                'locale'      => 'ru',
-                'saved'       => true,
-                'title'       => $this->pick($this->lessonTitles),
-                'description' => $this->pick($this->lessonDescriptions),
-                'published'   => true,
-                'created_at'  => $ts,
-                'updated_at'  => $ts,
-            ]);
+            for ($i = 0; $i < $n; $i++) {
+                if ($this->shouldStop()) {
+                    break; // текущий урок ещё не начат — безопасно
+                }
 
-            $blockCount = random_int($minBlocks, $maxBlocks);
+                $ts = $now->copy()->subMinutes(random_int(0, 60 * 24 * 90));
 
-            for ($j = 0; $j < $blockCount; $j++) {
-                /** @var Block $block */
-                $block = $blocks->random();
-                $settings = $this->buildSettingsForBlock($block);
+                $lessonId = DB::table('lessons')->insertGetId([
+                    'user_id'     => $userId,
+                    'locale'      => 'ru',
+                    'saved'       => true,
+                    'title'       => $this->pick($this->lessonTitles),
+                    'description' => $this->pick($this->lessonDescriptions),
+                    'published'   => true,
+                    'created_at'  => $ts,
+                    'updated_at'  => $ts,
+                ]);
 
-                $this->pendingBlocks[] = [
-                    'user_id'    => $userId,
-                    'block_id'   => $block->id,
-                    'lesson_id'  => $lessonId,
-                    'order'      => $j,
-                    'settings'   => json_encode(
-                        $settings,
-                        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-                    ),
-                    'created_at' => $ts,
-                    'updated_at' => $ts,
+                $blockCount = random_int($minBlocks, $maxBlocks);
+
+                for ($j = 0; $j < $blockCount; $j++) {
+                    /** @var Block $block */
+                    $block = $blocks->random();
+                    $settings = $this->buildSettingsForBlock($block);
+
+                    $this->pendingBlocks[] = [
+                        'user_id'    => $userId,
+                        'block_id'   => $block->id,
+                        'lesson_id'  => $lessonId,
+                        'order'      => $j,
+                        'settings'   => json_encode(
+                            $settings,
+                            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                        ),
+                        'created_at' => $ts,
+                        'updated_at' => $ts,
+                    ];
+
+                    if (count($this->pendingBlocks) >= $this->pivotBufferLimit) {
+                        $this->flushBuffers();
+                    }
+                }
+
+                $this->pendingPivots[] = [
+                    'lesson_id'   => $lessonId,
+                    'taxonomy_id' => $leafId,
                 ];
 
-                if (count($this->pendingBlocks) >= $this->pivotBufferLimit) {
+                if (count($this->pendingPivots) >= $this->pivotBufferLimit) {
                     $this->flushBuffers();
                 }
+
+                $created++;
             }
 
-            $this->pendingPivots[] = [
-                'lesson_id'   => $lessonId,
-                'taxonomy_id' => $leafId,
-            ];
+            // Всегда сбрасываем буфер внутри транзакции — иначе уроки без блоков.
+            $this->flushBuffers();
+        });
 
-            if (count($this->pendingPivots) >= $this->pivotBufferLimit) {
-                $this->flushBuffers();
-            }
-        }
+        return $created;
     }
 
     protected function flushBuffers(): void
@@ -727,11 +825,11 @@ class SeedLotrLessonsCommand extends Command
             return SettingsNormalizer::extractPublicDefaults($newSettings, $protoSettings);
         } catch (SettingsShapeException $e) {
             $this->newLine();
-            $this->warn("  ! Block {$block->id} ({$block->code}) shape: ".$e->getMessage());
+            $this->warn("  ! Block {$block->id} ({$block->code}) shape: " . $e->getMessage());
             return [];
         } catch (\Throwable $e) {
             $this->newLine();
-            $this->warn("  ! Block {$block->id} ({$block->code}): ".$e->getMessage());
+            $this->warn("  ! Block {$block->id} ({$block->code}): " . $e->getMessage());
             return [];
         }
     }
@@ -846,7 +944,7 @@ class SeedLotrLessonsCommand extends Command
             for ($j = 0; $j < $m; $j++) {
                 $sentences[] = $this->pick($this->blockSentences);
             }
-            $paras[] = '<p>'.implode(' ', $sentences).'</p>';
+            $paras[] = '<p>' . implode(' ', $sentences) . '</p>';
         }
         return implode("\n", $paras);
     }
