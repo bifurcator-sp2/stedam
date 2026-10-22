@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use SolutionForest\FilamentTree\Concern\ModelTree;
 use Staudenmeir\LaravelAdjacencyList\Eloquent\HasRecursiveRelationships;
+use Illuminate\Support\Facades\Cache;
 
 class Taxonomy extends Model
 {
@@ -47,13 +48,13 @@ class Taxonomy extends Model
 
         // ==================== СБРОС КЭША ====================
         // При создании, изменении или удалении узла — чистим кэш
-        static::saved(function () {
+        /*static::saved(function () {
             Cache::forget('api_taxonomy_tree');
         });
 
         static::deleted(function () {
             Cache::forget('api_taxonomy_tree');
-        });
+        });*/
     }
 
 
