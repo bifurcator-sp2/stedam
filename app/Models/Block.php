@@ -4,6 +4,7 @@
 namespace App\Models;
 
 use App\Enums\FilePurpose;
+use App\Models\Concerns\UsesTimestamptz;
 use Bifurcator\FileSets\Concerns\HasFileSets;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Block extends Model
 {
-    use SoftDeletes, HasFileSets;
+    use SoftDeletes, HasFileSets, UsesTimestamptz;
 
     protected $fillable = [
         'code',
@@ -97,6 +98,7 @@ class Block extends Model
     public function blockIndexes(): BelongsToMany
     {
         return $this->belongsToMany(BlockIndex::class, 'block_block_index')
+            ->using(BlockBlockIndex::class)
             ->withPivot('order')
             ->withTimestamps()
             ->orderByPivot('order')

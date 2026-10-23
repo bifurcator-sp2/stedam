@@ -3,11 +3,12 @@
 
 namespace App\Models;
 
+use App\Models\Pivots\TimestamptzPivot;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
-class BlockBlockIndex extends Pivot
+class BlockBlockIndex extends TimestamptzPivot
 {
     protected $table = 'block_block_index';
 

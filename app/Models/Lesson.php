@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesTimestamptz;
 use App\Traits\RequestFilterable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Lesson extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, UsesTimestamptz;
     use RequestFilterable;
 
     protected $fillable = [

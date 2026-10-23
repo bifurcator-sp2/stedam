@@ -4,10 +4,12 @@
 namespace App\Models;
 
 use App\Enums\FilePurpose;
+use App\Models\Concerns\UsesTimestamptz;
 use Bifurcator\FileSets\Models\FileSet as BaseFileSet;
 
 class FileSet extends BaseFileSet
 {
+    use UsesTimestamptz;
     protected $casts = [
         'images'  => 'array',
         'files'   => 'array',

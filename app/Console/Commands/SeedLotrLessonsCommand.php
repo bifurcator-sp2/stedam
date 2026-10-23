@@ -461,7 +461,8 @@ class SeedLotrLessonsCommand extends Command
         $blockTotal  = LessonBlock::withTrashed()->count();
 
         if (!$keep) {
-            if (!$this->option('force') && !$this->option('safe')) {
+            // --force пропускает подтверждение; --safe — только выбирает метод удаления
+            if (!$this->option('force')) {
                 if (!$this->confirm(
                     "This will DELETE {$lessonTotal} lessons and {$blockTotal} lesson_blocks ".
                     "for user {$userId}, then seed {$count} fresh lessons. Continue?"
@@ -599,30 +600,45 @@ class SeedLotrLessonsCommand extends Command
     }
 
     /**
-     * Быстрое удаление: TRUNCATE. Модельные события НЕ срабатывают,
-     * файлы в storage могут остаться сиротами. Приемлемо для локальной разработки.
+     * Быстрое удаление.
+     *
+     * MySQL / SQLite: disable FK checks → truncate → enable.
+     * PostgreSQL:     TRUNCATE ... RESTART IDENTITY CASCADE (одним statement).
+     *                 Это единственный надёжный способ на PG — Laravel-овский
+     *                 `Schema::disableForeignKeyConstraints()` использует
+     *                 `SET CONSTRAINTS ALL DEFERRED`, что НЕ отключает
+     *                 проверки при TRUNCATE, и truncate упадёт с FK-ошибкой.
      */
     protected function deleteFast(): void
     {
         $this->info('Fast delete (TRUNCATE)...');
 
-        $hadForeign = false;
-        try {
-            DB::statement('SET FOREIGN_KEY_CHECKS=0');
-            $hadForeign = true;
+        $driver = DB::connection()->getDriverName();
 
-            if (Schema::hasTable('lesson_taxonomy')) {
-                DB::table('lesson_taxonomy')->truncate();
+        if ($driver === 'pgsql') {
+            $tables = [];
+            if (Schema::hasTable('lesson_taxonomy')) $tables[] = 'lesson_taxonomy';
+            if (Schema::hasTable('lesson_blocks'))   $tables[] = 'lesson_blocks';
+            if (Schema::hasTable('lessons'))         $tables[] = 'lessons';
+
+            if (!empty($tables)) {
+                $list = implode(', ', $tables);
+                DB::statement("TRUNCATE TABLE {$list} RESTART IDENTITY CASCADE");
             }
-            if (Schema::hasTable('lesson_blocks')) {
-                DB::table('lesson_blocks')->truncate();
-            }
-            if (Schema::hasTable('lessons')) {
-                DB::table('lessons')->truncate();
-            }
-        } finally {
-            if ($hadForeign) {
-                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        } else {
+            Schema::disableForeignKeyConstraints();
+            try {
+                if (Schema::hasTable('lesson_taxonomy')) {
+                    DB::table('lesson_taxonomy')->truncate();
+                }
+                if (Schema::hasTable('lesson_blocks')) {
+                    DB::table('lesson_blocks')->truncate();
+                }
+                if (Schema::hasTable('lessons')) {
+                    DB::table('lessons')->truncate();
+                }
+            } finally {
+                Schema::enableForeignKeyConstraints();
             }
         }
 
@@ -712,67 +728,81 @@ class SeedLotrLessonsCommand extends Command
     ): int {
         $created = 0;
 
-        DB::transaction(function () use ($leafId, $n, $userId, $blocks, $minBlocks, $maxBlocks, &$created) {
-            $now = now();
+        try {
+            DB::transaction(function () use ($leafId, $n, $userId, $blocks, $minBlocks, $maxBlocks, &$created) {
+                $now = now();
 
-            for ($i = 0; $i < $n; $i++) {
-                if ($this->shouldStop()) {
-                    break; // текущий урок ещё не начат — безопасно
-                }
+                for ($i = 0; $i < $n; $i++) {
+                    if ($this->shouldStop()) {
+                        break; // текущий урок ещё не начат — безопасно
+                    }
 
-                $ts = $now->copy()->subMinutes(random_int(0, 60 * 24 * 90));
+                    $ts = $now->copy()->subMinutes(random_int(0, 60 * 24 * 90));
 
-                $lessonId = DB::table('lessons')->insertGetId([
-                    'user_id'     => $userId,
-                    'locale'      => 'ru',
-                    'saved'       => true,
-                    'title'       => $this->pick($this->lessonTitles),
-                    'description' => $this->pick($this->lessonDescriptions),
-                    'published'   => true,
-                    'created_at'  => $ts,
-                    'updated_at'  => $ts,
-                ]);
+                    // Для timestamptz-колонок обязателен явный offset (P), иначе
+                    // PG интерпретирует наивную строку в TZ сессии — «плавающее» время.
+                    $tsStr = $ts->format('Y-m-d H:i:s P');
 
-                $blockCount = random_int($minBlocks, $maxBlocks);
+                    $lessonId = DB::table('lessons')->insertGetId([
+                        'user_id'     => $userId,
+                        'locale'      => 'ru',
+                        'saved'       => true,
+                        'title'       => $this->pick($this->lessonTitles),
+                        'description' => $this->pick($this->lessonDescriptions),
+                        'published'   => true,
+                        'created_at'  => $tsStr,
+                        'updated_at'  => $tsStr,
+                    ]);
 
-                for ($j = 0; $j < $blockCount; $j++) {
-                    /** @var Block $block */
-                    $block = $blocks->random();
-                    $settings = $this->buildSettingsForBlock($block);
+                    $blockCount = random_int($minBlocks, $maxBlocks);
 
-                    $this->pendingBlocks[] = [
-                        'user_id'    => $userId,
-                        'block_id'   => $block->id,
-                        'lesson_id'  => $lessonId,
-                        'order'      => $j,
-                        'settings'   => json_encode(
-                            $settings,
-                            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-                        ),
-                        'created_at' => $ts,
-                        'updated_at' => $ts,
+                    for ($j = 0; $j < $blockCount; $j++) {
+                        /** @var Block $block */
+                        $block = $blocks->random();
+                        $settings = $this->buildSettingsForBlock($block);
+
+                        $this->pendingBlocks[] = [
+                            'user_id'    => $userId,
+                            'block_id'   => $block->id,
+                            'lesson_id'  => $lessonId,
+                            'order'      => $j,
+                            'settings'   => json_encode(
+                                $settings,
+                                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                            ),
+                            'created_at' => $tsStr,
+                            'updated_at' => $tsStr,
+                        ];
+
+                        if (count($this->pendingBlocks) >= $this->pivotBufferLimit) {
+                            $this->flushBuffers();
+                        }
+                    }
+
+                    $this->pendingPivots[] = [
+                        'lesson_id'   => $lessonId,
+                        'taxonomy_id' => $leafId,
+                        'created_at'  => $tsStr,
+                        'updated_at'  => $tsStr,
                     ];
 
-                    if (count($this->pendingBlocks) >= $this->pivotBufferLimit) {
+                    if (count($this->pendingPivots) >= $this->pivotBufferLimit) {
                         $this->flushBuffers();
                     }
+
+                    $created++;
                 }
 
-                $this->pendingPivots[] = [
-                    'lesson_id'   => $lessonId,
-                    'taxonomy_id' => $leafId,
-                ];
-
-                if (count($this->pendingPivots) >= $this->pivotBufferLimit) {
-                    $this->flushBuffers();
-                }
-
-                $created++;
-            }
-
-            // Всегда сбрасываем буфер внутри транзакции — иначе уроки без блоков.
-            $this->flushBuffers();
-        });
+                // Всегда сбрасываем буфер внутри транзакции — иначе уроки без блоков.
+                $this->flushBuffers();
+            });
+        } catch (\Throwable $e) {
+            // Транзакция откатилась — сбрасываем буферы, чтобы не тащить
+            // «мусорные» строки в следующий чанк.
+            $this->pendingBlocks = [];
+            $this->pendingPivots = [];
+            throw $e;
+        }
 
         return $created;
     }

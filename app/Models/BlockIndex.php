@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesTimestamptz;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class BlockIndex extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, UsesTimestamptz;
     use ModelTree;
 
     // Явно указываем таблицу, чтобы Laravel не искал block_indices
@@ -89,6 +90,7 @@ class BlockIndex extends Model
     public function blocks(): BelongsToMany
     {
         return $this->belongsToMany(Block::class, 'block_block_index')
+            ->using(BlockBlockIndex::class)
             ->withPivot('order')
             ->withTimestamps()
             ->orderByPivot('order')

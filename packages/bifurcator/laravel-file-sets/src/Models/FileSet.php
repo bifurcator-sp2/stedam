@@ -3,6 +3,7 @@
 
 namespace Bifurcator\FileSets\Models;
 
+use App\Models\Concerns\UsesTimestamptz;
 use Bifurcator\FileSets\Concerns\FilesContainer;
 use Bifurcator\FileSets\Contracts\FileSetContract;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class FileSet extends Model implements FileSetContract
 {
     use SoftDeletes, FilesContainer;
+    use UsesTimestamptz;
 
     protected $fillable = [
         'model',

@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesTimestamptz;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Country extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, UsesTimestamptz;
 
     protected $fillable = ['iso2', 'iso3', 'phone_code', 'is_active'];
 

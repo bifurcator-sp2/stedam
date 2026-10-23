@@ -4,6 +4,7 @@
 namespace App\Models;
 
 use App\Enums\FilePurpose;
+use App\Models\Concerns\UsesTimestamptz;
 use Bifurcator\FileSets\Concerns\HasFileSets;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LessonBlock extends Model
 {
-    use SoftDeletes, HasFileSets;
+    use SoftDeletes, HasFileSets, UsesTimestamptz;
 
     protected $fillable = [
         'user_id',
