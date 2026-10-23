@@ -43,13 +43,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('blocks', \App\Http\Controllers\Api\BlockController::class);
     Route::get('/block/template/{code}', [\App\Http\Controllers\Api\BlockController::class, 'template']);
 
-    // --- Уроки ---
+// --- Уроки ---
+
+// 1. Статические GET — строго до /lessons/{lesson}
+    Route::get('/lessons/learn',  [\App\Http\Controllers\Api\LessonController::class, 'list_learn']);
+    Route::get('/lessons/filter', [\App\Http\Controllers\Api\LessonController::class, 'listFilterable']);
+
+// 2. Статический POST (не конфликтует по методу, но пусть будет рядом)
+    Route::post('/lessons/make',  [\App\Http\Controllers\Api\LessonController::class, 'make']);
+
+// 3. Список
+    Route::get('/lessons',        [\App\Http\Controllers\Api\LessonController::class, 'list']);
+
+// 4. Динамические — здесь и только здесь {lesson}
     Route::get('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'show']);
-    Route::post('/lessons/make',            [\App\Http\Controllers\Api\LessonController::class, 'make']);
     Route::post('/lessons/{lesson}/blocks', [\App\Http\Controllers\Api\LessonController::class, 'storeBlock']);
     Route::put('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'save']);
-    Route::get('/lessons',                  [\App\Http\Controllers\Api\LessonController::class, 'list']);
-    Route::get('/lessons/filter', [\App\Http\Controllers\Api\LessonController::class, 'listFilterable']);
 });
 
 Route::middleware('auth:sanctum')->prefix('files')->group(function () {

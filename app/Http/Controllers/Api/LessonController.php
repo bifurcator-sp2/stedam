@@ -201,19 +201,15 @@ class LessonController
         }
     }
 
-    public function list(Request $request): JsonResponse
+    /**
+     * Общий конструктор запроса для списков уроков.
+     * Не фильтрует по владельцу — это делает вызывающий метод.
+     */
+    protected function getLessonsListQuery(Request $request): \Illuminate\Database\Eloquent\Builder
     {
-        $user = $request->user();
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
-        }
-
-        $perPage = max(1, min((int)$request->integer('per_page', 20), 100));
-
         $query = Lesson::query()
             ->withCount('blocks')
-            ->with(['taxonomies:id'])
-            ->where('user_id', $user->id);
+            ->with(['taxonomies:id']);
 
         // Фильтрация по таксономии
         $taxId = $request->integer('tax');
@@ -227,27 +223,59 @@ class LessonController
             }
         }
 
-        // ==================== ПОИСК (BOOLEAN MODE с префиксами) ====================
+        // Поиск (BOOLEAN MODE с префиксами)
         $search = $request->input('search');
         if ($search) {
-            // 1. Удаляем спецсимволы, которые могут сломать синтаксис BOOLEAN MODE
             $cleanSearch = preg_replace('/[+\-><\(\)~*\"@]+/', ' ', $search);
             $cleanSearch = trim(preg_replace('/\s+/', ' ', $cleanSearch));
 
             if (!empty($cleanSearch)) {
-                // 2. Разбиваем на слова и добавляем * к каждому слову
                 $words = explode(' ', $cleanSearch);
-                // Символ + перед каждым словом означает, что слово ОБЯЗАТЕЛЬНО должно быть в тексте
                 $booleanSearch = '+' . implode('* +', $words) . '*';
-
-                // 3. Выполняем запрос
-                // Пример: если ввели "кост огонь", запрос будет: +кост* +огонь*
                 $query->whereRaw("MATCH(title, description) AGAINST(? IN BOOLEAN MODE)", [$booleanSearch]);
             }
         }
-        // =======================================================================
 
-        $paginator = $query->orderByDesc('id')->simplePaginate($perPage);
+        return $query->orderByDesc('id');
+    }
+
+
+    public function list(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $perPage = max(1, min((int)$request->integer('per_page', 20), 100));
+
+        $paginator = $this->getLessonsListQuery($request)
+            ->where('user_id', $user->id)
+            ->simplePaginate($perPage);
+
+        return response()->json([
+            'data' => LessonListResource::collection($paginator->getCollection())->resolve($request),
+            'meta' => [
+                'current_page'   => $paginator->currentPage(),
+                'per_page'       => $paginator->perPage(),
+                'has_more_pages' => $paginator->hasMorePages(),
+                'from'           => $paginator->firstItem(),
+                'to'             => $paginator->lastItem(),
+            ],
+        ]);
+    }
+    public function list_learn(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $perPage = max(1, min((int)$request->integer('per_page', 20), 100));
+
+        $paginator = $this->getLessonsListQuery($request)
+            ->where('published', true)
+            ->simplePaginate($perPage);
 
         return response()->json([
             'data' => LessonListResource::collection($paginator->getCollection())->resolve($request),
@@ -261,7 +289,6 @@ class LessonController
         ]);
     }
 
-
     /**
      * Список уроков текущего пользователя с фильтрацией / выборкой колонок / пагинацией.
      *
@@ -270,7 +297,7 @@ class LessonController
      *  - поддерживает `?limit=` (алиас `per_page` для обратной совместимости);
      *  - ответ отдаётся через `LessonListResource`.
      */
-    public function listFilterable(Request $request): JsonResponse
+    /*public function listFilterable(Request $request): JsonResponse
     {
         $user = $request->user();
 
@@ -330,5 +357,5 @@ class LessonController
                 'to' => $paginator->lastItem(),
             ],
         ]);
-    }
+    }*/
 }
