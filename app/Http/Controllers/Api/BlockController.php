@@ -225,9 +225,12 @@ class BlockController extends Controller
             ->pluck('order', 'block_index_id')
             ->all();
 
+        $grammar = DB::connection()->getQueryGrammar();
+        $orderColumn = $grammar->wrap('order');
+
         // Максимальный order по каждому целевому узлу (уже занятые позиции)
         $maxOrders = DB::table('block_block_index')
-            ->selectRaw('block_index_id, MAX(`order`) as max_order')
+            ->selectRaw("block_index_id, MAX({$orderColumn}) as max_order")
             ->whereIn('block_index_id', $ids)
             ->groupBy('block_index_id')
             ->pluck('max_order', 'block_index_id')
