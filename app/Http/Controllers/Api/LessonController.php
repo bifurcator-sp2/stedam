@@ -60,9 +60,10 @@ class LessonController
 
         $block = DB::transaction(function () use ($lesson, $prototype, $order, $user) {
             if ($lesson->blocks()->where('order', '>=', $order)->exists()) {
+                // Исправлено: двойные кавычки для PostgreSQL
                 $lesson->blocks()
                     ->where('order', '>=', $order)
-                    ->update(['order' => DB::raw('`order` + 1')]);
+                    ->update(['order' => DB::raw('"order" + 1')]);
             }
 
             $block = $lesson->blocks()->create([
@@ -160,7 +161,8 @@ class LessonController
 
     protected function syncBlocks(Lesson $lesson, array $blocks): void
     {
-        $lesson->blocks()->update(['order' => DB::raw('`order` + 1000000')]);
+        // Исправлено: двойные кавычки для PostgreSQL
+        $lesson->blocks()->update(['order' => DB::raw('"order" + 1000000')]);
 
         $existing = $lesson->blocks()
             ->with('block')
@@ -232,13 +234,17 @@ class LessonController
             if (!empty($cleanSearch)) {
                 $words = explode(' ', $cleanSearch);
                 $booleanSearch = '+' . implode('* +', $words) . '*';
-                $query->whereRaw("MATCH(title, description) AGAINST(? IN BOOLEAN MODE)", [$booleanSearch]);
+
+                // ИСправлено: Полнотекстовый поиск для PostgreSQL (вместо MATCH ... AGAINST)
+                $query->whereRaw(
+                    "to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(description, '')) @@ to_tsquery('simple', ?)",
+                    [$booleanSearch]
+                );
             }
         }
 
         return $query->orderByDesc('id');
     }
-
 
     public function list(Request $request): JsonResponse
     {
@@ -264,6 +270,7 @@ class LessonController
             ],
         ]);
     }
+
     public function list_learn(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -288,74 +295,4 @@ class LessonController
             ],
         ]);
     }
-
-    /**
-     * Список уроков текущего пользователя с фильтрацией / выборкой колонок / пагинацией.
-     *
-     * Отличия от `list()`:
-     *  - поддерживает `?select[]=` и `?filters[...]=` (через трейт RequestFilterable);
-     *  - поддерживает `?limit=` (алиас `per_page` для обратной совместимости);
-     *  - ответ отдаётся через `LessonListResource`.
-     */
-    /*public function listFilterable(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
-        }
-
-        // Обратная совместимость: per_page → limit
-        if ($request->has('per_page') && !$request->has('limit')) {
-            $request->merge(['limit' => (int)$request->input('per_page')]);
-        }
-
-        // Ограничиваем размер страницы [1..100], дефолт 20 (как в старом list())
-        $request->merge([
-            'limit' => max(1, min((int)$request->input('limit', 20), 100)),
-        ]);
-
-        // Базовый запрос: только свои уроки
-        $query = Lesson::query()->where('user_id', $user->id);
-        $query->with([
-            'taxonomies.translations',
-            'taxonomies.ancestors.translations',
-        ]);
-
-        // ==================== ФИЛЬТРАЦИЯ ПО ТАКСОНОМИИ (кастомная) ====================
-        // Не через трейт, т.к. это не колонка и требует обхода дерева.
-        $taxId = $request->integer('tax');
-        if ($taxId > 0) {
-            $taxonomy = Taxonomy::find($taxId);
-            if ($taxonomy) {
-                $taxIds = $taxonomy->descendantsAndSelf()->pluck('id')->toArray();
-                $query->whereHas('taxonomies', fn($q) => $q->whereIn('taxonomies.id', $taxIds));
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
-        // ==============================================================================
-
-        // Трейт: select / with / filters
-        $query->filterFromRequest($request);
-
-        // ВАЖНО: withCount — ПОСЛЕ select(), иначе subquery счётчика будет затёрт.
-        $query->withCount('blocks')->orderByDesc('id');
-
-        $paginator = $query->paginate((int)$request->input('limit'));
-
-        return response()->json([
-            'data' => $paginator->getCollection()
-                ->map(fn(Lesson $lesson) => (new LessonListResource($lesson))->resolve($request))
-                ->values(),
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-                'last_page' => $paginator->lastPage(),
-                'from' => $paginator->firstItem(),
-                'to' => $paginator->lastItem(),
-            ],
-        ]);
-    }*/
 }
