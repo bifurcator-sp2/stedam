@@ -1,4 +1,4 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/_tokens.css"><link rel="stylesheet" href="/app/_nuxt/entry.KDvvWFsk.css" crossorigin><link rel="modulepreload" as="script" crossorigin href="/app/_nuxt/BQE9NdeV.js"><link rel="modulepreload" as="script" crossorigin href="/app/_nuxt/sqlite3-worker1-ZH718Kar.js"><link rel="modulepreload" as="script" crossorigin href="/app/_nuxt/sqlite3-opfs-async-proxy.D_xnb1D8.js"><script type="module" src="/app/_nuxt/BQE9NdeV.js" crossorigin></script><link rel="prefetch" href="/app/_nuxt/sqlite3.BVKGSWc-.wasm"><script>"use strict";(()=>{const o=window,e=document.documentElement,c=["dark","light"],s=getStorageValue("localStorage","nuxt-color-mode")||"system";let r=s==="system"?f():s;const l=e.getAttribute("data-color-mode-forced");l&&(r=l),i(r),o["__NUXT_COLOR_MODE__"]={preference:s,value:r,getColorScheme:f,addColorScheme:i,removeColorScheme:d};function i(t){const a=""+t+"",n="";e.classList?e.classList.add(a):e.className+=" "+a,n&&e.setAttribute("data-"+n,t)}function d(t){const a=""+t+"",n="";e.classList?e.classList.remove(a):e.className=e.className.replace(new RegExp(a,"g"),""),n&&e.removeAttribute("data-"+n)}function u(t){return o.matchMedia("(prefers-color-scheme"+t+")")}function f(){if(o.matchMedia&&u("").media!=="not all"){for(const t of c)if(u(":"+t).matches)return t}return"light"}})();function getStorageValue(o,e){switch(o){case"localStorage":try{return window.localStorage.getItem(e)}catch{return null}case"sessionStorage":try{return window.sessionStorage.getItem(e)}catch{return null}case"cookie":try{return getCookie(e)}catch{return null}default:return null}}function getCookie(o){const c=("; "+window.document.cookie).split("; "+o+"=");if(c.length===2){const s=c.pop();return s?s.split(";").shift():null}}</script></head><body><div id="__nuxt" class="isolate"></div><div id="__nuxt-loader"><!-- app/spa-loading-template.html -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/_tokens.css"><link rel="stylesheet" href="/app/_nuxt/entry.KDvvWFsk.css" crossorigin><link rel="modulepreload" as="script" crossorigin href="/app/_nuxt/CFSPJjGO.js"><link rel="modulepreload" as="script" crossorigin href="/app/_nuxt/sqlite3-worker1-ZH718Kar.js"><link rel="modulepreload" as="script" crossorigin href="/app/_nuxt/sqlite3-opfs-async-proxy.D_xnb1D8.js"><script type="module" src="/app/_nuxt/CFSPJjGO.js" crossorigin></script><link rel="prefetch" href="/app/_nuxt/sqlite3.BVKGSWc-.wasm"><script>"use strict";(()=>{const o=window,e=document.documentElement,c=["dark","light"],s=getStorageValue("localStorage","nuxt-color-mode")||"system";let r=s==="system"?f():s;const l=e.getAttribute("data-color-mode-forced");l&&(r=l),i(r),o["__NUXT_COLOR_MODE__"]={preference:s,value:r,getColorScheme:f,addColorScheme:i,removeColorScheme:d};function i(t){const a=""+t+"",n="";e.classList?e.classList.add(a):e.className+=" "+a,n&&e.setAttribute("data-"+n,t)}function d(t){const a=""+t+"",n="";e.classList?e.classList.remove(a):e.className=e.className.replace(new RegExp(a,"g"),""),n&&e.removeAttribute("data-"+n)}function u(t){return o.matchMedia("(prefers-color-scheme"+t+")")}function f(){if(o.matchMedia&&u("").media!=="not all"){for(const t of c)if(u(":"+t).matches)return t}return"light"}})();function getStorageValue(o,e){switch(o){case"localStorage":try{return window.localStorage.getItem(e)}catch{return null}case"sessionStorage":try{return window.sessionStorage.getItem(e)}catch{return null}case"cookie":try{return getCookie(e)}catch{return null}default:return null}}function getCookie(o){const c=("; "+window.document.cookie).split("; "+o+"=");if(c.length===2){const s=c.pop();return s?s.split(";").shift():null}}</script></head><body><div id="__nuxt" class="isolate"></div><div id="__nuxt-loader"><!-- app/spa-loading-template.html -->
 <div id="spa-loading" class="spa-loading-screen">
   <div class="spa-loader">
     <!-- Кольцо-спиннер -->
@@ -133,4 +133,103 @@
       }
     }, 15000);
   })();
-</script></div><div id="teleports"></div><script>window.__NUXT_SITE_CONFIG__={_priority:{env:-15},defaultLocale:"ru",env:"production"}</script><script>window.__NUXT__={};window.__NUXT__.config={public:{apiBase:"/api",sanctum:{baseUrl:"/",mode:"cookie",userStateKey:"sanctum.user.identity",redirectIfAuthenticated:false,redirectIfUnauthenticated:false,endpoints:{csrf:"/sanctum/csrf-cookie",login:"/api/login",logout:"/api/logout",user:"/api/user",register:"/api/register",forgotPassword:"/api/forgot-password",resetPassword:"/api/reset-password"},csrf:{cookie:"XSRF-TOKEN",header:"X-XSRF-TOKEN"},client:{retry:false,initialRequest:true},redirect:{keepRequestedRoute:true,keepRouteOnUnauthenticated:false,onLogin:"/",onLogout:"/login",onAuthOnly:"/login",onGuestOnly:"/"},globalMiddleware:{enabled:true,prepend:false,allow404WithoutAuth:true},logLevel:3,appendPlugin:false},mdc:{components:{prose:true,map:{accordion:"ProseAccordion","accordion-item":"ProseAccordionItem",badge:"ProseBadge",callout:"ProseCallout",card:"ProseCard","card-group":"ProseCardGroup",caution:"ProseCaution","code-collapse":"ProseCodeCollapse","code-group":"ProseCodeGroup","code-icon":"ProseCodeIcon","code-preview":"ProseCodePreview","code-tree":"ProseCodeTree",collapsible:"ProseCollapsible",field:"ProseField","field-group":"ProseFieldGroup",icon:"ProseIcon",kbd:"ProseKbd",note:"ProseNote",prompt:"ProsePrompt",steps:"ProseSteps",tabs:"ProseTabs","tabs-item":"ProseTabsItem",tip:"ProseTip",warning:"ProseWarning"},customElements:[]},headings:{anchorLinks:{h1:false,h2:true,h3:true,h4:true,h5:false,h6:false}},highlight:{noApiRoute:true,theme:{light:"material-theme-lighter",default:"material-theme",dark:"material-theme-palenight"},highlighter:"shiki",shikiEngine:"oniguruma",langs:["js","jsx","json","ts","tsx","vue","css","html","bash","md","mdc","yaml"]}},content:{wsUrl:""},i18n:{baseUrl:"",defaultLocale:"ru",rootRedirect:"",redirectStatusCode:302,skipSettingLocaleOnNavigate:false,locales:[{code:"en",name:"English",language:"",domains:[],defaultForDomains:[]},{code:"ru",name:"Русский",language:"",domains:[],defaultForDomains:[]}],detectBrowserLanguage:{alwaysRedirect:false,cookieCrossOrigin:false,cookieDomain:"",cookieKey:"i18n_redirected",cookieSecure:false,fallbackLocale:"",redirectOn:"root",useCookie:true},experimental:{localeDetector:"",typedPages:true,typedOptionsAndMessages:false,alternateLinkCanonicalQueries:true,devCache:false,cacheLifetime:"",stripMessagesPayload:false,preload:false,strictSeo:false,nitroContextDetection:true,httpCacheDuration:10,compactRoutes:false,prerenderMessages:false,optimizeMessageBundling:true},domainLocales:{en:{domain:""},ru:{domain:""}}}},app:{baseURL:"/app/",buildId:"2df22d0a-e589-4857-9e75-0009fb3c1967",buildAssetsDir:"/_nuxt/",cdnURL:""}}</script><script type="application/json" data-nuxt-data="nuxt-app" data-ssr="false" id="__NUXT_DATA__">[{"prerenderedAt":1,"serverRendered":2},1792812274407,false]</script></body></html>
+</script></div><div id="teleports"></div><script>window.__NUXT_SITE_CONFIG__={_priority:{env:-15},defaultLocale:"ru",env:"production"}</script><script>window.__NUXT__={};window.__NUXT__.config={public:{apiBase:"/api",sanctum:{baseUrl:"/",mode:"cookie",userStateKey:"sanctum.user.identity",redirectIfAuthenticated:false,redirectIfUnauthenticated:false,endpoints:{csrf:"/sanctum/csrf-cookie",login:"/api/login",logout:"/api/logout",user:"/api/user",register:"/api/register",forgotPassword:"/api/forgot-password",resetPassword:"/api/reset-password"},csrf:{cookie:"XSRF-TOKEN",header:"X-XSRF-TOKEN"},client:{retry:false,initialRequest:true},redirect:{keepRequestedRoute:true,keepRouteOnUnauthenticated:false,onLogin:"/",onLogout:"/login",onAuthOnly:"/login",onGuestOnly:"/"},globalMiddleware:{enabled:true,prepend:false,allow404WithoutAuth:true},logLevel:3,appendPlugin:false},mdc:{components:{prose:true,map:{accordion:"ProseAccordion","accordion-item":"ProseAccordionItem",badge:"ProseBadge",callout:"ProseCallout",card:"ProseCard","card-group":"ProseCardGroup",caution:"ProseCaution","code-collapse":"ProseCodeCollapse","code-group":"ProseCodeGroup","code-icon":"ProseCodeIcon","code-preview":"ProseCodePreview","code-tree":"ProseCodeTree",collapsible:"ProseCollapsible",field:"ProseField","field-group":"ProseFieldGroup",icon:"ProseIcon",kbd:"ProseKbd",note:"ProseNote",prompt:"ProsePrompt",steps:"ProseSteps",tabs:"ProseTabs","tabs-item":"ProseTabsItem",tip:"ProseTip",warning:"ProseWarning"},customElements:[]},headings:{anchorLinks:{h1:false,h2:true,h3:true,h4:true,h5:false,h6:false}},highlight:{noApiRoute:true,theme:{light:"material-theme-lighter",default:"material-theme",dark:"material-theme-palenight"},highlighter:"shiki",shikiEngine:"oniguruma",langs:["js","jsx","json","ts","tsx","vue","css","html","bash","md","mdc","yaml"]}},content:{wsUrl:""},i18n:{baseUrl:"",defaultLocale:"ru",rootRedirect:"",redirectStatusCode:302,skipSettingLocaleOnNavigate:false,locales:[{code:"en",name:"English",language:"",domains:[],defaultForDomains:[]},{code:"ru",name:"Русский",language:"",domains:[],defaultForDomains:[]}],detectBrowserLanguage:{alwaysRedirect:false,cookieCrossOrigin:false,cookieDomain:"",cookieKey:"i18n_redirected",cookieSecure:false,fallbackLocale:"",redirectOn:"root",useCookie:true},experimental:{localeDetector:"",typedPages:true,typedOptionsAndMessages:false,alternateLinkCanonicalQueries:true,devCache:false,cacheLifetime:"",stripMessagesPayload:false,preload:false,strictSeo:false,nitroContextDetection:true,httpCacheDuration:10,compactRoutes:false,prerenderMessages:false,optimizeMessageBundling:true},domainLocales:{en:{domain:""},ru:{domain:""}}}},app:{baseURL:"/app/",buildId:"cc2ff8ed-5665-4e90-bbbd-101e60ed672b",buildAssetsDir:"/_nuxt/",cdnURL:""}}</script><script>(function scriptTemplate(version, options) {
+	try {
+		const initialVersion = version;
+		let hasShownUpdate = false;
+		const checkInterval = options.checkInterval || 6e4;
+		const base = options.base || "/";
+		const baseUrl = base.endsWith("/") ? base : `${base}/`;
+		const autoRefresh = options.autoRefresh !== false;
+		const showButtons = options.showButtons !== false;
+		const text = options.text || {};
+		const titleText = text.title || "发现新版本";
+		const descText = text.desc || (autoRefresh ? "系统已更新，将在 <span id=\"update-countdown\">5</span> 秒后自动刷新" : "系统已更新，请刷新页面");
+		const cancelText = text.cancel || "稍后更新";
+		const confirmText = text.confirm || "立即刷新";
+		function showNotification() {
+			if (document.getElementById("update-notification")) return;
+			const div = document.createElement("div");
+			div.id = "update-notification";
+			if (options.customNotificationHTML) div.innerHTML = options.customNotificationHTML;
+			else {
+				div.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #fff; box-shadow: 0 12px 48px rgba(0,0,0,0.15); border-radius: 16px; padding: 32px; z-index: 99999; display: flex; flex-direction: column; align-items: center; gap: 20px; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; min-width: 340px; text-align: center;";
+				div.innerHTML = `
+            <div style="width: 64px; height: 64px; background: #ecf5ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px;">
+                🚀
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-size: 20px; font-weight: 600; color: #303133;">${titleText}</div>
+                <div style="font-size: 14px; color: #606266;">${descText}</div>
+            </div>
+            ${autoRefresh ? `
+            <div style="width: 100%; height: 4px; background: #f2f3f5; border-radius: 2px; overflow: hidden; margin-top: 8px;">
+                <div id="update-progress-bar" style="height: 100%; background: #409eff; animation: progress 5s linear forwards;"></div>
+            </div>
+            ` : ""}
+            ${showButtons ? `
+            <div style="display: flex; gap: 12px; margin-top: 12px; width: 100%;">
+                <button id="update-cancel-btn" style="flex: 1; padding: 8px 16px; border: 1px solid #dcdfe6; background: #fff; color: #606266; border-radius: 4px; cursor: pointer; font-size: 14px; transition: all 0.2s;">${cancelText}</button>
+                <button id="update-confirm-btn" style="flex: 1; padding: 8px 16px; border: none; background: #409eff; color: #fff; border-radius: 4px; cursor: pointer; font-size: 14px; transition: all 0.2s;">${confirmText}</button>
+            </div>
+            ` : ""}
+            <style>
+                @keyframes progress { from { width: 0%; } to { width: 100%; } }
+                #update-cancel-btn:hover { background: #f5f7fa; color: #409eff; border-color: #c6e2ff; }
+                #update-confirm-btn:hover { background: #66b1ff; }
+            </style>
+        `;
+			}
+			document.body.appendChild(div);
+			let countdown = 5;
+			const countdownEl = document.getElementById("update-countdown");
+			const cancelBtn = document.getElementById("update-cancel-btn");
+			const confirmBtn = document.getElementById("update-confirm-btn");
+			const progressBar = document.getElementById("update-progress-bar");
+			let timer;
+			if (autoRefresh) timer = setInterval(() => {
+				countdown--;
+				if (countdownEl) countdownEl.innerText = countdown.toString();
+				if (countdown <= 0) {
+					clearInterval(timer);
+					window.location.reload();
+				}
+			}, 1e3);
+			if (cancelBtn) cancelBtn.onclick = () => {
+				clearInterval(timer);
+				if (progressBar) progressBar.style.animationPlayState = "paused";
+				document.body.removeChild(div);
+			};
+			if (confirmBtn) confirmBtn.onclick = () => {
+				clearInterval(timer);
+				window.location.reload();
+			};
+		}
+		function checkUpdate() {
+			if (document.hidden) return;
+			const versionUrl = baseUrl + "version.json?t=" + Date.now();
+			fetch(versionUrl).then((res) => {
+				if (!res.ok) throw new Error("Network response was not ok");
+				return res.json();
+			}).then((data) => {
+				if (data.version && data.version !== initialVersion && !hasShownUpdate) {
+					hasShownUpdate = true;
+					const event = new CustomEvent("plugin-web-update-notice", { detail: {
+						version: data.version,
+						options
+					} });
+					window.dispatchEvent(event);
+					if (!options.hiddenDefaultNotification) showNotification();
+				}
+			}).catch((err) => {
+				console.warn("Failed to check version:", err);
+			});
+		}
+		setInterval(checkUpdate, checkInterval);
+		document.addEventListener("visibilitychange", () => {
+			if (document.visibilityState === "visible") checkUpdate();
+		});
+	} catch (e) {
+		console.error("Update check script error:", e);
+	}
+})("1792824713912", {"checkInterval":300000,"base":"/app/","autoRefresh":true,"showButtons":true,"text":{"title":"Доступно обновление","desc":"Вышла новая версия приложения. Пожалуйста, обновите страницу.","cancel":"Позже","confirm":"Обновить сейчас"}});</script><script type="application/json" data-nuxt-data="nuxt-app" data-ssr="false" id="__NUXT_DATA__">[{"prerenderedAt":1,"serverRendered":2},1792824727175,false]</script></body></html>
