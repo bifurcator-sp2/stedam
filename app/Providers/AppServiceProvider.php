@@ -34,5 +34,30 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)
                 ->by(optional($request->user())->id ?: $request->ip());
         });
+
+
+        // 1. Лимит для отправки писем (строгий)
+        RateLimiter::for('verification-email', function (Request $request) {
+            return Limit::perMinute(3) // Не более 3 писем в минуту
+            ->by($request->user()?->id ?: $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'message' => 'Слишком много запросов на отправку письма. Подождите минуту.',
+                        'code'    => 'too_many_emails'
+                    ], 429, $headers);
+                });
+        });
+
+        // 2. Лимит для проверки статуса (мягкий, чтобы не сломать Sanctum)
+        RateLimiter::for('user-check', function (Request $request) {
+            return Limit::perMinute(60) // 60 раз в минуту (1 раз в секунду)
+            ->by($request->user()?->id ?: $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'message' => 'Слишком много проверок. Подождите немного.',
+                        'code'    => 'too_many_checks'
+                    ], 429, $headers);
+                });
+        });
     }
 }

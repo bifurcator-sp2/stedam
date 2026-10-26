@@ -87,15 +87,22 @@ class UserDataController extends Controller
 
     /**
      * Профиль текущего пользователя.
+     * Если профиля нет — создает пустой.
      */
     private function resolveUserData(Request $request): UserData
     {
-        $userData = $request->user()->userData()
+        $user = $request->user();
+
+        $userData = $user->userData()
             ->with(['country.translations'])
             ->first();
 
         if (! $userData) {
-            abort(404, 'Профиль не найден');
+            // Создаем пустой профиль, если его еще нет
+            $userData = $user->userData()->create([]);
+            // Связь country.translations здесь не нужна, так как страна null,
+            // но для единообразия объекта можно оставить.
+            $userData->load('country.translations');
         }
 
         return $userData;

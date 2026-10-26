@@ -51,13 +51,17 @@ class User extends Authenticatable implements FilamentUser
     {
         $this->notify(new ResetPasswordNotification($token));
     }
-
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new \App\Notifications\VerifyEmailForSpa());
+    }
     public function toAuthArray() : array
     {
         return [
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'email_verified_at' => $this->email_verified_at,
             'roles' => $this->getRoleNames(),
             'allRoles'=>$this->rolesTranslated(),
             'permissions' => $this->getAllPermissions()->pluck('name'),

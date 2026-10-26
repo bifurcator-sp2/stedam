@@ -13,14 +13,44 @@ Route::post('/register', [\App\Http\Controllers\Auth\RegisteredUserController::c
 Route::post('/login', [\App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'store']);
 Route::post('/forgot-password', [\App\Http\Controllers\Auth\PasswordResetLinkController::class, 'store']);
 Route::post('/reset-password', [\App\Http\Controllers\Auth\NewPasswordController::class, 'store']);
+// Ссылка из письма — БЕЗ auth (юзер может быть на другом устройстве)
+Route::get('/email/verify/{id}/{hash}', function (Illuminate\Http\Request $request) {
+    $user = \App\Models\User::findOrFail($request->route('id'));
 
+    abort_unless(
+        hash_equals(sha1($user->getEmailForVerification()), (string) $request->route('hash')),
+        403
+    );
+
+    if (! $user->hasVerifiedEmail()) {
+        $user->markEmailAsVerified();
+        event(new \Illuminate\Auth\Events\Verified($user));
+    }
+
+    return redirect(
+        rtrim(env('APP_URL'), '/') . '/app/verify-email?verified=1'
+    );
+})->middleware('signed')->name('verification.verify.api');
+
+// Публичная проверка устройства (доступна без авторизации)
+Route::get('/devices/{deviceId}/check', [\App\Http\Controllers\Api\DeviceAccessController::class, 'check']);
 
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [\App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'destroy']);
     Route::get('/user', function (Request $request) {
         return $request->user()->toAuthArray();
-    });
+    })->middleware('throttle:user-check');;
+
+    Route::post('/email/verification-notification', function (Request $request) {
+        if ($request->user()->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email already verified.']);
+        }
+        $request->user()->sendEmailVerificationNotification();
+        return response()->json(['message' => 'Verification email sent.']);
+    })->middleware('throttle:verification-email');
+
+
     Route::get('/roles', [\App\Http\Controllers\Api\RoleController::class, 'index']);
     Route::post('/set-user-roles', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'setPublicRoles']);
 
@@ -59,6 +89,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'show']);
     Route::post('/lessons/{lesson}/blocks', [\App\Http\Controllers\Api\LessonController::class, 'storeBlock']);
     Route::put('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'save']);
+
+
+    Route::get('/admin/devices', [\App\Http\Controllers\Api\DeviceAccessController::class, 'index']);
+    Route::post('/admin/devices/{deviceId}', [\App\Http\Controllers\Api\DeviceAccessController::class, 'store']);
+    Route::delete('/admin/devices/{deviceId}', [\App\Http\Controllers\Api\DeviceAccessController::class, 'destroy']);
+
+
 });
 
 Route::middleware('auth:sanctum')->prefix('files')->group(function () {
