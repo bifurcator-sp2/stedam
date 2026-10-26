@@ -4,10 +4,59 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use \App\Http\Controllers\Api\UserDataController;
 
-/*Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');*/
 
+// Запрос кода на почту
+Route::post('/auth/request-code', function (Illuminate\Http\Request $request) {
+    $request->validate(['email' => 'required|email']);
+
+    $user = \App\Models\User::where('email', $request->email)->first();
+
+    // Из соображений безопасности не говорим, существует ли пользователь
+    if (!$user) {
+        return response()->json(['message' => 'Если пользователь существует, код отправлен.']);
+    }
+
+    // Генерируем 6-значный код
+    $code = rand(100000, 999999);
+
+    // Сохраняем в Redis на 15 минут
+    \Illuminate\Support\Facades\Cache::put("login_code_{$user->email}", (string)$code, now()->addMinutes(15));
+
+    // Отправляем письмо
+    $user->notify(new \App\Notifications\LoginCodeNotification($code));
+
+    return response()->json(['message' => 'Код отправлен.']);
+})->middleware('throttle:6,1'); // Защита от спама (6 попыток в минуту)
+
+// Проверка кода и вход
+Route::post('/auth/login-with-code', function (Illuminate\Http\Request $request) {
+    $request->validate([
+        'email' => 'required|email',
+        'code' => 'required|string'
+    ]);
+
+    $user = \App\Models\User::where('email', $request->email)->first();
+
+    if (!$user) {
+        abort(422, 'Неверный код или email.');
+    }
+
+    $cachedCode = Cache::get("login_code_{$user->email}");
+
+    // Сравниваем коды
+    if (!$cachedCode || $cachedCode !== $request->code) {
+        abort(422, 'Неверный или истекший код.');
+    }
+
+    // Удаляем код из кэша, чтобы его нельзя было использовать повторно
+    Cache::forget("login_code_{$user->email}");
+
+    // Логиним пользователя (Laravel Sanctum выдаст сессию)
+    Auth::login($user);
+    $request->session()->regenerate();
+
+    return response()->json(['message' => 'Успешный вход']);
+});
 
 Route::post('/register', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'store']);
 Route::post('/login', [\App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'store']);
@@ -18,11 +67,11 @@ Route::get('/email/verify/{id}/{hash}', function (Illuminate\Http\Request $reque
     $user = \App\Models\User::findOrFail($request->route('id'));
 
     abort_unless(
-        hash_equals(sha1($user->getEmailForVerification()), (string) $request->route('hash')),
+        hash_equals(sha1($user->getEmailForVerification()), (string)$request->route('hash')),
         403
     );
 
-    if (! $user->hasVerifiedEmail()) {
+    if (!$user->hasVerifiedEmail()) {
         $user->markEmailAsVerified();
         event(new \Illuminate\Auth\Events\Verified($user));
     }
@@ -39,8 +88,19 @@ Route::get('/devices/{deviceId}/check', [\App\Http\Controllers\Api\DeviceAccessC
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [\App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'destroy']);
     Route::get('/user', function (Request $request) {
-        return $request->user()->toAuthArray();
-    })->middleware('throttle:user-check');;
+        $user = $request->user();
+        $data = $user->toAuthArray();
+
+        // Читаем ID устройства из заголовка, который пришлет фронтенд
+        $deviceId = $request->header('X-Device-Id');
+
+        // Проверяем в белом списке (если заголовка нет — возвращаем false)
+        $data['allow_password_auth'] = $deviceId
+            ? \App\Models\AllowedDevice::where('device_id', $deviceId)->exists()
+            : false;
+
+        return $data;
+    })->middleware('throttle:user-check');
 
     Route::post('/email/verification-notification', function (Request $request) {
         if ($request->user()->hasVerifiedEmail()) {
@@ -76,19 +136,19 @@ Route::middleware('auth:sanctum')->group(function () {
 // --- Уроки ---
 
 // 1. Статические GET — строго до /lessons/{lesson}
-    Route::get('/lessons/learn',  [\App\Http\Controllers\Api\LessonController::class, 'list_learn']);
+    Route::get('/lessons/learn', [\App\Http\Controllers\Api\LessonController::class, 'list_learn']);
     Route::get('/lessons/filter', [\App\Http\Controllers\Api\LessonController::class, 'listFilterable']);
 
 // 2. Статический POST (не конфликтует по методу, но пусть будет рядом)
-    Route::post('/lessons/make',  [\App\Http\Controllers\Api\LessonController::class, 'make']);
+    Route::post('/lessons/make', [\App\Http\Controllers\Api\LessonController::class, 'make']);
 
 // 3. Список
-    Route::get('/lessons',        [\App\Http\Controllers\Api\LessonController::class, 'list']);
+    Route::get('/lessons', [\App\Http\Controllers\Api\LessonController::class, 'list']);
 
 // 4. Динамические — здесь и только здесь {lesson}
-    Route::get('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'show']);
+    Route::get('/lessons/{lesson}', [\App\Http\Controllers\Api\LessonController::class, 'show']);
     Route::post('/lessons/{lesson}/blocks', [\App\Http\Controllers\Api\LessonController::class, 'storeBlock']);
-    Route::put('/lessons/{lesson}',         [\App\Http\Controllers\Api\LessonController::class, 'save']);
+    Route::put('/lessons/{lesson}', [\App\Http\Controllers\Api\LessonController::class, 'save']);
 
 
     Route::get('/admin/devices', [\App\Http\Controllers\Api\DeviceAccessController::class, 'index']);

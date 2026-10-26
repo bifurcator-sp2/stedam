@@ -9,14 +9,14 @@ class ResetPasswordNotification extends BaseResetPassword
 {
     public function toMail($notifiable): MailMessage
     {
-        // Формируем ссылку с префиксом /app/
         $url = url('/app/password-reset/' . $this->token . '?email=' . urlencode($notifiable->getEmailForPasswordReset()));
 
         return (new MailMessage)
-            ->subject('Сброс пароля')
-            ->line('Вы получили это письмо, потому что мы получили запрос на сброс пароля для вашей учетной записи.')
-            ->action('Сбросить пароль', $url)
-            ->line('Ссылка действительна 60 минут.')
-            ->line('Если вы не запрашивали сброс пароля, никаких действий не требуется.');
+            ->subject(__('mail/reset.subject'))
+            ->line(__('mail/reset.line1'))
+            ->action(__('mail/reset.action'), $url)
+            ->line(__('mail/reset.line2'))
+            ->line(__('mail/reset.line3'))
+            ->salutation(__('mail/verify.salutation', ['app' => config('app.name')])); // Используем салют из verify или можно добавить свой
     }
 }
