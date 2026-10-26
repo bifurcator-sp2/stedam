@@ -27,11 +27,11 @@ class VerifyEmailForSpa extends BaseVerifyEmail
         $url = $this->verificationUrl($notifiable);
 
         return (new MailMessage)
-            ->subject(__('mail.verify.subject'))
-            ->greeting(__('mail.verify.greeting', ['name' => $notifiable->name]))
-            ->line(__('mail.verify.line1'))
-            ->action(__('mail.verify.action'), $url)
-            ->line(__('mail.verify.line2'))
-            ->salutation(__('mail.verify.salutation', ['app' => config('app.name')]));
+            ->subject(__('mail/verify.subject')) // 👈 Слэш
+            ->greeting(__('mail/verify.greeting', ['name' => $notifiable->name])) // 👈 Слэш
+            ->line(__('mail/verify.line1')) // 👈 Слэш
+            ->action(__('mail/verify.action'), $url) // 👈 Слэш
+            ->line(__('mail/verify.line2')) // 👈 Слэш
+            ->salutation(__('mail/verify.salutation', ['app' => config('app.name')])); // 👈 Слэш
     }
 }
