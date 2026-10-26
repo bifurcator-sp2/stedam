@@ -54,7 +54,7 @@ class User extends Authenticatable implements FilamentUser
     public function sendEmailVerificationNotification(): void
     {
         //$this->notify(new \App\Notifications\VerifyEmailForSpa());
-        $this->notify(
+        $this->notifyNow(
             (new \App\Notifications\VerifyEmailForSpa())
                 ->locale($this->locale ?? config('app.locale'))
         );
