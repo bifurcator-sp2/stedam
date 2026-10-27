@@ -389,6 +389,34 @@ class BlockSettingsRegistry
         );
     }
 
+    public static function getTypeTestDefinition()
+    {
+        return new SettingDefinition(
+            key: 'test',
+            type: SettingType::Array,
+            label: 'Задание',
+            default: [],
+            children: [
+            new SettingDefinition(
+                key: 'ethalon',
+                type: SettingType::String,
+                public: false,
+                default: 'Одно кольцо, чтобы править всеми',
+                label: 'Правильный ответ'
+            ),
+            new SettingDefinition(
+                key: 'answer',
+                type: SettingType::String,
+                public: false,
+                label: 'Ответ',
+                children: [
+            ],
+            ),
+
+        ],
+        );
+    }
+
     public static function getContentTypes($imagesPurpose = FilePurpose::Gallery1)
     {
         return [
@@ -397,6 +425,17 @@ class BlockSettingsRegistry
             self::getTypeGalleryDefinition('gallery', 'Изображения', $imagesPurpose),
         ];
     }
+
+    public static function getBoolValueSettingDefinition()
+    {
+        return new SettingDefinition(
+            key: 'value',
+            type: SettingType::Bool,
+            default: false,
+            label: 'Значение'
+        );
+    }
+
 
     /** @return array<string, SettingDefinition> */
     public static function map(): array
@@ -410,6 +449,12 @@ class BlockSettingsRegistry
                 label: 'Текст + Изображение',
                 description: 'Блок с текстом и галереей',
                 children: [
+                new SettingDefinition(
+                    key: 'isTest',
+                    type: SettingType::Bool,
+                    default: false,
+                    label: 'Это тест',
+                ),
                 new SettingDefinition(
                     key: 'icon',
                     type: SettingType::Icon,
@@ -487,9 +532,188 @@ class BlockSettingsRegistry
                             label: 'Блок2',
                             children: self::getContentTypes(FilePurpose::Gallery2)
                         ),
+                        new SettingDefinition(
+                            key: 'test',
+                            type: SettingType::Array,
+                            label: 'Задание',
+                            default: [],
+                            children: [
+                            new SettingDefinition(
+                                key: 'ethalon',
+                                type: SettingType::String,
+                                public: false,
+                                default: 'Одно кольцо, чтобы править всеми',
+                                label: 'Правильный ответ'
+                            ),
+                            new SettingDefinition(
+                                key: 'block-cols',
+                                type: SettingType::Int,
+                                default: 24,
+                                label: 'Ширина блока, колонок',
+                            ),
+                            new SettingDefinition(
+                                key: 'block-position',
+                                type: SettingType::Select,
+                                default: 'center',
+                                label: 'Позиция блока',
+                                allowed: [
+                                'flex-start',
+                                'center',
+                                'flex-end',
+                            ],
+                            ),
+                            new SettingDefinition(
+                                key: 'answer',
+                                type: SettingType::String,
+                                public: false,
+                                label: 'Ответ',
+                                children: [
+                                new SettingDefinition(
+                                    key: 'text-color',
+                                    type: SettingType::Color,
+                                    default: 'accent-solution',
+                                    allowed: ColorPalette::accentTokens(),
+                                    label: 'Цвет текста',
+                                ),
+                                new SettingDefinition(
+                                    key: 'background-color',
+                                    type: SettingType::Color,
+                                    default: 'bg-default',
+                                    allowed: ColorPalette::bgTokens(),
+                                    label: 'Цвет фона',
+                                ),
+                                new SettingDefinition(
+                                    key: 'answerHeight',
+                                    type: SettingType::Int,
+                                    default: 250,
+                                    public: false,
+                                    label: 'Высота ответа',
+                                ),
+                                new SettingDefinition(
+                                    key: 'answer-tilte',
+                                    type: SettingType::String,
+                                    public: false,
+                                    default: 'Ответ',
+                                    label: 'Заголовок ответа ученика',
+                                    children: [self::getTextSettingsDefinition(),]
+                                ),
+                                self::getPaddingsDefinition(),
+                                self::getMarginDefinition(),
+                                self::getBordersDefinition(),
+                            ],
+                            ),
+
+                        ],
+                        )
                     ]
                 ),
             ],
+            ),
+            'completer' => new SettingDefinition(
+                key: 'type',
+                type: SettingType::Layout,
+                default: 'completer',
+                /*allowed: ['completer'],*/
+                label: 'Разделитель',
+                description: 'Блок в котором ученик должен ставить отметки о прохождении материала',
+                children: [
+                    new SettingDefinition(
+                        key: 'first-block-cols',
+                        type: SettingType::Int,
+                        default: 24,
+                        label: 'Ширина блока, колонок',
+                    ),
+                    new SettingDefinition(
+                        key: 'first-block-position',
+                        type: SettingType::Select,
+                        default: 'center',
+                        label: 'Позиция блока',
+                        allowed: [
+                        'flex-start',
+                        'center',
+                        'flex-end',
+                    ],
+
+                    ),
+                    new SettingDefinition(
+                        key: 'background-color',
+                        type: SettingType::Color,
+                        default: 'bg-default',
+                        allowed: ColorPalette::bgTokens(),
+                        label: 'Цвет фона',
+                    ),
+                    new SettingDefinition(
+                        key: 'text-color',
+                        type: SettingType::Color,
+                        default: 'accent-solution',
+                        allowed: ColorPalette::accentTokens(),
+                        label: 'Цвет подписей',
+                    ),
+                    new SettingDefinition(
+                        key: 'steps-color',
+                        type: SettingType::Color,
+                        default: 'accent-solution',
+                        allowed: ColorPalette::accentTokens(),
+                        label: 'Цвет шагов',
+                    ),
+                    self::getPaddingsDefinition(),
+                    self::getMarginDefinition(),
+                    self::getBordersDefinition(),
+                    new SettingDefinition(
+                        key: 'steps',
+                        type: SettingType::MultiSelect,
+                        default: ['step1', 'step2', 'step3'],
+                        allowed: ['step1', 'step2', 'step3'],
+                        children: [
+                        new SettingDefinition(
+                            key: 'step1',
+                            type: SettingType::String,
+                            default: 'Прочитал',
+                            label: 'Шаг 1',
+                            children: [
+                                new SettingDefinition(
+                                    key: 'icon',
+                                    type: SettingType::Icon,
+                                    default: 'i-lucide-book-open',
+                                    label: 'Иконка',
+                                ),
+                                self::getBoolValueSettingDefinition()
+                            ]
+                        ),
+                        new SettingDefinition(
+                            key: 'step2',
+                            type: SettingType::String,
+                            default: 'Разобрал',
+                            label: 'Шаг 2',
+                            children: [
+                                new SettingDefinition(
+                                    key: 'icon',
+                                    type: SettingType::Icon,
+                                    default: 'i-lucide-puzzle',
+                                    label: 'Иконка',
+                                ),
+                                self::getBoolValueSettingDefinition()
+                            ]
+                        ),
+                        new SettingDefinition(
+                            key: 'step3',
+                            type: SettingType::String,
+                            default: 'Выучил',
+                            label: 'Шаг 3',
+                            children: [
+                                new SettingDefinition(
+                                    key: 'icon',
+                                    type: SettingType::Icon,
+                                    default: 'i-lucide-graduation-cap',
+                                    label: 'Иконка',
+                                ),
+                                self::getBoolValueSettingDefinition()
+                            ]
+                        ),
+                    ],
+                    ),
+
+                ]
             ),
         ];
     }

@@ -70,6 +70,23 @@ services:
                 - '-p${DB_PASSWORD}'
             retries: 3
             timeout: 5s
+    queue-worker:
+        image: 'sail-8.5/app'
+        entrypoint: [ ]
+        command: php /var/www/html/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+        user: '${WWWUSER:-1337}:${WWWGROUP:-1337}'
+        environment:
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            redis:
+                condition: service_healthy
+            pgsql:
+                condition: service_healthy
+        restart: unless-stopped
     redis:
         image: 'redis:alpine'
         ports:

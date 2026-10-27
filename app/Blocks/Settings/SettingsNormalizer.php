@@ -93,7 +93,123 @@ class SettingsNormalizer
 
         return $result;
     }
+    /**
+     * Приводит структуру $saved к структуре $schema.
+     *
+     * - Анализирует $saved на всю глубину через children.
+     * - Если в $schema появились children, которых нет в $saved — добавляет их (из $schema).
+     * - Если в $saved есть children, которых больше нет в $schema — удаляет их.
+     * - Сохраняет значения из $saved для существующих узлов.
+     * - Трогает только иерархию children, не меняя другие поля узлов.
+     */
+    public static function updateBySchema(?array $saved, ?array $schema): array
+    {
+        if (!is_array($schema)) {
+            return $saved ?? [];
+        }
 
+        // ── Единичный корневой узел ──
+        if (isset($schema['key'])) {
+            if (is_array($saved) && array_is_list($saved) && isset($saved[0]['key'])) {
+                $saved = $saved[0];
+            }
+
+            if (!is_array($saved) || !isset($saved['key']) || $saved['key'] !== $schema['key']) {
+                return $schema;
+            }
+
+            return self::updateNodeChildren($saved, $schema);
+        }
+
+        // ── Список узлов ──
+        if (is_array($saved) && isset($saved['key'])) {
+            $saved = [$saved];
+        }
+
+        if (!is_array($saved) || !array_is_list($saved)) {
+            $saved = [];
+        }
+
+        $savedByKey = [];
+        foreach ($saved as $item) {
+            if (is_array($item) && !empty($item['key'])) {
+                $savedByKey[$item['key']] = $item;
+            }
+        }
+
+        $result = [];
+
+        foreach ($schema as $schemaItem) {
+            if (!is_array($schemaItem)) {
+                $result[] = $schemaItem;
+                continue;
+            }
+
+            $key = $schemaItem['key'] ?? null;
+            if ($key === null) {
+                $result[] = $schemaItem;
+                continue;
+            }
+
+            $savedItem = $savedByKey[$key] ?? null;
+
+            if ($savedItem === null) {
+                $result[] = $schemaItem;
+            } else {
+                $result[] = self::updateNodeChildren($savedItem, $schemaItem);
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Рекурсивно обновляет children узла $savedNode по эталону $schemaNode.
+     */
+    protected static function updateNodeChildren(array $savedNode, array $schemaNode): array
+    {
+        $schemaChildren = $schemaNode['children'] ?? null;
+
+        // Если в новой схеме у узла нет детей, убираем их из saved
+        if (!is_array($schemaChildren) || empty($schemaChildren)) {
+            unset($savedNode['children']);
+            return $savedNode;
+        }
+
+        $savedChildren = $savedNode['children'] ?? [];
+        if (!is_array($savedChildren)) {
+            $savedChildren = [];
+        }
+
+        $savedByKey = [];
+        foreach ($savedChildren as $child) {
+            if (is_array($child) && isset($child['key'])) {
+                $savedByKey[$child['key']] = $child;
+            }
+        }
+
+        $newChildren = [];
+
+        // Идем по схеме — это эталон структуры и порядка
+        foreach ($schemaChildren as $schemaChild) {
+            if (!is_array($schemaChild) || !isset($schemaChild['key'])) {
+                continue;
+            }
+
+            $key = $schemaChild['key'];
+
+            if (isset($savedByKey[$key])) {
+                // Узел есть в обоих — рекурсивно обновляем его детей
+                $newChildren[] = self::updateNodeChildren($savedByKey[$key], $schemaChild);
+            } else {
+                // Узла нет в saved — добавляем из схемы (с дефолтами)
+                $newChildren[] = $schemaChild;
+            }
+        }
+
+        $savedNode['children'] = $newChildren;
+        return $savedNode;
+    }
     public static function normalizeUrls(array $settings): array
     {
         $result = [];

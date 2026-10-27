@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Blocks\Settings\BlockSettingsRegistry;
+use App\Blocks\Settings\SettingsNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,7 +16,7 @@ class BlockResource extends JsonResource
             'code'          => $this->code,
             'title'         => $this->title,
             'description'   => $this->description,
-            'settings'      => $this->settings ?? [],
+            'settings'      => SettingsNormalizer::updateBySchema($this->settings ?? [], BlockSettingsRegistry::serializeSchema($this->code)), //SettingsNormalizer::mergeSchemaWithSaved(BlockSettingsRegistry::serializeSchema($this->code), $this->settings ?? []),
             'published'     => (bool) $this->published,
 
             // Список id узлов BlockIndex, к которым привязан блок.

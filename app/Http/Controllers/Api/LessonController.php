@@ -207,7 +207,7 @@ class LessonController
      * Общий конструктор запроса для списков уроков.
      * Не фильтрует по владельцу — это делает вызывающий метод.
      */
-    protected function getLessonsListQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    public function getLessonsListQuery(Request $request): \Illuminate\Database\Eloquent\Builder
     {
         $query = Lesson::query()
             ->withCount('blocks')
@@ -271,28 +271,5 @@ class LessonController
         ]);
     }
 
-    public function list_learn(Request $request): JsonResponse
-    {
-        $user = $request->user();
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
-        }
 
-        $perPage = max(1, min((int)$request->integer('per_page', 20), 100));
-
-        $paginator = $this->getLessonsListQuery($request)
-            ->where('published', true)
-            ->simplePaginate($perPage);
-
-        return response()->json([
-            'data' => LessonListResource::collection($paginator->getCollection())->resolve($request),
-            'meta' => [
-                'current_page'   => $paginator->currentPage(),
-                'per_page'       => $paginator->perPage(),
-                'has_more_pages' => $paginator->hasMorePages(),
-                'from'           => $paginator->firstItem(),
-                'to'             => $paginator->lastItem(),
-            ],
-        ]);
-    }
 }
