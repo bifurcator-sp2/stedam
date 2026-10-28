@@ -18,11 +18,13 @@ class UserData extends Model
         'gender',
         'country_id',
         'direction',
+        'settings',
     ];
 
     protected $casts = [
         'birth_year' => 'integer',
         'direction' => 'string',
+        'settings'   => 'array',
     ];
 
     public function user(): BelongsTo

@@ -117,7 +117,8 @@ class LessonController
         // Если в запросе нет поля published или оно равно true — блокируем.
         if ($lesson->published) {
             if (!$request->has('published') || $request->boolean('published') === true) {
-                abort(403, 'Нельзя редактировать опубликованный урок. Сначала снимите его с публикации.');
+                //abort(403, 'Нельзя редактировать опубликованный урок. Сначала снимите его с публикации.');
+                return response()->json(new LessonResource($lesson->load(['blocks.block', 'taxonomies'])));
             }
         }
         // ===================================================================

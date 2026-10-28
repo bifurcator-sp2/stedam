@@ -152,6 +152,22 @@ class UserDataController extends Controller
                 Rule::exists('countries', 'id')->whereNull('deleted_at'),
             ],
             'direction' => ['nullable', Rule::in(['ltr', 'rtl'])],
+            // ==========================================
+            // Валидация настроек (JSON)
+            // ==========================================
+            // Сам объект настроек (необязательный)
+            'settings' => ['nullable', 'array'],
+
+            // Группа настроек рукописного ввода
+            'settings.ink' => ['nullable', 'array'],
+
+            // Конкретные параметры рукописного ввода
+            'settings.ink.penSize' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'settings.ink.eraserSize' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'settings.ink.bg' => ['nullable', 'string', Rule::in(['none', 'lined', 'grid', 'dots'])],
+            'settings.ink.bgOpacity' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'settings.ink.bgScale' => ['nullable', 'numeric', 'min:0.1', 'max:5'],
+            'settings.ink.bgColor' => ['nullable', 'string', 'regex:/^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$/i'],
         ]);
 
         return $validator->validate();
@@ -174,6 +190,7 @@ class UserDataController extends Controller
             'gender' => $userData->gender,
             'country_id' => $userData->country_id,
             'direction' => $userData->direction,
+            'settings' => $userData->settings,
             'country' => $userData->country ? [
                 'id' => $userData->country->id,
                 'iso2' => $userData->country->iso2,

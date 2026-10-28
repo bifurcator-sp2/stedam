@@ -11,9 +11,11 @@ Route::post('/auth/request-code', function (Illuminate\Http\Request $request) {
 
     $user = \App\Models\User::where('email', $request->email)->first();
 
-    // Из соображений безопасности не говорим, существует ли пользователь
+    // Если пользователь не найден, создаем временный экземпляр (в памяти, без сохранения в БД)
     if (!$user) {
-        return response()->json(['message' => 'Если пользователь существует, код отправлен.']);
+        $user = new \App\Models\User([
+            'email' => $request->email,
+        ]);
     }
 
     // Генерируем 6-значный код
@@ -22,7 +24,7 @@ Route::post('/auth/request-code', function (Illuminate\Http\Request $request) {
     // Сохраняем в Redis на 15 минут
     \Illuminate\Support\Facades\Cache::put("login_code_{$user->email}", (string)$code, now()->addMinutes(15));
 
-    // Отправляем письмо
+    // Отправляем письмо (метод notify работает и для несохраненных моделей)
     $user->notify(new \App\Notifications\LoginCodeNotification($code));
 
     return response()->json(['message' => 'Код отправлен.']);
@@ -35,24 +37,31 @@ Route::post('/auth/login-with-code', function (Illuminate\Http\Request $request)
         'code' => 'required|string'
     ]);
 
-    $user = \App\Models\User::where('email', $request->email)->first();
+    // 1. Сначала проверяем код в кэше
+    $cachedCode = \Illuminate\Support\Facades\Cache::get("login_code_{$request->email}");
 
-    if (!$user) {
-        abort(422, 'Неверный код или email.');
-    }
-
-    $cachedCode = Cache::get("login_code_{$user->email}");
-
-    // Сравниваем коды
     if (!$cachedCode || $cachedCode !== $request->code) {
         abort(422, 'Неверный или истекший код.');
     }
 
-    // Удаляем код из кэша, чтобы его нельзя было использовать повторно
-    Cache::forget("login_code_{$user->email}");
+    // 2. Код верный, сразу удаляем его, чтобы нельзя было использовать повторно
+    \Illuminate\Support\Facades\Cache::forget("login_code_{$request->email}");
 
-    // Логиним пользователя (Laravel Sanctum выдаст сессию)
-    Auth::login($user);
+    // 3. Ищем пользователя
+    $user = \App\Models\User::where('email', $request->email)->first();
+
+    // 4. Если пользователя нет — создаем его в базе
+    if (!$user) {
+        $user = \App\Models\User::create([
+            'email' => $request->email,
+            'name' => explode('@', $request->email)[0],
+            'password' => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(16)),
+        ]);
+        $user->markEmailAsVerified();
+    }
+
+    // 5. Логиним пользователя (Laravel Sanctum выдаст сессию)
+    \Illuminate\Support\Facades\Auth::login($user);
     $request->session()->regenerate();
 
     return response()->json(['message' => 'Успешный вход']);
