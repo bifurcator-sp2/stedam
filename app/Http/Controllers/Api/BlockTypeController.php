@@ -53,11 +53,11 @@ class BlockTypeController extends Controller
         $locale   = app()->getLocale();
         $fallback = config('app.fallback_locale', 'en');
 
-        // 1. Загружаем блоки пользователя (только опубликованные)
+        // 1. Загружаем блоки (только опубликованные)
         $blocks = Block::query()
             ->with(['translations' => fn($q) => $q->whereIn('locale', [$locale, $fallback])])
-            ->where('user_id', $user->id)
             ->where('published', true)
+            ->where('is_test', false)
             ->get();
 
         // Форматируем блоки, добавляя им default_settings и code типа
@@ -73,6 +73,7 @@ class BlockTypeController extends Controller
                 'title' => $t?->title,
                 'description' => $t?->description,
                 'settings' => $b->settings ?? [],
+                'is_test' => (bool) $b->is_test, // <--- ДОБАВЛЕНО
             ];
         })->values();
 

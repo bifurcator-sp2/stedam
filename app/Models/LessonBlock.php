@@ -8,6 +8,7 @@ use App\Models\Concerns\UsesTimestamptz;
 use Bifurcator\FileSets\Concerns\HasFileSets;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LessonBlock extends Model
@@ -58,6 +59,29 @@ class LessonBlock extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Таксономии задания (доступно только для глобальных заданий, где lesson_id = null).
+     */
+    public function taxonomies(): BelongsToMany
+    {
+        return $this->belongsToMany(Taxonomy::class, 'lesson_block_taxonomy')
+            ->using(LessonBlockTaxonomy::class)
+            ->withTimestamps();
+    }
+
+    /**
+     * Уроки, в которых данное задание используется.
+     */
+    public function usages(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Lesson::class,
+            'lesson_lesson_block_as_test',
+            'lesson_block_id',
+            'lesson_id'
+        )->withPivot('order');
     }
 
     // ==================== Автозаполнение ====================

@@ -161,6 +161,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/lessons/{lesson}/blocks', [\App\Http\Controllers\Api\LessonController::class, 'storeBlock']);
     Route::put('/lessons/{lesson}', [\App\Http\Controllers\Api\LessonController::class, 'save']);
 
+    Route::get('/teacher-tests', [\App\Http\Controllers\Api\TestsController::class, 'list']);
+    Route::get('/teacher-tests/templates', [\App\Http\Controllers\Api\TestsController::class, 'templates']);
+    Route::apiResource('teacher-test', \App\Http\Controllers\Api\TestsController::class)
+        ->parameters(['teacher-test' => 'lessonBlock'])
+        ->only(['store', 'show', 'update', 'destroy']);
 
     Route::get('/admin/devices', [\App\Http\Controllers\Api\DeviceAccessController::class, 'index']);
     Route::post('/admin/devices/{deviceId}', [\App\Http\Controllers\Api\DeviceAccessController::class, 'store']);

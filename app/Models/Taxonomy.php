@@ -82,7 +82,19 @@ class Taxonomy extends Model
 
     public function lessons(): BelongsToMany
     {
-        return $this->belongsToMany(Lesson::class, 'lesson_taxonomy');
+        return $this->belongsToMany(Lesson::class, 'lesson_taxonomy')
+            ->using(LessonTaxonomy::class)
+            ->withTimestamps();
+    }
+
+    /**
+     * Задания, привязанные к этой таксономии (только глобальные LessonBlock).
+     */
+    public function lessonBlocks(): BelongsToMany
+    {
+        return $this->belongsToMany(LessonBlock::class, 'lesson_block_taxonomy')
+            ->using(LessonBlockTaxonomy::class)
+            ->withTimestamps();
     }
 
     public function getTitleAttribute(): ?string

@@ -450,12 +450,6 @@ class BlockSettingsRegistry
                 description: 'Блок с текстом и галереей',
                 children: [
                 new SettingDefinition(
-                    key: 'isTest',
-                    type: SettingType::Bool,
-                    default: false,
-                    label: 'Это тест',
-                ),
-                new SettingDefinition(
                     key: 'icon',
                     type: SettingType::Icon,
                     default: 'i-lucide-layout-panel-left',
