@@ -940,4 +940,27 @@ class SettingsNormalizer
 
         return $merged;
     }
+
+    public static function canonicalJson(array $data): string
+    {
+        $sort = function (array $a) use (&$sort): array {
+            ksort($a, SORT_STRING);
+            foreach ($a as $k => $v) {
+                if (is_array($v)) {
+                    $a[$k] = array_is_list($v) ? array_map(
+                        fn($x) => is_array($x) ? $sort($x) : $x, $v
+                    ) : $sort($v);
+                }
+            }
+            return $a;
+        };
+
+        return json_encode(
+            $sort($data),
+            JSON_UNESCAPED_UNICODE
+            | JSON_UNESCAPED_SLASHES
+            | JSON_PRESERVE_ZERO_FRACTION
+            | JSON_THROW_ON_ERROR,
+        );
+    }
 }
