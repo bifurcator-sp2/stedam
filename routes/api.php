@@ -147,6 +147,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // 1. Статические GET — строго до /lessons/{lesson}
     Route::get('/lessons/learn', [\App\Http\Controllers\Api\LearnController::class, 'list_learn']);
     Route::get('/lessons/actual', [\App\Http\Controllers\Api\LearnController::class, 'getActualLessons']);
+    Route::post('/learn/begin', [LearnController::class, 'beginLearnLesson']);
 
     Route::get('/lessons/filter', [\App\Http\Controllers\Api\LessonController::class, 'listFilterable']);
 

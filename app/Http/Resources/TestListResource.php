@@ -14,7 +14,7 @@ class TestListResource extends JsonResource
             'id'              => $this->id,
             'user_id'         => $this->user_id,
             'block_type_code' => $this->block?->code,
-            'settings'        => SettingsNormalizer::fillPublicDefaults($this->settings ?? [], $this->block->settings ?? []),
+            'settings'        => SettingsNormalizer::settingsToS3urls(SettingsNormalizer::fillPublicDefaults($this->settings ?? [], $this->block->settings ?? [])),
             'usages'          => $this->whenCounted('usages'), // <--- ДОБАВЛЕНО
             'taxonomy_ids'    => $this->whenLoaded(
                 'taxonomies',

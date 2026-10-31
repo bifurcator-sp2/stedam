@@ -5,6 +5,7 @@ namespace Bifurcator\FileSets;
 
 use Bifurcator\FileSets\Contracts\FileStorage;
 use Bifurcator\FileSets\Contracts\FileUrlResolver;
+use Bifurcator\FileSets\Contracts\ImageMakerContract;
 use Bifurcator\FileSets\Contracts\ThumbnailMakerContract;
 
 class FilesService
@@ -12,17 +13,13 @@ class FilesService
     public function __construct(
         protected FileUrlResolver $urlResolver,
         protected ThumbnailMakerContract $thumbs,
+        protected ImageMakerContract $images,
     ) {}
 
     // ============================================================
     // PRELOAD
     // ============================================================
 
-    /**
-     * Загружает файлы во временное хранилище.
-     *
-     * ВАЖНО: Файлы остаются в temp до момента сохранения сущности.
-     */
     public function preload(
         array $files,
         string $modelClass,
@@ -35,7 +32,13 @@ class FilesService
         if ($purpose !== null) {
             $dir = $this->resolveFileSet($modelClass, $modelId, $purpose)->tempDir();
         } else {
-            $userId = auth()->id() ?? 0;
+            // Eager load owner для получения user_id
+            $model = $modelClass::with('owner')->find($modelId);
+            $userId = $model?->user_id
+                ?? $model?->owner?->user_id
+                ?? auth()->id()
+                ?? 0;
+
             $modelName = (new $modelClass)->getTable();
             $dir = "temp/users/{$userId}/models/{$modelName}/{$modelId}";
         }
@@ -60,22 +63,19 @@ class FilesService
             $file->storeAs($dir, $filename, $tempStorage->diskName());
 
             if (str_starts_with($mime, 'image/')) {
-                $this->thumbs->make("{$dir}/{$filename}");
+                //$this->thumbs->make("{$dir}/{$filename}");
+                $this->images->make("{$dir}/{$filename}");   // ресайз in-place
+                $this->thumbs->make("{$dir}/{$filename}");   // thumb из уже ресайзнутого
             }
 
             $uploadedNames[$filename] = true;
         }
 
-        // Файлы физически остаются в папке temp FileSet'а.
-        // Возвращаем их со статусом 'temp'.
         $scanned = $this->scanTemp($dir, $tempStorage);
 
         return $this->filterByName($scanned, $uploadedNames);
     }
 
-    /**
-     * Оставляет только элементы, у которых basename(url) есть в $names.
-     */
     protected function filterByName(array $items, array $names): array
     {
         if (empty($names)) {
@@ -101,9 +101,6 @@ class FilesService
     // LIST
     // ============================================================
 
-    /**
-     * Список файлов модели (temp + store).
-     */
     public function list(
         string $modelClass,
         int $modelId,
@@ -125,10 +122,13 @@ class FilesService
             return $this->formatList($tempImages, $tempFiles, $storedImages, $storedFiles);
         }
 
-        // Старое поведение (без purpose)
-        $model = $modelClass::find($modelId);
+        $model = $modelClass::with('owner')->find($modelId);
 
-        $userId = auth()->id() ?? 0;
+        $userId = $model?->user_id
+            ?? $model?->owner?->user_id
+            ?? auth()->id()
+            ?? 0;
+
         $modelName = (new $modelClass)->getTable();
         $tempDir = "temp/users/{$userId}/models/{$modelName}/{$modelId}";
 
@@ -147,9 +147,6 @@ class FilesService
     // DELETE TEMP
     // ============================================================
 
-    /**
-     * Удаляет временный файл.
-     */
     public function deleteTemp(
         string $modelClass,
         int $modelId,
@@ -180,11 +177,14 @@ class FilesService
 
             $dir = $fileSet
                 ? $fileSet->tempDir()
-                : "temp/users/" . (auth()->id() ?? 0)
-                . "/models/" . (new $modelClass)->getTable()
-                . "/{$modelId}";
+                : $this->newFileSetStub($modelClass, $modelId, $purpose)->tempDir();
         } else {
-            $userId = auth()->id() ?? 0;
+            $model = $modelClass::with('owner')->find($modelId);
+            $userId = $model?->user_id
+                ?? $model?->owner?->user_id
+                ?? auth()->id()
+                ?? 0;
+
             $modelName = (new $modelClass)->getTable();
             $dir = "temp/users/{$userId}/models/{$modelName}/{$modelId}";
         }
@@ -213,18 +213,29 @@ class FilesService
     {
         $class = config('file-sets.file_set_model');
 
-        return $class::firstOrCreate([
+        $fileSet = $class::firstOrCreate([
             'model'    => $modelClass,
             'model_id' => $modelId,
             'purpose'  => $purpose,
         ]);
+
+        // Жадная загрузка owner
+        $fileSet->loadMissing('owner');
+
+        return $fileSet;
     }
 
     protected function findFileSet(string $modelClass, int $modelId, string $purpose)
     {
         $model = $modelClass::find($modelId);
 
-        return $model?->findFileSet($purpose);
+        $fileSet = $model?->findFileSet($purpose);
+
+        if ($fileSet) {
+            $fileSet->loadMissing('owner');
+        }
+
+        return $fileSet;
     }
 
     protected function newFileSetStub(string $modelClass, int $modelId, string $purpose)

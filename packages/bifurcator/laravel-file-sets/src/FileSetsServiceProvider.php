@@ -4,8 +4,10 @@
 namespace Bifurcator\FileSets;
 
 use Bifurcator\FileSets\Contracts\FileUrlResolver;
+use Bifurcator\FileSets\Contracts\ImageMakerContract;
 use Bifurcator\FileSets\Contracts\ThumbnailMakerContract;
 use Bifurcator\FileSets\Storage\LaravelFileStorage;
+use Bifurcator\FileSets\Support\NullImageMaker;
 use Bifurcator\FileSets\Support\NullThumbnailMaker;
 use Bifurcator\FileSets\Url\LocalUrlResolver;
 use Bifurcator\FileSets\Url\S3PublicUrlResolver;
@@ -27,6 +29,7 @@ class FileSetsServiceProvider extends ServiceProvider
         $this->registerFileUrlResolver();
         $this->registerFileStorages();
         $this->registerThumbnailMaker();
+        $this->registerImageMaker();
     }
 
     /**
@@ -63,7 +66,18 @@ class FileSetsServiceProvider extends ServiceProvider
             };
         });
     }
+    protected function registerImageMaker(): void
+    {
+        $this->app->singleton(ImageMakerContract::class, function () {
+            $class = config('file-sets.image_maker');
 
+            if (!is_string($class) || !class_exists($class)) {
+                return new NullImageMaker();
+            }
+
+            return $this->app->make($class);
+        });
+    }
     // ============================================================
     // FileStorage (temp + store)
     // ============================================================

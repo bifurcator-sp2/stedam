@@ -46,17 +46,18 @@ trait FilesContainer
 
     protected function storeStorage(): FileStorage
     {
+        if (method_exists($this, 'storeDisk')) {
+            return new \Bifurcator\FileSets\Storage\LaravelFileStorage($this->storeDisk());
+        }
         return app(FileStorageKeys::STORE);
     }
 
-    /**
-     * Переносит файл между хранилищами.
-     */
     protected function transferFile(
         FileStorage $from,
         string $fromPath,
         FileStorage $to,
         string $toPath,
+        ?string $mimeType = null
     ): void {
         if ($from->diskName() === $to->diskName()) {
             $from->move($fromPath, $toPath);
@@ -71,7 +72,18 @@ trait FilesContainer
         }
 
         try {
-            $to->writeStream($toPath, $stream);
+            $options = [];
+            if ($mimeType) {
+                $options['ContentType'] = $mimeType;
+            }
+
+            // Безопасный вызов: передаем $options только если метод его принимает
+            $method = new \ReflectionMethod($to, 'writeStream');
+            if ($method->getNumberOfParameters() >= 3) {
+                $to->writeStream($toPath, $stream, $options);
+            } else {
+                $to->writeStream($toPath, $stream);
+            }
         } finally {
             if (is_resource($stream)) {
                 fclose($stream);
@@ -87,7 +99,11 @@ trait FilesContainer
 
     public function tempDir(): string
     {
-        $userId = auth()->id() ?? 0;
+        // FileSet не имеет своего user_id, всегда смотрим на владельца
+        $userId = $this->owner?->user_id
+            ?? auth()->id()
+            ?? 0;
+
         $modelName = $this->getTable();
         $modelId = $this->getKey() ?: 0;
 
@@ -104,7 +120,7 @@ trait FilesContainer
     }
 
     /* ============================================================
-     *  СПИСКИ ИЗ БД
+     *  ... ОСТАЛЬНЫЕ МЕТОДЫ (imageList, fileList, actuate...) БЕЗ ИЗМЕНЕНИЙ ...
      * ============================================================ */
 
     public function imageList(): array
@@ -117,10 +133,6 @@ trait FilesContainer
         return is_array($this->files) ? $this->files : [];
     }
 
-    /* ============================================================
-     *  АКТУАЛИЗАЦИЯ СПИСКОВ
-     * ============================================================ */
-
     public function actuateImageList(array $images): array
     {
         if (!$this->getKey() || empty($images)) {
@@ -130,7 +142,6 @@ trait FilesContainer
         $storage = $this->storeStorage();
         $storeDir = $this->storeDir();
         $changed = false;
-
         $filtered = [];
 
         foreach ($images as $img) {
@@ -174,7 +185,6 @@ trait FilesContainer
         $storage = $this->storeStorage();
         $storeDir = $this->storeDir();
         $changed = false;
-
         $filtered = [];
 
         foreach ($files as $f) {
@@ -202,7 +212,7 @@ trait FilesContainer
     }
 
     /* ============================================================
-     *  ПРУНИНГ СИРОТ
+     *  ПРУНИНГ (Вызывать вручную или через cron)
      * ============================================================ */
 
     public function pruneOrphanImages(): array
@@ -242,9 +252,6 @@ trait FilesContainer
                 continue;
             }
 
-            // ВАЖНО: FileSet может хранить в одной папке и images, и files.
-            // pruneOrphanImages() не должен трогать не-image файлы —
-            // это зона ответственности pruneOrphanFiles().
             if (!$this->isImagePath($path, $storage)) {
                 continue;
             }
@@ -333,21 +340,6 @@ trait FilesContainer
         ];
     }
 
-    /* ============================================================
-     *  ПРУНИНГ ПУСТЫХ ПАПОК
-     * ============================================================ */
-
-    /**
-     * Удаляет пустые папки в models/{table}:
-     *   - собственный storeDir()   (…/xx/yy/{id})
-     *   - родитель-шард           (…/xx/yy)
-     *   - прародитель-шард        (…/xx)
-     *
-     * Действует снизу вверх: как только встречается непустая папка —
-     * подъём прекращается. models/{table} не трогаем.
-     *
-     * Возвращает ['deleted' => [путь, ...]] в порядке удаления.
-     */
     public function pruneEmptyStoreDirs(): array
     {
         $deleted = [];
@@ -384,9 +376,6 @@ trait FilesContainer
         return ['deleted' => $deleted];
     }
 
-    /**
-     * Папка пустая, если в ней нет ни файлов, ни подкаталогов.
-     */
     protected function isDirEmpty(string $dir, FileStorage $storage): bool
     {
         if (!empty($storage->files($dir))) {
@@ -399,10 +388,6 @@ trait FilesContainer
 
         return true;
     }
-
-    /* ============================================================
-     *  СКАНИРОВАНИЕ ПАПОК (temp)
-     * ============================================================ */
 
     public function scanDir(string $dir, bool $imagesOnly, string $source): array
     {
@@ -451,10 +436,6 @@ trait FilesContainer
         return $result;
     }
 
-    /* ============================================================
-     *  СПИСКИ TEMP
-     * ============================================================ */
-
     public function tempImages(): array
     {
         return $this->scanDir($this->tempDir(), true, 'temp');
@@ -464,10 +445,6 @@ trait FilesContainer
     {
         return $this->scanDir($this->tempDir(), false, 'temp');
     }
-
-    /* ============================================================
-     *  СПИСКИ STORE (только из реестра, без сканирования диска)
-     * ============================================================ */
 
     public function storedImages(): array
     {
@@ -525,6 +502,9 @@ trait FilesContainer
 
     public function moveTempToStore(): void
     {
+        // Гарантируем загрузку owner, чтобы избежать N+1 при tempDir()
+        $this->loadMissing('owner');
+
         $tempStorage  = $this->tempStorage();
         $storeStorage = $this->storeStorage();
 
@@ -537,7 +517,10 @@ trait FilesContainer
         $maxImages = $this->maxImages();
         $maxFiles  = $this->maxFiles();
 
-        $userId = auth()->id() ?? 0;
+        $userId = $this->owner?->user_id
+            ?? auth()->id()
+            ?? 0;
+
         $modelName = $this->getTable();
 
         $tempDirs = array_unique([
@@ -545,50 +528,11 @@ trait FilesContainer
             "temp/users/{$userId}/models/{$modelName}/0",
         ]);
 
-        $tempImages = [];
-        $tempFiles  = [];
+        $filesToMove = [];
+        $tempImagesCount = 0;
+        $tempFilesCount = 0;
 
-        foreach ($tempDirs as $tempDir) {
-            if (!$tempStorage->exists($tempDir)) {
-                continue;
-            }
-
-            foreach ($tempStorage->files($tempDir) as $path) {
-                $filename = basename($path);
-
-                if (str_starts_with($filename, 'thumb_')) {
-                    continue;
-                }
-
-                if ($this->isImagePath($path, $tempStorage)) {
-                    $tempImages[] = $path;
-                } else {
-                    $tempFiles[] = $path;
-                }
-            }
-        }
-
-        $totalImages = count($images) + count($tempImages);
-        if ($totalImages > $maxImages) {
-            throw new FileLimitExceededException(
-                'images',
-                $maxImages,
-                $totalImages,
-            );
-        }
-
-        $totalFiles = count($files) + count($tempFiles);
-        if ($totalFiles > $maxFiles) {
-            throw new FileLimitExceededException(
-                'files',
-                $maxFiles,
-                $totalFiles,
-            );
-        }
-
-        $movedImages = [];
-        $movedFiles  = [];
-
+        // 1. Сканируем ОДИН раз, запоминаем MIME и тип
         foreach ($tempDirs as $tempDir) {
             if (!$tempStorage->exists($tempDir)) {
                 continue;
@@ -597,35 +541,81 @@ trait FilesContainer
             foreach ($tempStorage->files($tempDir) as $path) {
                 $filename = basename($path);
                 $isThumb  = str_starts_with($filename, 'thumb_');
+                $mime     = $tempStorage->mimeType($path) ?? '';
+                $isImage  = str_starts_with($mime, 'image/');
 
-                $this->transferFile(
-                    $tempStorage,
-                    $path,
-                    $storeStorage,
-                    "{$storeDir}/{$filename}",
-                );
-
-                if ($isThumb) {
-                    continue;
+                if (!$isThumb) {
+                    if ($isImage) $tempImagesCount++;
+                    else $tempFilesCount++;
                 }
 
-                if ($this->isImagePath("{$storeDir}/{$filename}", $storeStorage)) {
-                    $movedImages[] = $filename;
-                } else {
-                    $movedFiles[] = $filename;
-                }
+                $filesToMove[] = [
+                    'path'     => $path,
+                    'filename' => $filename,
+                    'isThumb'  => $isThumb,
+                    'isImage'  => $isImage,
+                    'mime'     => $mime,
+                ];
             }
-
-            $tempStorage->deleteDirectory($tempDir);
         }
 
+        // 2. Проверка лимитов
+        $totalImages = count($images) + $tempImagesCount;
+        if ($totalImages > $maxImages) {
+            throw new FileLimitExceededException('images', $maxImages, $totalImages);
+        }
+
+        $totalFiles = count($files) + $tempFilesCount;
+        if ($totalFiles > $maxFiles) {
+            throw new FileLimitExceededException('files', $maxFiles, $totalFiles);
+        }
+
+        $movedImages = [];
+        $movedFiles  = [];
+
+        // 3. Переносим файлы (используя закэшированные данные)
+        foreach ($filesToMove as $item) {
+            $this->transferFile(
+                $tempStorage,
+                $item['path'],
+                $storeStorage,
+                "{$storeDir}/{$item['filename']}",
+                $item['mime'] // Передаем MIME (сработает для S3, проигнорируется локально)
+            );
+
+            if ($item['isThumb']) {
+                continue;
+            }
+
+            if ($item['isImage']) {
+                $movedImages[] = $item['filename'];
+            } else {
+                $movedFiles[] = $item['filename'];
+            }
+        }
+
+        // Чистим пустые папки temp
+        foreach ($tempDirs as $tempDir) {
+            if ($tempStorage->exists($tempDir)) {
+                $tempStorage->deleteDirectory($tempDir);
+            }
+        }
+
+        // 4. Обновляем реестр в БД
         if ($movedImages || $movedFiles) {
+            // Собираем имена перенесенных тумбнейлов (чтобы не делать exists() в S3)
+            $movedThumbs = collect($filesToMove)
+                ->where('isThumb', true)
+                ->pluck('filename')
+                ->flip()
+                ->toArray();
+
             foreach ($movedImages as $name) {
+                $thumbName = "thumb_{$name}";
                 $images[] = [
                     'original'  => $name,
-                    'thumbnail' => $storeStorage->exists("{$storeDir}/thumb_{$name}")
-                        ? "thumb_{$name}"
-                        : null,
+                    // Проверяем наличие тумбнейла в памяти, а не через запрос к S3
+                    'thumbnail' => isset($movedThumbs[$thumbName]) ? $thumbName : null,
                     'title'     => null,
                 ];
             }
@@ -642,59 +632,52 @@ trait FilesContainer
             $this->saveQuietly();
         }
 
+        // 5. Генерация тумбнейлов, если их нет
         if ($movedImages) {
             $needProcessing = [];
             foreach ($movedImages as $name) {
-                if (!$storeStorage->exists("{$storeDir}/thumb_{$name}")) {
+                $thumbName = "thumb_{$name}";
+
+                // Если мы не перенесли тумбнейл — его нужно сгенерировать
+                // (или если мы используем локальный диск, можно проверить exists, но проще проверить флаг)
+                $thumbMoved = collect($filesToMove)
+                    ->where('filename', $thumbName)
+                    ->isNotEmpty();
+
+                if (!$thumbMoved) {
                     $needProcessing[] = $name;
                 }
             }
+
             if (!empty($needProcessing)) {
                 $this->runProcessors($needProcessing);
             }
         }
-
-        if ($movedImages || $movedFiles) {
-            $this->pruneOrphans();
-        }
     }
 
     /* ============================================================
-     *  СИНХРОНИЗАЦИЯ ПО ЗАПРОСУ С ФРОНТА
+     *  СИНХРОНИЗАЦИЯ С ФРОНТА И ОСТАЛЬНОЕ
      * ============================================================ */
 
     public function syncFilesFromRequest(?array $images, ?array $files): void
     {
-        // 1. Перенос temp → store (внутри проверяет лимиты)
         $this->moveTempToStore();
 
         $maxImages = $this->maxImages();
         $maxFiles  = $this->maxFiles();
 
-        // 2. Проверка payload на лимиты
         if ($images !== null && count($images) > $maxImages) {
-            throw new FileLimitExceededException(
-                'images',
-                $maxImages,
-                count($images),
-            );
+            throw new FileLimitExceededException('images', $maxImages, count($images));
         }
 
         if ($files !== null && count($files) > $maxFiles) {
-            throw new FileLimitExceededException(
-                'files',
-                $maxFiles,
-                count($files),
-            );
+            throw new FileLimitExceededException('files', $maxFiles, count($files));
         }
 
-        // 3. Удаляем из реестра то, чего нет в payload
         if ($images !== null) {
             $incoming = $this->extractNamesFromUrls($images);
             $existing = $this->imageList();
 
-            // Если реестр пуст — удалять нечего (файлы могут принадлежать
-            // прототипу; их скопирует cloneFileSetsFromModel).
             if (!empty($existing)) {
                 foreach ($existing as $img) {
                     $original = $img['original'] ?? null;
@@ -719,10 +702,8 @@ trait FilesContainer
             }
         }
 
-        // 4. Применяем title
         $this->applyTitlesFromRequest($images, $files);
 
-        // 5. Переупорядочиваем
         if ($images !== null) {
             $this->reorderImagesByPayload($images);
         }
@@ -734,17 +715,12 @@ trait FilesContainer
     protected function extractNamesFromUrls(array $items): array
     {
         $names = [];
-
         foreach ($items as $item) {
             $url = $item['url'] ?? null;
             if (!$url) continue;
-
             $name = basename(parse_url($url, PHP_URL_PATH) ?: $url);
-            if ($name) {
-                $names[$name] = true;
-            }
+            if ($name) $names[$name] = true;
         }
-
         return $names;
     }
 
@@ -815,17 +791,12 @@ trait FilesContainer
     {
         $current = collect($this->imageList())->keyBy('original');
 
-        // Реестр пуст — нечего сортировать, не трогаем (файлы могут
-        // принадлежать прототипу; их скопирует cloneFileSetsFromModel).
-        if ($current->isEmpty()) {
-            return;
-        }
+        if ($current->isEmpty()) return;
 
         $ordered = [];
         foreach ($incoming as $item) {
             $url = $item['url'] ?? null;
             if (!$url) continue;
-
             $name = basename(parse_url($url, PHP_URL_PATH) ?: $url);
             if ($name && $current->has($name)) {
                 $ordered[] = $current->get($name);
@@ -840,15 +811,12 @@ trait FilesContainer
     {
         $current = collect($this->fileList())->keyBy('name');
 
-        if ($current->isEmpty()) {
-            return;
-        }
+        if ($current->isEmpty()) return;
 
         $ordered = [];
         foreach ($incoming as $item) {
             $url = $item['url'] ?? null;
             if (!$url) continue;
-
             $name = basename(parse_url($url, PHP_URL_PATH) ?: $url);
             if ($name && $current->has($name)) {
                 $ordered[] = $current->get($name);
@@ -858,10 +826,6 @@ trait FilesContainer
         $this->files = $ordered ?: null;
         $this->saveQuietly();
     }
-
-    /* ============================================================
-     *  УДАЛЕНИЕ
-     * ============================================================ */
 
     public function deleteAllFiles(): void
     {
@@ -886,20 +850,14 @@ trait FilesContainer
         $images = collect($this->imageList());
         $entry = $images->firstWhere('original', $original);
 
-        if (!$entry) {
-            return;
-        }
+        if (!$entry) return;
 
         $storage->delete("{$this->storeDir()}/{$entry['original']}");
         if (!empty($entry['thumbnail'])) {
             $storage->delete("{$this->storeDir()}/{$entry['thumbnail']}");
         }
 
-        $this->images = $images
-            ->reject(fn($i) => $i['original'] === $original)
-            ->values()
-            ->toArray() ?: null;
-
+        $this->images = $images->reject(fn($i) => $i['original'] === $original)->values()->toArray() ?: null;
         $this->saveQuietly();
     }
 
@@ -916,37 +874,21 @@ trait FilesContainer
         $storage = $this->storeStorage();
         $storage->delete("{$this->storeDir()}/{$name}");
 
-        $this->files = collect($this->fileList())
-            ->reject(fn($f) => $f['name'] === $name)
-            ->values()
-            ->toArray() ?: null;
-
+        $this->files = collect($this->fileList())->reject(fn($f) => $f['name'] === $name)->values()->toArray() ?: null;
         $this->saveQuietly();
     }
 
-    /* ============================================================
-     *  ПРОЦЕССОРЫ
-     * ============================================================ */
-
     protected function runProcessors(array $filenames): void
     {
-        if (!property_exists($this, 'fileProcessors')) {
-            return;
-        }
+        if (!property_exists($this, 'fileProcessors')) return;
 
         $processors = $this->fileProcessors;
-        if (empty($processors) || empty($filenames)) {
-            return;
-        }
+        if (empty($processors) || empty($filenames)) return;
 
         foreach ($processors as $processorClass) {
             app($processorClass)->handle($this, $filenames);
         }
     }
-
-    /* ============================================================
-     *  УТИЛИТЫ
-     * ============================================================ */
 
     protected function isImagePath(string $path, ?FileStorage $storage = null): bool
     {
@@ -980,11 +922,11 @@ trait FilesContainer
 
     public function maxImages(): int
     {
-        return (int) config('files.max_images', 100);
+        return (int) config('file-sets.max_images', 100);
     }
 
     public function maxFiles(): int
     {
-        return (int) config('files.max_files', 20);
+        return (int) config('file-sets.max_files', 20);
     }
 }

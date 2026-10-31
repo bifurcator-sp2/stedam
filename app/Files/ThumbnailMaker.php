@@ -11,9 +11,19 @@ use Intervention\Image\Laravel\Facades\Image;
 
 class ThumbnailMaker implements ThumbnailMakerContract
 {
-    protected int $width = 300;
-    protected int $quality = 85;
+    protected int $width;
+    protected int $quality;
     protected string $prefix = 'thumb_';
+
+    /**
+     * @param int|null $width   Переопределяет config('file-sets.thumbnail_width')
+     * @param int|null $quality Переопределяет config('file-sets.thumbnail_quality')
+     */
+    public function __construct(?int $width = null, ?int $quality = null)
+    {
+        $this->width   = $width   ?? (int) config('file-sets.thumbnail_width', 300);
+        $this->quality = $quality ?? (int) config('file-sets.thumbnail_quality', 85);
+    }
 
     /**
      * Генерирует тумбнейл рядом с оригиналом.
@@ -58,8 +68,10 @@ class ThumbnailMaker implements ThumbnailMakerContract
             return $thumbName;
         } catch (\Throwable $e) {
             Log::warning('[ThumbnailMaker] failed', [
-                'path'  => $sourcePath,
-                'error' => $e->getMessage(),
+                'path'    => $sourcePath,
+                'width'   => $this->width,
+                'quality' => $this->quality,
+                'error'   => $e->getMessage(),
             ]);
             return null;
         }

@@ -16,7 +16,7 @@ class BlockResource extends JsonResource
             'code'          => $this->code,
             'title'         => $this->title,
             'description'   => $this->description,
-            'settings'      => SettingsNormalizer::updateBySchema($this->settings ?? [], BlockSettingsRegistry::serializeSchema($this->code)), //SettingsNormalizer::mergeSchemaWithSaved(BlockSettingsRegistry::serializeSchema($this->code), $this->settings ?? []),
+            'settings'      => SettingsNormalizer::settingsToS3urls(SettingsNormalizer::updateBySchema($this->settings ?? [], BlockSettingsRegistry::serializeSchema($this->code))), //SettingsNormalizer::mergeSchemaWithSaved(BlockSettingsRegistry::serializeSchema($this->code), $this->settings ?? []),
             'published'     => (bool) $this->published,
 
             // Список id узлов BlockIndex, к которым привязан блок.

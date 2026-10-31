@@ -3,6 +3,7 @@
 namespace App\Blocks\Settings;
 
 use Bifurcator\FileSets\FileStorageKeys;
+use Bifurcator\FileSets\Contracts\FileUrlResolver;
 
 class SettingsNormalizer
 {
@@ -939,5 +940,107 @@ class SettingsNormalizer
         }
 
         return $merged;
+    }
+
+    public static function canonicalJson(array $data): string
+    {
+        $sort = function (array $a) use (&$sort): array {
+            ksort($a, SORT_STRING);
+            foreach ($a as $k => $v) {
+                if (is_array($v)) {
+                    $a[$k] = array_is_list($v) ? array_map(
+                        fn($x) => is_array($x) ? $sort($x) : $x, $v
+                    ) : $sort($v);
+                }
+            }
+            return $a;
+        };
+
+        return json_encode(
+            $sort($data),
+            JSON_UNESCAPED_UNICODE
+            | JSON_UNESCAPED_SLASHES
+            | JSON_PRESERVE_ZERO_FRACTION
+            | JSON_THROW_ON_ERROR,
+        );
+    }
+
+    /**
+     * Заменяет относительные пути `/storage/...` на актуальные URL хранилища
+     * согласно текущему FileUrlResolver (local / s3_public / s3_temporary).
+     *
+     * Парная операция к normalizeUrls():
+     *   normalizeUrls()      — URL → /storage/...   (перед сохранением в БД)
+     *   settingsToS3urls()   — /storage/... → URL   (при отдаче наружу)
+     *
+     * Идемпотентна: значения, которые уже не начинаются с `/storage/`
+     * (включая S3-URL), не трогаются. Структура массива сохраняется.
+     *
+     * При LocalUrlResolver — no-op (возвращает те же `/storage/...`).
+     * При S3PublicUrlResolver — публичные S3-URL.
+     * При S3TemporaryUrlResolver — подписанные URL. Внимание: они истекают,
+     * поэтому метод надо вызывать на отдаче (в API-ресурсе), а не
+     * сохранять результат в БД.
+     */
+    public static function settingsToS3urls(array $settings): array
+    {
+        $resolver = app(FileUrlResolver::class);
+
+        return self::walkStoragePaths($settings, $resolver);
+    }
+
+    /**
+     * @internal
+     */
+    protected static function walkStoragePaths(array $data, FileUrlResolver $resolver): array
+    {
+        $result = [];
+
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $result[$key] = self::walkStoragePaths($value, $resolver);
+                continue;
+            }
+
+            if (is_string($value)) {
+                $result[$key] = self::storagePathToStoreUrl($value, $resolver);
+                continue;
+            }
+
+            $result[$key] = $value;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @internal
+     *
+     * Принимает:
+     *   - `/storage/models/file_sets/ab/cd/1/photo.jpg`
+     *   - `http://stedam.localhost/storage/models/...` (на случай, если
+     *     значение не прошло normalizeUrlToPath)
+     *
+     * Возвращает `$resolver->storeUrl('models/file_sets/ab/cd/1/photo.jpg')`.
+     * Всё, что не матчится, — без изменений.
+     */
+    protected static function storagePathToStoreUrl(string $value, FileUrlResolver $resolver): string
+    {
+        $relativePath = null;
+
+        if (str_starts_with($value, '/storage/')) {
+            $relativePath = substr($value, strlen('/storage/'));
+        } elseif (preg_match('#^https?://[^/]+(/storage/.+)$#i', $value, $match)) {
+            $relativePath = substr($match[1], strlen('/storage/'));
+        }
+
+        if ($relativePath === null || $relativePath === '') {
+            return $value;
+        }
+
+        // На случай, если в путь затесался query-string
+        $relativePath = strtok($relativePath, '?') ?: $relativePath;
+
+        return $resolver->storeUrl($relativePath);
     }
 }

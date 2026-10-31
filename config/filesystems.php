@@ -47,17 +47,29 @@ return [
             'report' => false,
         ],
 
-        's3' => [
+        's3_public' => [
             'driver' => 's3',
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'key' => env('AWS_PUBLIC_ACCESS_KEY_ID'),
+            'secret' => env('AWS_PUBLIC_SECRET_ACCESS_KEY'),
             'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('AWS_BUCKET'),
-            'url' => env('AWS_URL'),
+            'bucket' => env('AWS_BUCKET_PUBLIC'),
+            'url' => env('AWS_URL_PUBLIC'),
             'endpoint' => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', true),
+            'visibility' => 'public',
             'throw' => false,
-            'report' => false,
+        ],
+
+        's3_private' => [
+            'driver' => 's3',
+            'key' => env('AWS_PRIVATE_ACCESS_KEY_ID'),
+            'secret' => env('AWS_PRIVATE_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET_PRIVATE'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', true),
+            // visibility не указываем, по умолчанию private
+            'throw' => false,
         ],
 
     ],

@@ -68,4 +68,34 @@ return [
 
     'thumbnail_maker' => \App\Files\ThumbnailMaker::class,
 
+    /*
+|--------------------------------------------------------------------------
+| Параметры миниатюр
+|--------------------------------------------------------------------------
+|
+| width   — целевая ширина в px (пропорции сохраняются, апскейла нет)
+| quality — качество кодирования (0–100 для JPEG/WebP)
+|
+*/
+
+    'thumbnail_width'   => (int) env('FILE_SETS_THUMB_WIDTH', 300),
+    'thumbnail_quality' => (int) env('FILE_SETS_THUMB_QUALITY', 85),
+    /*
+|--------------------------------------------------------------------------
+| ImageMaker (ресайз основных изображений перед сохранением)
+|--------------------------------------------------------------------------
+|
+| Класс, реализующий ImageMakerContract. Обычно App\Files\ImageMaker.
+| Если null — NullImageMaker (изображения сохраняются «как есть»).
+|
+| width   — максимальная ширина (пропорции сохраняются)
+| upscale — разрешать ли увеличение картинок меньше maxWidth
+| quality — качество кодирования 0–100 (для JPEG/WebP)
+|
+*/
+
+    'image_maker'   => \App\Files\ImageMaker::class,
+    'image_width'   => (int)  env('FILE_SETS_IMAGE_WIDTH', 1024),
+    'image_upscale' => (bool) env('FILE_SETS_IMAGE_UPSCALE', false),
+    'image_quality' => (int)  env('FILE_SETS_IMAGE_QUALITY', 85),
 ];
