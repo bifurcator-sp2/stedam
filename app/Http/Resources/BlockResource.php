@@ -27,6 +27,7 @@ class BlockResource extends JsonResource
                 fn () => $this->blockIndexes->pluck('id')->values()->all(),
                 [],
             ),
+            'is_proc' => (bool) $this->is_proc,
             'is_test' => (bool) $this->is_test,
             'created_at'    => $this->created_at?->toISOString(),
             'updated_at'    => $this->updated_at?->toISOString(),

@@ -3,4 +3,5 @@
 return [
     App\Providers\AppServiceProvider::class,
     App\Providers\Filament\StedamPanelProvider::class,
+    App\Providers\TestGeneratorServiceProvider::class,
 ];

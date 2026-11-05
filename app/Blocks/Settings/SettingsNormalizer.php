@@ -1043,4 +1043,141 @@ class SettingsNormalizer
 
         return $resolver->storeUrl($relativePath);
     }
+
+    /**
+     * Кэш резолверов (topic) по ID урока, чтобы не делать
+     * лишние запросы для каждого блока одного и того же урока.
+     */
+    protected static array $resolvedTopics = [];
+
+    /**
+     * Заполняет процедурные задания (random) сгенерированными задачами.
+     *
+     * @param \App\Models\LessonBlock $lessonBlock
+     * @return array
+     */
+    public static function fillProcTests(\App\Models\LessonBlock $lessonBlock): array
+    {
+        $settings = $lessonBlock->settings ?? [];
+        if (empty($settings)) {
+            return $settings;
+        }
+
+        // Берем ID урока из самого блока, либо из pivot (для глобальных шаблонов заданий)
+        $lessonId = $lessonBlock->lesson_id ?? $lessonBlock->pivot?->lesson_id;
+
+        if (!$lessonId) {
+            return $settings;
+        }
+
+        // 1. Пытаемся получить topic из таксономии урока (с кэшированием по lesson_id)
+        if (!array_key_exists($lessonId, self::$resolvedTopics)) {
+            // ИСПРАВЛЕНИЕ: Всегда ищем Lesson по ID. Для глобальных блоков (lesson_id = null)
+            // связь $lessonBlock->lesson всегда вернет null, даже если она загружена.
+            $lesson = \App\Models\Lesson::find($lessonId);
+            $topicFromTaxonomy = null;
+
+            if ($lesson) {
+                $taxonomyId = $lesson->relationLoaded('taxonomies')
+                    ? $lesson->taxonomies->first()?->id
+                    : $lesson->taxonomies()->value('taxonomies.id');
+
+                if ($taxonomyId) {
+                    $resolverMap = app(\App\Blocks\TestGenerator\Resolvers\TestResolverMap::class);
+                    $node = \App\Models\Taxonomy::query()->find($taxonomyId);
+                    $guard = 0;
+
+                    // Идем вверх по дереву таксономии, ищем test_resolver
+                    while ($node !== null && $guard++ < 64) {
+                        $resolver = is_string($node->test_resolver) ? trim($node->test_resolver) : '';
+
+                        if ($resolver !== '') {
+                            $topicFromTaxonomy = $resolverMap->topicFor($resolver);
+                            if ($topicFromTaxonomy !== null) {
+                                break;
+                            }
+                        }
+                        if ($node->parent_id === null || $node->parent_id < 0) {
+                            break;
+                        }
+                        $node = \App\Models\Taxonomy::query()->find($node->parent_id);
+                    }
+                }
+            }
+            self::$resolvedTopics[$lessonId] = $topicFromTaxonomy;
+        }
+
+        $topic = self::$resolvedTopics[$lessonId];
+
+        // Если у таксономии нет резолвера — ничего не заполняем
+        if ($topic === null) {
+            return $settings;
+        }
+
+        $testGenerator = app(\App\Blocks\TestGenerator\TestGenerator::class);
+
+        // 2. Берем сложность ТОЛЬКО из свойства блока
+        $difficulty = (float) ($lessonBlock->complexity ?? 0.5);
+
+        // 3. Рекурсивно находим и заполняем процедурные узлы
+        self::fillProcNodes($settings, $testGenerator, $topic, $difficulty);
+
+        return $settings;
+    }
+
+    /**
+     * Рекурсивный обход дерева настроек для поиска узлов random (содержащих testLabel).
+     */
+    protected static function fillProcNodes(
+        array &$nodes,
+        \App\Blocks\TestGenerator\TestGenerator $testGenerator,
+        string $topic,
+        float $difficulty
+    ): void {
+        if (isset($nodes['key'])) {
+            $isProc = false;
+
+            // Проверяем, есть ли среди детей ключ 'testLabel'
+            if (!empty($nodes['children']) && is_array($nodes['children'])) {
+                foreach ($nodes['children'] as $child) {
+                    if (is_array($child) && ($child['key'] ?? '') === 'testLabel') {
+                        $isProc = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($isProc) {
+                try {
+                    $problem = $testGenerator->generate($topic, $difficulty);
+                    // Записываем ТОЛЬКО условие в default
+                    $nodes['default'] = $problem->question;
+                } catch (\Throwable $e) {
+                    // ИСПРАВЛЕНИЕ: Обязательно логируем, чтобы понимать, почему задача не пришла
+                    \Illuminate\Support\Facades\Log::error('fillProcNodes generation error: ' . $e->getMessage(), [
+                        'topic' => $topic,
+                        'difficulty' => $difficulty,
+                        'key' => $nodes['key'] ?? null,
+                    ]);
+                }
+            }
+
+            // Рекурсивный спуск по детям
+            if (!empty($nodes['children']) && is_array($nodes['children'])) {
+                self::fillProcNodes($nodes['children'], $testGenerator, $topic, $difficulty);
+            }
+            return;
+        }
+
+        // Обработка списков (если корень — список)
+        if (!array_is_list($nodes)) {
+            return;
+        }
+
+        foreach ($nodes as &$node) {
+            if (is_array($node)) {
+                self::fillProcNodes($node, $testGenerator, $topic, $difficulty);
+            }
+        }
+    }
 }

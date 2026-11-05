@@ -26,6 +26,7 @@ class Taxonomy extends Model
         'parent_id',
         'user_id',
         'order',
+        'test_resolver',
     ];
 
     protected $casts = [

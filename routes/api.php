@@ -163,6 +163,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/lessons/{lesson}', [\App\Http\Controllers\Api\LessonController::class, 'save']);
 
     Route::get('/teacher-tests', [\App\Http\Controllers\Api\TestsController::class, 'list']);
+    Route::get('/tests-proc', [\App\Http\Controllers\Api\TestsController::class, 'list_proc']);
     Route::get('/teacher-tests/templates', [\App\Http\Controllers\Api\TestsController::class, 'templates']);
     Route::apiResource('teacher-test', \App\Http\Controllers\Api\TestsController::class)
         ->parameters(['teacher-test' => 'lessonBlock'])
@@ -172,6 +173,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/devices/{deviceId}', [\App\Http\Controllers\Api\DeviceAccessController::class, 'store']);
     Route::delete('/admin/devices/{deviceId}', [\App\Http\Controllers\Api\DeviceAccessController::class, 'destroy']);
 
+
+
+
+    Route::get('/tasks/catalog', \App\Http\Controllers\Api\TaskResolversCatalogController::class)
+        ->name('api.catalog');
+
+    Route::get('/tasks/resolvers', \App\Http\Controllers\Api\ResolversController::class)
+        ->name('api.resolvers');
+
+    Route::get('/tasks/random', \App\Http\Controllers\Api\TaskGenerateController::class)
+        ->name('api.tasks.random');
 
 });
 

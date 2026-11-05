@@ -320,6 +320,51 @@ class BlockSettingsRegistry
         );
     }
 
+    public static function getTypeRandomTestDefinition($key = 'randomtestquery', $label = 'Случайное задание')
+    {
+        return new SettingDefinition(
+            key: $key,
+            type: SettingType::Layout,
+            label: $label,
+            default: '',
+            children: [
+/*                new SettingDefinition(
+                    key: 'complexity',
+                    type: SettingType::Float,
+                    default: 0.5,
+                    label: 'Сложность',
+                ),*/
+                new SettingDefinition(
+                    key: 'testLabel',
+                    type: SettingType::String,
+                    label: 'Заголовок условия задачи',
+                    default: 'Содержание задачи / Условие / Вопрос',
+                    children: [
+                    self::getTextSettingsDefinition()
+                ],),
+                new SettingDefinition(
+                    key: 'contentbox',
+                    type: SettingType::String,
+                    label: 'Блок отображения условия',
+                    default: '',
+                    children: [
+                    new SettingDefinition(
+                        key: 'background-color',
+                        type: SettingType::Color,
+                        default: 'bg-default',
+                        allowed: ColorPalette::bgTokens(),
+                        label: 'Цвет фона',
+                    ),
+                    self::getPaddingsDefinition(),
+                    self::getMarginDefinition(),
+                    self::getBordersDefinition(),
+                    self::getTextSettingsDefinition()
+                ],)
+        ],
+        );
+    }
+
+
     public static function getTypeTextDefinition($key = 'text', $label = 'Текст')
     {
         return new SettingDefinition(
@@ -394,7 +439,7 @@ class BlockSettingsRegistry
         return new SettingDefinition(
             key: 'test',
             type: SettingType::Array,
-            label: 'Задание',
+            label: 'Эталонный ответ',
             default: [],
             children: [
             new SettingDefinition(
@@ -423,6 +468,7 @@ class BlockSettingsRegistry
             self::getTypeTextDefinition('text3', 'Текст'),
             self::getTypeHtmltextDefinition('htmltext', 'Текст'),
             self::getTypeGalleryDefinition('gallery', 'Изображения', $imagesPurpose),
+            self::getTypeRandomTestDefinition('random', 'Случайное задание'),
         ];
     }
 
@@ -514,7 +560,7 @@ class BlockSettingsRegistry
                             key: 'block1',
                             type: SettingType::ContentType,
                             default: 'text',
-                            allowed: ['text', 'gallery', 'htmltext'],
+                            allowed: ['text', 'gallery', 'htmltext', 'random'],
                             label: 'Блок1',
                             children: self::getContentTypes(FilePurpose::Gallery1)
                         ),
@@ -522,7 +568,7 @@ class BlockSettingsRegistry
                             key: 'block2',
                             type: SettingType::ContentType,
                             default: 'gallery',
-                            allowed: ['text', 'gallery', 'htmltext'],
+                            allowed: ['text', 'gallery', 'htmltext', 'random'],
                             label: 'Блок2',
                             children: self::getContentTypes(FilePurpose::Gallery2)
                         ),

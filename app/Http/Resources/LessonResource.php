@@ -15,7 +15,7 @@ class LessonResource extends JsonResource
             'locale'       => $this->locale,
             'saved'        => (bool) $this->saved,
             'published'    => (bool) $this->published,
-
+            'complexity'   => (float) $this->complexity,
             'blocks'       => LessonBlockResource::collection(
                 $this->when(
                     $this->relationLoaded('blocks') || $this->relationLoaded('lessonBlockAsTests'),

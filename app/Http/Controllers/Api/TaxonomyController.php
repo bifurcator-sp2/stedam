@@ -36,6 +36,7 @@ class TaxonomyController extends Controller
                     'id'          => $item->id,
                     'parent_id'   => $item->parent_id,
                     'title'       => $item->title,
+                    'test_resolver'       => $item->test_resolver,
                     'description' => $item->description,
                     'children'    => [],
                 ];

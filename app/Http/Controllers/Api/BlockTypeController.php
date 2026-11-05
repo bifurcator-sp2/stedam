@@ -73,7 +73,8 @@ class BlockTypeController extends Controller
                 'title' => $t?->title,
                 'description' => $t?->description,
                 'settings' => $b->settings ?? [],
-                'is_test' => (bool) $b->is_test, // <--- ДОБАВЛЕНО
+                'is_test' => (bool) $b->is_test,
+                'is_proc' => (bool) $b->is_proc,
             ];
         })->values();
 

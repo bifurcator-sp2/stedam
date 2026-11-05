@@ -21,6 +21,8 @@ class TestListResource extends JsonResource
                 fn() => $this->taxonomies->pluck('id')->all(),
                 []
             ),
+            'complexity'   => (float) $this->complexity,
+            'is_proc'      => (bool) $this->is_proc,
             'created_at'      => $this->created_at?->toISOString(),
             'updated_at'      => $this->updated_at?->toISOString(),
         ];

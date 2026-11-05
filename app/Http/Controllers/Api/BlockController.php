@@ -81,6 +81,7 @@ class BlockController extends Controller
                 Rule::exists('block_indexes', 'id')->whereNull('deleted_at'),
             ],
             'published'                => ['sometimes', 'boolean'],
+            'is_proc'                  => ['sometimes', 'boolean'],
             'is_test' => ['sometimes', 'boolean'],
         ]);
 
@@ -95,6 +96,7 @@ class BlockController extends Controller
                 'settings'      => $data['settings'] ?? [],
                 'published'     => $data['published'] ?? false,
                 'is_test'       => $data['is_test'] ?? false,
+                'is_proc'       => $data['is_proc'] ?? false,
             ]);
 
             $block->translations()->create([
@@ -159,7 +161,8 @@ class BlockController extends Controller
                 Rule::exists('block_indexes', 'id')->whereNull('deleted_at'),
             ],
             'published'                => ['sometimes', 'boolean'],
-            'is_test' => ['sometimes', 'boolean'],
+            'is_test'                  => ['sometimes', 'boolean'],
+            'is_proc'                  => ['sometimes', 'boolean'],
         ]);
 
         if (!empty($data['settings'])) {
@@ -172,9 +175,10 @@ class BlockController extends Controller
             }
 
             $block->update([
-                'settings' => $data['settings'] ?? $block->settings,
+                'settings'  => $data['settings'] ?? $block->settings,
                 'published' => $data['published'] ?? $block->published,
-                'is_test'       => $data['is_test'] ?? false,
+                'is_test'   => $data['is_test'] ?? $block->is_test,
+                'is_proc'   => $data['is_proc'] ?? $block->is_proc,
             ]);
 
             $locale = app()->getLocale();

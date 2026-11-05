@@ -23,11 +23,14 @@ class Lesson extends Model
         'title',
         'description',
         'published',
+        'is_proc',
     ];
 
     protected $casts = [
         'saved'     => 'boolean',
         'published' => 'boolean',
+        'complexity' => 'float',
+        'is_proc'  => 'boolean',
     ];
 
     // ==================== Связи ====================
@@ -113,6 +116,10 @@ class Lesson extends Model
         static::forceDeleting(function (Lesson $lesson) {
             $lesson->blocks()->withTrashed()->forceDelete();
         });
+
+        static::saving(function (Lesson $lesson) {
+            $lesson->recalculateComplexity();
+        });
     }
 
 
@@ -125,6 +132,29 @@ class Lesson extends Model
     {
         return $this->published === true;
     }
+    /**
+     * Пересчитывает complexity урока как среднее арифметическое
+     * complexity всех «заданий» (lessonBlockAsTests) этого урока.
+     *
+     * Собственные блоки (blocks) НЕ участвуют в расчёте.
+     * Блоки с complexity = null игнорируются (иначе тянули бы среднее к 0).
+     * Если валидных значений нет вообще — complexity = null.
+     */
+    public function recalculateComplexity(): void
+    {
+        if (! $this->exists) {
+            $this->complexity = null;
+            return;
+        }
 
+        // Свежий запрос к pivot: гарантированно актуален даже если
+        // relation уже был загружен раньше и устарел.
+        $values = $this->lessonBlockAsTests()
+            ->pluck('lesson_blocks.complexity')
+            ->filter(fn ($v) => $v !== null)
+            ->map(fn ($v) => (float) $v);
+
+        $this->complexity = $values->isEmpty() ? null : $values->avg();
+    }
 
 }

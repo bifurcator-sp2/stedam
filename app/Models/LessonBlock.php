@@ -21,11 +21,15 @@ class LessonBlock extends Model
         'block_id',
         'order',
         'settings',
+        'complexity',
+        'is_proc',
     ];
 
     protected $casts = [
         'settings' => 'array',
         'order'    => 'integer',
+        'complexity' => 'float',
+        'is_proc'  => 'boolean',
     ];
 
     protected static array $filePurposes = [

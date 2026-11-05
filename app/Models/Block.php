@@ -22,12 +22,14 @@ class Block extends Model
         'settings',
         'published',
         'is_test',
+        'is_proc',
     ];
 
     protected $casts = [
         'settings'  => 'array',
         'published' => 'boolean',
         'is_test'   => 'boolean',
+        'is_proc' => 'boolean',
     ];
 
     protected static array $filePurposes = [
