@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\NumberTheory;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Признаки делимости. Ответ — «да» или «нет».
@@ -20,28 +21,28 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class DivisibilityGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->ruleByTwo($difficulty),
-                fn () => $this->ruleByFive($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->ruleByTwo($difficulty, $rng),
+                fn () => $this->ruleByFive($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->ruleByTen($difficulty),
-                fn () => $this->ruleByThree($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->ruleByTen($difficulty, $rng),
+                fn () => $this->ruleByThree($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->ruleByNine($difficulty),
-                fn () => $this->ruleByFour($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->ruleByNine($difficulty, $rng),
+                fn () => $this->ruleByFour($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->ruleBySix($difficulty),
-                fn () => $this->ruleByThreeBig($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->ruleBySix($difficulty, $rng),
+                fn () => $this->ruleByThreeBig($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->ruleByNineBig($difficulty),
-                fn () => $this->ruleByFourBig($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->ruleByNineBig($difficulty, $rng),
+                fn () => $this->ruleByFourBig($difficulty, $rng),
             ])(),
         };
     }
@@ -86,9 +87,9 @@ final class DivisibilityGenerator extends GeneratorBase
         );
     }
 
-    private function ruleByTwo(float $difficulty): MathProblem
+    private function ruleByTwo(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(10, 999);
+        $n = $this->rnd($rng, 10, 999);
         $last = $n % 10;
         return $this->makeProblem(
             $n, 2,
@@ -102,9 +103,9 @@ final class DivisibilityGenerator extends GeneratorBase
         );
     }
 
-    private function ruleByFive(float $difficulty): MathProblem
+    private function ruleByFive(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(10, 999);
+        $n = $this->rnd($rng, 10, 999);
         $last = $n % 10;
         return $this->makeProblem(
             $n, 5,
@@ -118,9 +119,9 @@ final class DivisibilityGenerator extends GeneratorBase
         );
     }
 
-    private function ruleByTen(float $difficulty): MathProblem
+    private function ruleByTen(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(10, 999);
+        $n = $this->rnd($rng, 10, 999);
         $last = $n % 10;
         return $this->makeProblem(
             $n, 10,
@@ -134,9 +135,9 @@ final class DivisibilityGenerator extends GeneratorBase
         );
     }
 
-    private function ruleByThree(float $difficulty): MathProblem
+    private function ruleByThree(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(10, 999);
+        $n = $this->rnd($rng, 10, 999);
         $sum = array_sum(array_map('intval', str_split((string) $n)));
         return $this->makeProblem(
             $n, 3,
@@ -150,9 +151,9 @@ final class DivisibilityGenerator extends GeneratorBase
         );
     }
 
-    private function ruleByNine(float $difficulty): MathProblem
+    private function ruleByNine(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(100, 999);
+        $n = $this->rnd($rng, 100, 999);
         $sum = array_sum(array_map('intval', str_split((string) $n)));
         return $this->makeProblem(
             $n, 9,
@@ -166,9 +167,9 @@ final class DivisibilityGenerator extends GeneratorBase
         );
     }
 
-    private function ruleByFour(float $difficulty): MathProblem
+    private function ruleByFour(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(100, 9999);
+        $n = $this->rnd($rng, 100, 9999);
         $lastTwo = $n % 100;
         return $this->makeProblem(
             $n, 4,
@@ -182,9 +183,9 @@ final class DivisibilityGenerator extends GeneratorBase
         );
     }
 
-    private function ruleBySix(float $difficulty): MathProblem
+    private function ruleBySix(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(100, 9999);
+        $n = $this->rnd($rng, 100, 9999);
         $sum = array_sum(array_map('intval', str_split((string) $n)));
         $even = $n % 2 === 0;
         return $this->makeProblem(
@@ -200,9 +201,9 @@ final class DivisibilityGenerator extends GeneratorBase
         );
     }
 
-    private function ruleByThreeBig(float $difficulty): MathProblem
+    private function ruleByThreeBig(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(1000, 99999);
+        $n = $this->rnd($rng, 1000, 99999);
         $sum = array_sum(array_map('intval', str_split((string) $n)));
         return $this->makeProblem(
             $n, 3,
@@ -216,9 +217,9 @@ final class DivisibilityGenerator extends GeneratorBase
         );
     }
 
-    private function ruleByNineBig(float $difficulty): MathProblem
+    private function ruleByNineBig(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(1000, 99999);
+        $n = $this->rnd($rng, 1000, 99999);
         $sum = array_sum(array_map('intval', str_split((string) $n)));
         return $this->makeProblem(
             $n, 9,
@@ -232,9 +233,9 @@ final class DivisibilityGenerator extends GeneratorBase
         );
     }
 
-    private function ruleByFourBig(float $difficulty): MathProblem
+    private function ruleByFourBig(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(10000, 99999);
+        $n = $this->rnd($rng, 10000, 99999);
         $lastTwo = $n % 100;
         return $this->makeProblem(
             $n, 4,

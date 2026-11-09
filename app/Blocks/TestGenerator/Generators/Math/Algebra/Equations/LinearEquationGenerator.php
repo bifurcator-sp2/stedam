@@ -7,25 +7,26 @@ namespace App\Blocks\TestGenerator\Generators\Math\Algebra\Equations;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Линейные уравнения: ax = c, ax + b = c, a(x + b) = c.
  */
 final class LinearEquationGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.35 => $this->simple($difficulty),
-            $difficulty < 0.7  => $this->withOffset($difficulty),
-            default            => $this->withParentheses($difficulty),
+            $difficulty < 0.35 => $this->simple($difficulty, $rng),
+            $difficulty < 0.7  => $this->withOffset($difficulty, $rng),
+            default            => $this->withParentheses($difficulty, $rng),
         };
     }
 
-    private function simple(float $difficulty): MathProblem
+    private function simple(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $x = $this->rnd(1, 15);
+        $a = $this->rnd($rng, 2, 9);
+        $x = $this->rnd($rng, 1, 15);
         $c = $a * $x;
 
         $solution = "**Решение:**\n\n"
@@ -45,11 +46,11 @@ final class LinearEquationGenerator extends GeneratorBase
         );
     }
 
-    private function withOffset(float $difficulty): MathProblem
+    private function withOffset(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $x = $this->rnd(1, 15);
-        $b = $this->rnd(1, 20);
+        $a = $this->rnd($rng, 2, 9);
+        $x = $this->rnd($rng, 1, 15);
+        $b = $this->rnd($rng, 1, 20);
         $c = $a * $x + $b;
 
         $solution = "**Решение:**\n\n"
@@ -70,18 +71,19 @@ final class LinearEquationGenerator extends GeneratorBase
         );
     }
 
-    private function withParentheses(float $difficulty): MathProblem
+    private function withParentheses(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $b = $this->rnd(1, 10);
-        $x = $this->rnd(1, 15);
+        $a = $this->rnd($rng, 2, 9);
+        $b = $this->rnd($rng, 1, 10);
+        $x = $this->rnd($rng, 1, 15);
         $c = $a * ($x + $b);
+        $inner = $c / $a;
 
         $solution = "**Решение:**\n\n"
             . KaTeX::display(KaTeX::aligned([
                 "{$a}\\left(x + {$b}\\right) = {$c}",
-                "x + {$b} = " . ($c / $a),
-                "x = " . ($c / $a - $b),
+                "x + {$b} = {$inner}",
+                "x = " . ($inner - $b),
             ]))
             . "\n\n**Ответ:** " . KaTeX::inline("x = {$x}");
 

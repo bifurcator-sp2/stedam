@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Combinatorics;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Комбинаторика: правило умножения, перестановки, сочетания, размещения.
@@ -20,37 +21,37 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class CombinatoricsGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->productRule($difficulty),
-                fn () => $this->menu($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->productRule($difficulty, $rng),
+                fn () => $this->menu($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->permutations($difficulty),
-                fn () => $this->permutationsWord($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->permutations($difficulty, $rng),
+                fn () => $this->permutationsWord($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->seating($difficulty),
-                fn () => $this->words($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->seating($difficulty, $rng),
+                fn () => $this->words($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->combinations($difficulty),
-                fn () => $this->teamCombinations($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->combinations($difficulty, $rng),
+                fn () => $this->teamCombinations($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->arrangements($difficulty),
-                fn () => $this->podium($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->arrangements($difficulty, $rng),
+                fn () => $this->podium($difficulty, $rng),
             ])(),
         };
     }
 
-    private function productRule(float $difficulty): MathProblem
+    private function productRule(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 6);
-        $b = $this->rnd(2, 6);
-        $c = $this->rnd(2, 6);
+        $a = $this->rnd($rng, 2, 6);
+        $b = $this->rnd($rng, 2, 6);
+        $c = $this->rnd($rng, 2, 6);
         $total = $a * $b * $c;
 
         $solution = "**Решение:**\n\n"
@@ -70,10 +71,10 @@ final class CombinatoricsGenerator extends GeneratorBase
         );
     }
 
-    private function menu(float $difficulty): MathProblem
+    private function menu(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 6);
-        $b = $this->rnd(2, 6);
+        $a = $this->rnd($rng, 2, 6);
+        $b = $this->rnd($rng, 2, 6);
         $total = $a * $b;
 
         $solution = "**Решение:**\n\n"
@@ -93,9 +94,9 @@ final class CombinatoricsGenerator extends GeneratorBase
         );
     }
 
-    private function permutations(float $difficulty): MathProblem
+    private function permutations(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 6);
+        $n = $this->rnd($rng, 3, 6);
         $total = self::factorial($n);
 
         $solution = "**Решение:**\n\n"
@@ -115,9 +116,9 @@ final class CombinatoricsGenerator extends GeneratorBase
         );
     }
 
-    private function permutationsWord(float $difficulty): MathProblem
+    private function permutationsWord(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 6);
+        $n = $this->rnd($rng, 3, 6);
         $total = self::factorial($n);
 
         $solution = "**Решение:**\n\n"
@@ -137,13 +138,13 @@ final class CombinatoricsGenerator extends GeneratorBase
         );
     }
 
-    private function seating(float $difficulty): MathProblem
+    private function seating(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(4, 6);
+        $n = $this->rnd($rng, 4, 6);
         $total = self::factorial($n);
 
         $solution = "**Решение:**\n\n"
-            . "Перестановки за круглым/прямым столом по \\(P_n = n!\\):\n\n"
+            . "Перестановки за столом по \\(P_n = n!\\):\n\n"
             . KaTeX::display(KaTeX::aligned([
                 "$n! = " . self::factorialExpr($n) . " = $total",
             ]))
@@ -159,9 +160,9 @@ final class CombinatoricsGenerator extends GeneratorBase
         );
     }
 
-    private function words(float $difficulty): MathProblem
+    private function words(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 5);
+        $n = $this->rnd($rng, 3, 5);
         $total = self::factorial($n);
 
         $solution = "**Решение:**\n\n"
@@ -181,10 +182,10 @@ final class CombinatoricsGenerator extends GeneratorBase
         );
     }
 
-    private function combinations(float $difficulty): MathProblem
+    private function combinations(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(4, 7);
-        $k = $this->rnd(2, $n - 2);
+        $n = $this->rnd($rng, 4, 7);
+        $k = $this->rnd($rng, 2, $n - 2);
         $total = self::combination($n, $k);
 
         $solution = "**Решение:**\n\n"
@@ -196,7 +197,7 @@ final class CombinatoricsGenerator extends GeneratorBase
             . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
 
         return new MathProblem(
-            question: "Рз \\($n\\) предметов выбирают \\($k\\) (порядок не важен). "
+            question: "Из \\($n\\) предметов выбирают \\($k\\) (порядок не важен). "
                 . "Сколькими способами это можно сделать?",
             solution: $solution,
             answer: (string) $total,
@@ -205,10 +206,10 @@ final class CombinatoricsGenerator extends GeneratorBase
         );
     }
 
-    private function teamCombinations(float $difficulty): MathProblem
+    private function teamCombinations(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(5, 8);
-        $k = $this->rnd(2, $n - 2);
+        $n = $this->rnd($rng, 5, 8);
+        $k = $this->rnd($rng, 2, $n - 2);
         $total = self::combination($n, $k);
 
         $solution = "**Решение:**\n\n"
@@ -220,7 +221,7 @@ final class CombinatoricsGenerator extends GeneratorBase
             . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
 
         return new MathProblem(
-            question: "Рз \\($n\\) учеников нужно выбрать команду из \\($k\\) человек. "
+            question: "Из \\($n\\) учеников нужно выбрать команду из \\($k\\) человек. "
                 . "Сколькими способами это можно сделать?",
             solution: $solution,
             answer: (string) $total,
@@ -229,10 +230,10 @@ final class CombinatoricsGenerator extends GeneratorBase
         );
     }
 
-    private function arrangements(float $difficulty): MathProblem
+    private function arrangements(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(4, 7);
-        $k = $this->rnd(2, $n - 1);
+        $n = $this->rnd($rng, 4, 7);
+        $k = $this->rnd($rng, 2, $n - 1);
         $total = self::arrangement($n, $k);
 
         $solution = "**Решение:**\n\n"
@@ -244,7 +245,7 @@ final class CombinatoricsGenerator extends GeneratorBase
             . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
 
         return new MathProblem(
-            question: "Рз \\($n\\) предметов выбирают \\($k\\) и расставляют по порядку. "
+            question: "Из \\($n\\) предметов выбирают \\($k\\) и расставляют по порядку. "
                 . "Сколько существует способов?",
             solution: $solution,
             answer: (string) $total,
@@ -253,10 +254,10 @@ final class CombinatoricsGenerator extends GeneratorBase
         );
     }
 
-    private function podium(float $difficulty): MathProblem
+    private function podium(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(4, 8);
-        $k = $this->rnd(2, 3);
+        $n = $this->rnd($rng, 4, 8);
+        $k = $this->rnd($rng, 2, 3);
         $total = self::arrangement($n, $k);
 
         $solution = "**Решение:**\n\n"

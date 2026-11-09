@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Geometry\Stereometry;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Объём пространственных фигур.
@@ -20,37 +21,37 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class VolumeGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->cuboid($difficulty),
-                fn () => $this->box($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->cuboid($difficulty, $rng),
+                fn () => $this->box($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->cube($difficulty),
-                fn () => $this->cubeTank($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->cube($difficulty, $rng),
+                fn () => $this->cubeTank($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->findDimension($difficulty),
-                fn () => $this->pool($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->findDimension($difficulty, $rng),
+                fn () => $this->pool($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->prism($difficulty),
-                fn () => $this->prism2($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->prism($difficulty, $rng),
+                fn () => $this->prism2($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->cylinder($difficulty),
-                fn () => $this->cylinderTank($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->cylinder($difficulty, $rng),
+                fn () => $this->cylinderTank($difficulty, $rng),
             ])(),
         };
     }
 
-    private function cuboid(float $difficulty): MathProblem
+    private function cuboid(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 10);
-        $b = $this->rnd(2, 10);
-        $c = $this->rnd(2, 10);
+        $a = $this->rnd($rng, 2, 10);
+        $b = $this->rnd($rng, 2, 10);
+        $c = $this->rnd($rng, 2, 10);
         $v = $a * $b * $c;
 
         $solution = "**Решение:**\n\n"
@@ -61,7 +62,7 @@ final class VolumeGenerator extends GeneratorBase
             . "\n\n**Ответ:** " . KaTeX::inline((string) $v);
 
         return new MathProblem(
-            question: "Рзмерения прямоугольного параллелепипеда равны \\($a\\), \\($b\\) и \\($c\\) см. "
+            question: "Размеры прямоугольного параллелепипеда равны \\($a\\), \\($b\\) и \\($c\\) см. "
                 . "Найдите его объём.",
             solution: $solution,
             answer: (string) $v,
@@ -70,11 +71,11 @@ final class VolumeGenerator extends GeneratorBase
         );
     }
 
-    private function box(float $difficulty): MathProblem
+    private function box(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 10);
-        $b = $this->rnd(2, 10);
-        $c = $this->rnd(2, 10);
+        $a = $this->rnd($rng, 2, 10);
+        $b = $this->rnd($rng, 2, 10);
+        $c = $this->rnd($rng, 2, 10);
         $v = $a * $b * $c;
 
         $solution = "**Решение:**\n\n"
@@ -94,9 +95,9 @@ final class VolumeGenerator extends GeneratorBase
         );
     }
 
-    private function cube(float $difficulty): MathProblem
+    private function cube(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 10);
+        $a = $this->rnd($rng, 2, 10);
         $v = $a ** 3;
 
         $solution = "**Решение:**\n\n"
@@ -115,9 +116,9 @@ final class VolumeGenerator extends GeneratorBase
         );
     }
 
-    private function cubeTank(float $difficulty): MathProblem
+    private function cubeTank(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 10);
+        $a = $this->rnd($rng, 2, 10);
         $v = $a ** 3;
 
         $solution = "**Решение:**\n\n"
@@ -137,15 +138,15 @@ final class VolumeGenerator extends GeneratorBase
         );
     }
 
-    private function findDimension(float $difficulty): MathProblem
+    private function findDimension(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 8);
-        $b = $this->rnd(2, 8);
-        $c = $this->rnd(2, 8);
+        $a = $this->rnd($rng, 2, 8);
+        $b = $this->rnd($rng, 2, 8);
+        $c = $this->rnd($rng, 2, 8);
         $v = $a * $b * $c;
 
         $solution = "**Решение:**\n\n"
-            . "Рз \\(V = a \\cdot b \\cdot c\\) выразим \\(c\\):\n\n"
+            . "Из \\(V = a \\cdot b \\cdot c\\) выразим \\(c\\):\n\n"
             . KaTeX::display(KaTeX::aligned([
                 "c = \\dfrac{V}{a \\cdot b}",
                 "c = \\dfrac{$v}{" . ($a * $b) . "} = $c",
@@ -162,11 +163,11 @@ final class VolumeGenerator extends GeneratorBase
         );
     }
 
-    private function pool(float $difficulty): MathProblem
+    private function pool(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 10);
-        $b = $this->rnd(2, 10);
-        $c = $this->rnd(1, 4);
+        $a = $this->rnd($rng, 2, 10);
+        $b = $this->rnd($rng, 2, 10);
+        $c = $this->rnd($rng, 1, 4);
         $v = $a * $b * $c;
 
         $solution = "**Решение:**\n\n"
@@ -186,10 +187,10 @@ final class VolumeGenerator extends GeneratorBase
         );
     }
 
-    private function prism(float $difficulty): MathProblem
+    private function prism(float $difficulty, Randomizer $rng): MathProblem
     {
-        $s = $this->rnd(3, 20);
-        $h = $this->rnd(2, 15);
+        $s = $this->rnd($rng, 3, 20);
+        $h = $this->rnd($rng, 2, 15);
         $v = $s * $h;
 
         $solution = "**Решение:**\n\n"
@@ -209,18 +210,18 @@ final class VolumeGenerator extends GeneratorBase
         );
     }
 
-    private function prism2(float $difficulty): MathProblem
+    private function prism2(float $difficulty, Randomizer $rng): MathProblem
     {
-        $s = $this->rnd(3, 20);
-        $h = $this->rnd(2, 15);
+        $s = $this->rnd($rng, 3, 20);
+        $h = $this->rnd($rng, 2, 15);
         $v = $s * $h;
 
         $solution = "**Решение:**\n\n"
             . "Объём призмы:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "V = S_{\\text{осн}} \\cdot h = $v",
+                "V = S_{\\text{осн}} \\cdot h = $s \\cdot $h = $v",
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline("$v \\text{ см}^3");
+            . "\n\n**Ответ:** " . KaTeX::inline("$v \\text{ м}^3");
 
         return new MathProblem(
             question: "В основании прямой призмы лежит фигура площадью \\($s\\) м², "
@@ -232,10 +233,10 @@ final class VolumeGenerator extends GeneratorBase
         );
     }
 
-    private function cylinder(float $difficulty): MathProblem
+    private function cylinder(float $difficulty, Randomizer $rng): MathProblem
     {
-        $r = $this->rnd(2, 6);
-        $h = $this->rnd(2, 8);
+        $r = $this->rnd($rng, 2, 6);
+        $h = $this->rnd($rng, 2, 8);
         $v = round(3.14 * $r * $r * $h, 2);
         $vNum = $this->num($v);
 
@@ -257,10 +258,10 @@ final class VolumeGenerator extends GeneratorBase
         );
     }
 
-    private function cylinderTank(float $difficulty): MathProblem
+    private function cylinderTank(float $difficulty, Randomizer $rng): MathProblem
     {
-        $r = $this->rnd(2, 5);
-        $h = $this->rnd(2, 6);
+        $r = $this->rnd($rng, 2, 5);
+        $h = $this->rnd($rng, 2, 6);
         $v = round(3.14 * $r * $r * $h, 2);
         $vNum = $this->num($v);
 

@@ -7,50 +7,51 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Operations;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Смешанные выражения: несколько действий.
  *
  * Пять уровней сложности, на каждом — по две формулировки:
- *   [0.0вЂ“0.2) вЂ” a + b В· c
- *   [0.2вЂ“0.4) вЂ” (a + b) В· c
- *   [0.4вЂ“0.6) вЂ” a + b В· c в€’ d
- *   [0.6вЂ“0.8) вЂ” a + b В· c в€’ d : e
+ *   [0.0–0.2) — a + b · c
+ *   [0.2–0.4) — (a + b) · c
+ *   [0.4–0.6) — a + b · c − d
+ *   [0.6–0.8) — a + b · c − d : e
  *   [0.8–1.0] — выражение со скобками и делением
  */
 final class MixedOperationsGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->addMul($difficulty),
-                fn () => $this->buyAddMul($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->addMul($difficulty, $rng),
+                fn () => $this->buyAddMul($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->withBrackets($difficulty),
-                fn () => $this->groupBrackets($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->withBrackets($difficulty, $rng),
+                fn () => $this->groupBrackets($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->addMulSub($difficulty),
-                fn () => $this->changeMulSub($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->addMulSub($difficulty, $rng),
+                fn () => $this->changeMulSub($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->full($difficulty),
-                fn () => $this->shopFull($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->full($difficulty, $rng),
+                fn () => $this->shopFull($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->bracketsAndDivision($difficulty),
-                fn () => $this->twoBrackets($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->bracketsAndDivision($difficulty, $rng),
+                fn () => $this->twoBrackets($difficulty, $rng),
             ])(),
         };
     }
 
-    private function addMul(float $difficulty): MathProblem
+    private function addMul(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 20);
-        $b = $this->rnd(2, 9);
-        $c = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 2, 20);
+        $b = $this->rnd($rng, 2, 9);
+        $c = $this->rnd($rng, 2, 9);
 
         $product = $b * $c;
         $result  = $a + $product;
@@ -73,11 +74,11 @@ final class MixedOperationsGenerator extends GeneratorBase
         );
     }
 
-    private function buyAddMul(float $difficulty): MathProblem
+    private function buyAddMul(float $difficulty, Randomizer $rng): MathProblem
     {
-        $base = $this->rnd(2, 20);
-        $price = $this->rnd(2, 9);
-        $count = $this->rnd(2, 9);
+        $base = $this->rnd($rng, 2, 20);
+        $price = $this->rnd($rng, 2, 9);
+        $count = $this->rnd($rng, 2, 9);
         $cost = $price * $count;
         $result = $base + $cost;
 
@@ -100,11 +101,11 @@ final class MixedOperationsGenerator extends GeneratorBase
         );
     }
 
-    private function withBrackets(float $difficulty): MathProblem
+    private function withBrackets(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 15);
-        $b = $this->rnd(2, 15);
-        $c = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 2, 15);
+        $b = $this->rnd($rng, 2, 15);
+        $c = $this->rnd($rng, 2, 9);
 
         $sum    = $a + $b;
         $result = $sum * $c;
@@ -127,11 +128,11 @@ final class MixedOperationsGenerator extends GeneratorBase
         );
     }
 
-    private function groupBrackets(float $difficulty): MathProblem
+    private function groupBrackets(float $difficulty, Randomizer $rng): MathProblem
     {
-        $x = $this->rnd(2, 15);
-        $y = $this->rnd(2, 15);
-        $k = $this->rnd(2, 9);
+        $x = $this->rnd($rng, 2, 15);
+        $y = $this->rnd($rng, 2, 15);
+        $k = $this->rnd($rng, 2, 9);
         $sum = $x + $y;
         $result = $sum * $k;
 
@@ -154,12 +155,12 @@ final class MixedOperationsGenerator extends GeneratorBase
         );
     }
 
-    private function addMulSub(float $difficulty): MathProblem
+    private function addMulSub(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 50);
-        $b = $this->rnd(2, 9);
-        $c = $this->rnd(2, 9);
-        $d = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 10, 50);
+        $b = $this->rnd($rng, 2, 9);
+        $c = $this->rnd($rng, 2, 9);
+        $d = $this->rnd($rng, 2, 9);
 
         $product = $b * $c;
         $result  = $a + $product - $d;
@@ -183,12 +184,12 @@ final class MixedOperationsGenerator extends GeneratorBase
         );
     }
 
-    private function changeMulSub(float $difficulty): MathProblem
+    private function changeMulSub(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 50);
-        $b = $this->rnd(2, 9);
-        $c = $this->rnd(2, 9);
-        $d = $this->rnd(2, $b * $c);
+        $a = $this->rnd($rng, 10, 50);
+        $b = $this->rnd($rng, 2, 9);
+        $c = $this->rnd($rng, 2, 9);
+        $d = $this->rnd($rng, 2, $b * $c);
         $product = $b * $c;
         $result = $a + $product - $d;
 
@@ -211,13 +212,13 @@ final class MixedOperationsGenerator extends GeneratorBase
         );
     }
 
-    private function full(float $difficulty): MathProblem
+    private function full(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 50);
-        $b = $this->rnd(2, 9);
-        $c = $this->rnd(2, 9);
-        $d = $this->rnd(2, 9);
-        $e = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 10, 50);
+        $b = $this->rnd($rng, 2, 9);
+        $c = $this->rnd($rng, 2, 9);
+        $d = $this->rnd($rng, 2, 9);
+        $e = $this->rnd($rng, 2, 9);
 
         $product  = $b * $c;
         $div      = $d * $e;
@@ -244,13 +245,13 @@ final class MixedOperationsGenerator extends GeneratorBase
         );
     }
 
-    private function shopFull(float $difficulty): MathProblem
+    private function shopFull(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 50);
-        $b = $this->rnd(2, 9);
-        $c = $this->rnd(2, 9);
-        $d = $this->rnd(2, 9);
-        $e = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 10, 50);
+        $b = $this->rnd($rng, 2, 9);
+        $c = $this->rnd($rng, 2, 9);
+        $d = $this->rnd($rng, 2, 9);
+        $e = $this->rnd($rng, 2, 9);
         $product = $b * $c;
         $div = $d * $e;
         $quotient = $div / $e;
@@ -276,11 +277,11 @@ final class MixedOperationsGenerator extends GeneratorBase
         );
     }
 
-    private function bracketsAndDivision(float $difficulty): MathProblem
+    private function bracketsAndDivision(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 12);
-        $b = $this->rnd(2, 12);
-        $c = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 2, 12);
+        $b = $this->rnd($rng, 2, 12);
+        $c = $this->rnd($rng, 2, 9);
         $sum = $a + $b;
         $result = $sum * $c;
 
@@ -302,12 +303,12 @@ final class MixedOperationsGenerator extends GeneratorBase
         );
     }
 
-    private function twoBrackets(float $difficulty): MathProblem
+    private function twoBrackets(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 12);
-        $b = $this->rnd(2, 12);
-        $c = $this->rnd(2, 9);
-        $d = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 2, 12);
+        $b = $this->rnd($rng, 2, 12);
+        $c = $this->rnd($rng, 2, 9);
+        $d = $this->rnd($rng, 2, 9);
         $sum1 = $a + $b;
         $sum2 = $c + $d;
         $result = $sum1 * $sum2;

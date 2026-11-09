@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Algebra\Functions;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Функции.
@@ -18,23 +19,23 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class FunctionsGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.4 => $this->linearValue($difficulty),
-            $difficulty < 0.7 => $this->linearFromPoints($difficulty),
-            default           => $this->quadraticValue($difficulty),
+            $difficulty < 0.4 => $this->linearValue($difficulty, $rng),
+            $difficulty < 0.7 => $this->linearFromPoints($difficulty, $rng),
+            default           => $this->quadraticValue($difficulty, $rng),
         };
     }
 
-    private function linearValue(float $difficulty): MathProblem
+    private function linearValue(float $difficulty, Randomizer $rng): MathProblem
     {
-        $k = $this->rnd(2, 9);
-        $b = $this->rnd(-10, 10);
+        $k = $this->rnd($rng, 2, 9);
+        $b = $this->rnd($rng, -10, 10);
         if ($b === 0) {
             $b = 3;
         }
-        $x = $this->rnd(-5, 5);
+        $x = $this->rnd($rng, -5, 5);
         if ($x === 0) {
             $x = 2;
         }
@@ -63,13 +64,12 @@ final class FunctionsGenerator extends GeneratorBase
         );
     }
 
-    private function linearFromPoints(float $difficulty): MathProblem
+    private function linearFromPoints(float $difficulty, Randomizer $rng): MathProblem
     {
-        // Строим от целых k, b, x₁, x₂, чтобы y получались целыми.
-        $k = $this->rnd(2, 6);
-        $b = $this->rnd(-5, 5);
-        $x1 = $this->rnd(-3, 0);
-        $x2 = $this->rnd(1, 5);
+        $k = $this->rnd($rng, 2, 6);
+        $b = $this->rnd($rng, -5, 5);
+        $x1 = $this->rnd($rng, -3, 0);
+        $x2 = $this->rnd($rng, 1, 5);
         $y1 = $k * $x1 + $b;
         $y2 = $k * $x2 + $b;
 
@@ -81,12 +81,12 @@ final class FunctionsGenerator extends GeneratorBase
         $solution = "**Решение:**\n\n"
             . "Угловой коэффициент:\n\n"
             . KaTeX::display(KaTeX::alignedRaw([
-                "k = \\dfrac{{$y_2} - {$y_1}}{{$x_2} - {$x_1}} "
+                "k = \\dfrac{y_2 - y_1}{x_2 - x_1} "
                 . "= \\dfrac{$dy}{$dx} = $k",
             ]))
             . "\n\nСвободный член найдём из точки \\(($x1; $y1)\\):\n\n"
             . KaTeX::display(KaTeX::alignedRaw([
-                "$y_1 = k \\cdot x_1 + b \\;\\Rightarrow\\; "
+                "{y_1} = k \\cdot {x_1} + b \\;\\Rightarrow\\; "
                 . "$y1 = {$k} \\cdot ($x1) + b \\;\\Rightarrow\\; b = $b",
             ]))
             . "\n\n**Ответ:** " . KaTeX::inline("f(x) = {$k}x $signB {$absB}");
@@ -101,21 +101,19 @@ final class FunctionsGenerator extends GeneratorBase
         );
     }
 
-    private function quadraticValue(float $difficulty): MathProblem
+    private function quadraticValue(float $difficulty, Randomizer $rng): MathProblem
     {
-        // f(x) = ax² + bx + c — для определённости a ≠ 0.
-        $a = $this->rnd(1, 3);
-        $b = $this->rnd(-4, 4);
-        $c = $this->rnd(-5, 5);
-        $x = $this->rnd(-3, 3);
+        $a = $this->rnd($rng, 1, 3);
+        $b = $this->rnd($rng, -4, 4);
+        $c = $this->rnd($rng, -5, 5);
+        $x = $this->rnd($rng, -3, 3);
         if ($x === 0) {
             $x = 2;
         }
 
         $x2 = $x * $x;
-        $termA = $a * $x2;
         $termB = $b * $x;
-        $value = $termA + $termB + $c;
+        $value = $a * $x2 + $termB + $c;
 
         $signB = $b < 0 ? '-' : '+';
         $absB = abs($b);

@@ -6,37 +6,59 @@ namespace App\Blocks\TestGenerator\Generators;
 
 use App\Blocks\TestGenerator\Contracts\MathProblemGeneratorInterface;
 use App\Blocks\TestGenerator\DTO\MathProblem;
+use App\Blocks\TestGenerator\Random\Seed;
 use App\Blocks\TestGenerator\Support\KaTeX;
 use App\Blocks\TestGenerator\Support\PathResolver;
 use InvalidArgumentException;
+use Random\Randomizer;
 use RuntimeException;
 
 /**
- * РвЂР°Р·РѕРІС‹Р№ Р°Р±СЃС‚СЂР°РєС‚РЅС‹Р№ РєР»Р°СЃСЃ РґР»СЏ MathProblemGeneratorInterface.
+ * Базовый абстрактный класс для MathProblemGeneratorInterface.
  *
- * Р’Р°Р»РёРґРёСЂСѓРµС‚ difficulty Рё РїРµСЂРµРґР°СвЂС‚ РІ build(). РўР°РєР¶Рµ РїСЂРµРґРѕСЃС‚Р°РІР»СЏРµС‚
- * path() вЂ” resolver-РїСѓС‚СЊ РіРµРЅРµСЂР°С‚РѕСЂР°, РІС‹С‡РёСЃР»СЏРµРСС‹Р№ РёР· РёРСРµРЅРё/СЂР°СЃРїРѕР»РѕР¶РµРЅРёСЏ РєР»Р°СЃСЃР°.
+ * Валидирует difficulty и передаёт в build() вместе с источником
+ * псевдослучайности — Randomizer. Конкретный RNG приходит извне
+ * (см. Random\Seed), поэтому один и тот же генератор с одним и тем же
+ * сидом всегда строит одно и то же задание.
+ *
+ * Так же предоставляет path() — resolver-путь генератора, вычисляемый
+ * из имени/расположения класса.
  */
 abstract class GeneratorBase implements MathProblemGeneratorInterface
 {
     /** Кэш вычисленного resolver-пути. */
     private ?string $path = null;
 
-    final public function generate(float $difficulty): MathProblem
+    /**
+     * @param Randomizer|null $rng сидированный источник случайности; null —
+     *                             несидированный Mt19937 (для /tasks/random).
+     */
+    final public function generate(float $difficulty, ?Randomizer $rng = null): MathProblem
     {
         if ($difficulty < 0.0 || $difficulty > 1.0) {
             throw new InvalidArgumentException(
                 sprintf('Difficulty must be between 0 and 1, %f given.', $difficulty)
             );
         }
-        return $this->build($difficulty);
+
+        // Randomizer — мутабельный объект, и его нельзя клонировать
+        // (__clone запрещён в самом классе). Поэтому вызывающий не должен
+        // переиспользовать один инстанс между вызовами: контракт —
+        // «один сид (int) → один Randomizer». См. Seed::fromInt().
+        return $this->build($difficulty, $rng ?? Seed::unseeded());
     }
 
-    abstract protected function build(float $difficulty): MathProblem;
+    /**
+     * Построить задание заданной сложности.
+     *
+     * @param Randomizer $rng единственный источник случайности: всё, что
+     *                        попадает в условие и ответ, берётся из него.
+     */
+    abstract protected function build(float $difficulty, Randomizer $rng): MathProblem;
 
     /**
-     * Resolver-РїСѓС‚СЊ С‚РµРєСѓС‰РµРіРѕ РіРµРЅРµСЂР°С‚РѕСЂР°: 'math.algebra.equations.linearEquation'.
-     * Р’С‹С‡РёСЃР»СЏРµС‚СЃСЏ РѕРґРёРЅ СЂР°Р· Рё РєСЌС€РёСЂСѓРµС‚СЃСЏ РЅР° РёРЅСЃС‚Р°РЅСЃ.
+     * Resolver-путь текущего генератора: 'math.algebra.equations.linearEquation'.
+     * Вычисляется один раз и кэшируется на инстансе.
      */
     protected function path(): string
     {
@@ -59,19 +81,19 @@ abstract class GeneratorBase implements MathProblemGeneratorInterface
         return $this->path;
     }
 
-    /** РЎР»СѓС‡Р°Р№РЅРѕРµ С†РµР»РѕРµ [min, max], РІРєР»СЋС‡РёС‚РµР»СЊРЅРѕ СЃ РѕР±РµРёС… СЃС‚РѕСЂРѕРЅ. */
-    protected function rnd(int $min, int $max): int
+    /** Случайное целое [min, max], включительно с обеих сторон. */
+    protected function rnd(Randomizer $rng, int $min, int $max): int
     {
-        return random_int($min, max($min, $max));
+        return $rng->getInt($min, max($min, $max));
     }
 
     /** @template T @param list<T> $options @return T */
-    protected function pick(array $options): mixed
+    protected function pick(Randomizer $rng, array $options): mixed
     {
-        return $options[array_rand($options)];
+        return $options[$rng->getInt(0, count($options) - 1)];
     }
 
-    /** Р¤РѕСЂРСР°С‚РёСЂРѕРІР°РЅРёРµ С‡РёСЃР»Р° РґР»СЏ KaTeX (Р±РµР· Р»РёС€РЅРёС… РЅСѓР»РµР№). */
+    /** Форматирование числа для KaTeX (без лишних нулей). */
     protected function num(int|float $value, int $precision = 2): string
     {
         return KaTeX::number($value, $precision);

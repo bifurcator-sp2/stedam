@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Fractions;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Проценты: нахождение части, целого и процентного отношения.
@@ -20,36 +21,36 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class PercentagesGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->findPart($difficulty),
-                fn () => $this->depositInterest($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->findPart($difficulty, $rng),
+                fn () => $this->depositInterest($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->findDiscount($difficulty),
-                fn () => $this->findPartSale($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->findDiscount($difficulty, $rng),
+                fn () => $this->findPartSale($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->findWhole($difficulty),
-                fn () => $this->findWholeClass($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->findWhole($difficulty, $rng),
+                fn () => $this->findWholeClass($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->findRatio($difficulty),
-                fn () => $this->findRatioVotes($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->findRatio($difficulty, $rng),
+                fn () => $this->findRatioVotes($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->findWholeOdd($difficulty),
-                fn () => $this->findWholeBooks($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->findWholeOdd($difficulty, $rng),
+                fn () => $this->findWholeBooks($difficulty, $rng),
             ])(),
         };
     }
 
-    private function findPart(float $difficulty): MathProblem
+    private function findPart(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p = $this->pick([5, 10, 20, 25, 50]);
-        $n = $this->rnd(10, 400);
+        $p = $this->pick($rng, [5, 10, 20, 25, 50]);
+        $n = $this->rnd($rng, 10, 400);
         $value = $n * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -69,10 +70,10 @@ final class PercentagesGenerator extends GeneratorBase
         );
     }
 
-    private function depositInterest(float $difficulty): MathProblem
+    private function depositInterest(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p = $this->pick([5, 10, 20, 25]);
-        $n = $this->rnd(10, 40) * 100;
+        $p = $this->pick($rng, [5, 10, 20, 25]);
+        $n = $this->rnd($rng, 10, 40) * 100;
         $value = $n * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -92,10 +93,10 @@ final class PercentagesGenerator extends GeneratorBase
         );
     }
 
-    private function findDiscount(float $difficulty): MathProblem
+    private function findDiscount(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p = $this->pick([10, 15, 20, 25, 30]);
-        $n = $this->rnd(10, 40) * 10;
+        $p = $this->pick($rng, [10, 15, 20, 25, 30]);
+        $n = $this->rnd($rng, 10, 40) * 10;
         $discount = $n * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -115,10 +116,10 @@ final class PercentagesGenerator extends GeneratorBase
         );
     }
 
-    private function findPartSale(float $difficulty): MathProblem
+    private function findPartSale(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p = $this->pick([10, 15, 20, 25, 30]);
-        $n = $this->rnd(10, 40) * 10;
+        $p = $this->pick($rng, [10, 15, 20, 25, 30]);
+        $n = $this->rnd($rng, 10, 40) * 10;
         $rest = $n - $n * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -139,10 +140,10 @@ final class PercentagesGenerator extends GeneratorBase
         );
     }
 
-    private function findWhole(float $difficulty): MathProblem
+    private function findWhole(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p = $this->pick([10, 20, 25, 40, 50]);
-        $whole = $this->rnd(20, 400) * 5;
+        $p = $this->pick($rng, [10, 20, 25, 40, 50]);
+        $whole = $this->rnd($rng, 20, 400) * 5;
         $part  = $whole * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -162,10 +163,10 @@ final class PercentagesGenerator extends GeneratorBase
         );
     }
 
-    private function findWholeClass(float $difficulty): MathProblem
+    private function findWholeClass(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p = $this->pick([20, 25, 50]);
-        $whole = $this->rnd(4, 40) * 4;
+        $p = $this->pick($rng, [20, 25, 50]);
+        $whole = $this->rnd($rng, 4, 40) * 4;
         $part  = $whole * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -186,10 +187,10 @@ final class PercentagesGenerator extends GeneratorBase
         );
     }
 
-    private function findRatio(float $difficulty): MathProblem
+    private function findRatio(float $difficulty, Randomizer $rng): MathProblem
     {
-        $part  = $this->rnd(2, 40);
-        $whole = $part * $this->rnd(2, 10);
+        $part  = $this->rnd($rng, 2, 40);
+        $whole = $part * $this->rnd($rng, 2, 10);
         $pct   = $part / $whole * 100;
 
         $solution = "**Решение:**\n\n"
@@ -209,10 +210,10 @@ final class PercentagesGenerator extends GeneratorBase
         );
     }
 
-    private function findRatioVotes(float $difficulty): MathProblem
+    private function findRatioVotes(float $difficulty, Randomizer $rng): MathProblem
     {
-        $part  = $this->rnd(10, 50);
-        $whole = $part * $this->rnd(2, 8);
+        $part  = $this->rnd($rng, 10, 50);
+        $whole = $part * $this->rnd($rng, 2, 8);
         $pct   = $part / $whole * 100;
 
         $solution = "**Решение:**\n\n"
@@ -224,7 +225,7 @@ final class PercentagesGenerator extends GeneratorBase
             . "\n\n**Ответ:** " . KaTeX::inline($this->num($pct) . "\\%");
 
         return new MathProblem(
-            question: "Рз \\($whole\\) избирателей за кандидата проголосовали \\($part\\). "
+            question: "Из \\($whole\\) избирателей за кандидата проголосовали \\($part\\). "
                 . "Сколько процентов голосов он получил?",
             solution: $solution,
             answer: $this->num($pct) . '%',
@@ -233,10 +234,10 @@ final class PercentagesGenerator extends GeneratorBase
         );
     }
 
-    private function findWholeOdd(float $difficulty): MathProblem
+    private function findWholeOdd(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p = $this->pick([12, 15, 18, 24, 36]);
-        $whole = $p * 5 * $this->rnd(2, 10);
+        $p = $this->pick($rng, [12, 15, 18, 24, 36]);
+        $whole = $p * 5 * $this->rnd($rng, 2, 10);
         $part  = $whole * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -257,10 +258,10 @@ final class PercentagesGenerator extends GeneratorBase
         );
     }
 
-    private function findWholeBooks(float $difficulty): MathProblem
+    private function findWholeBooks(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p = $this->pick([12, 15, 18, 24]);
-        $whole = $p * 5 * $this->rnd(2, 8);
+        $p = $this->pick($rng, [12, 15, 18, 24]);
+        $whole = $p * 5 * $this->rnd($rng, 2, 8);
         $part  = $whole * $p / 100;
 
         $solution = "**Решение:**\n\n"

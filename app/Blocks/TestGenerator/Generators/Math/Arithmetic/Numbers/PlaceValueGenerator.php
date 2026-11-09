@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Numbers;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Разряды: собрать число из разрядов, разложить, узнать цифру разряда.
@@ -20,37 +21,37 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class PlaceValueGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->assembleThree($difficulty),
-                fn () => $this->composeNumber($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->assembleThree($difficulty, $rng),
+                fn () => $this->composeNumber($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->digitInThree($difficulty),
-                fn () => $this->whichDigit($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->digitInThree($difficulty, $rng),
+                fn () => $this->whichDigit($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->decomposeFour($difficulty),
-                fn () => $this->sumOfPlaces($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->decomposeFour($difficulty, $rng),
+                fn () => $this->sumOfPlaces($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->digitInFour($difficulty),
-                fn () => $this->hundredsDigit($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->digitInFour($difficulty, $rng),
+                fn () => $this->hundredsDigit($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->decomposeFive($difficulty),
-                fn () => $this->assembleFive($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->decomposeFive($difficulty, $rng),
+                fn () => $this->assembleFive($difficulty, $rng),
             ])(),
         };
     }
 
-    private function assembleThree(float $difficulty): MathProblem
+    private function assembleThree(float $difficulty, Randomizer $rng): MathProblem
     {
-        $h = $this->rnd(1, 9);
-        $d = $this->rnd(0, 9);
-        $u = $this->rnd(0, 9);
+        $h = $this->rnd($rng, 1, 9);
+        $d = $this->rnd($rng, 0, 9);
+        $u = $this->rnd($rng, 0, 9);
         $number = $h * 100 + $d * 10 + $u;
 
         $solution = "**Решение:**\n\n"
@@ -72,11 +73,11 @@ final class PlaceValueGenerator extends GeneratorBase
         );
     }
 
-    private function composeNumber(float $difficulty): MathProblem
+    private function composeNumber(float $difficulty, Randomizer $rng): MathProblem
     {
-        $h = $this->rnd(1, 9);
-        $d = $this->rnd(0, 9);
-        $u = $this->rnd(0, 9);
+        $h = $this->rnd($rng, 1, 9);
+        $d = $this->rnd($rng, 0, 9);
+        $u = $this->rnd($rng, 0, 9);
         $number = $h * 100 + $d * 10 + $u;
 
         $solution = "**Решение:**\n\n"
@@ -96,11 +97,11 @@ final class PlaceValueGenerator extends GeneratorBase
         );
     }
 
-    private function digitInThree(float $difficulty): MathProblem
+    private function digitInThree(float $difficulty, Randomizer $rng): MathProblem
     {
-        $h = $this->rnd(1, 9);
-        $d = $this->rnd(1, 9);
-        $u = $this->rnd(1, 9);
+        $h = $this->rnd($rng, 1, 9);
+        $d = $this->rnd($rng, 1, 9);
+        $u = $this->rnd($rng, 1, 9);
         $number = $h * 100 + $d * 10 + $u;
 
         $solution = "**Решение:**\n\n"
@@ -119,11 +120,11 @@ final class PlaceValueGenerator extends GeneratorBase
         );
     }
 
-    private function whichDigit(float $difficulty): MathProblem
+    private function whichDigit(float $difficulty, Randomizer $rng): MathProblem
     {
-        $h = $this->rnd(1, 9);
-        $d = $this->rnd(0, 9);
-        $u = $this->rnd(0, 9);
+        $h = $this->rnd($rng, 1, 9);
+        $d = $this->rnd($rng, 0, 9);
+        $u = $this->rnd($rng, 0, 9);
         $number = $h * 100 + $d * 10 + $u;
 
         $solution = "**Решение:**\n\n"
@@ -142,12 +143,12 @@ final class PlaceValueGenerator extends GeneratorBase
         );
     }
 
-    private function decomposeFour(float $difficulty): MathProblem
+    private function decomposeFour(float $difficulty, Randomizer $rng): MathProblem
     {
-        $th = $this->rnd(1, 9);
-        $h = $this->rnd(0, 9);
-        $d = $this->rnd(0, 9);
-        $u = $this->rnd(0, 9);
+        $th = $this->rnd($rng, 1, 9);
+        $h = $this->rnd($rng, 0, 9);
+        $d = $this->rnd($rng, 0, 9);
+        $u = $this->rnd($rng, 0, 9);
         $number = $th * 1000 + $h * 100 + $d * 10 + $u;
 
         $solution = "**Решение:**\n\n"
@@ -169,10 +170,10 @@ final class PlaceValueGenerator extends GeneratorBase
         );
     }
 
-    private function sumOfPlaces(float $difficulty): MathProblem
+    private function sumOfPlaces(float $difficulty, Randomizer $rng): MathProblem
     {
-        $th = $this->rnd(1, 9);
-        $h = $this->rnd(0, 9);
+        $th = $this->rnd($rng, 1, 9);
+        $h = $this->rnd($rng, 0, 9);
         $number = $th * 1000 + $h * 100;
 
         $solution = "**Решение:**\n\n"
@@ -192,12 +193,12 @@ final class PlaceValueGenerator extends GeneratorBase
         );
     }
 
-    private function digitInFour(float $difficulty): MathProblem
+    private function digitInFour(float $difficulty, Randomizer $rng): MathProblem
     {
-        $th = $this->rnd(1, 9);
-        $h = $this->rnd(1, 9);
-        $d = $this->rnd(1, 9);
-        $u = $this->rnd(1, 9);
+        $th = $this->rnd($rng, 1, 9);
+        $h = $this->rnd($rng, 1, 9);
+        $d = $this->rnd($rng, 1, 9);
+        $u = $this->rnd($rng, 1, 9);
         $number = $th * 1000 + $h * 100 + $d * 10 + $u;
 
         $solution = "**Решение:**\n\n"
@@ -216,12 +217,12 @@ final class PlaceValueGenerator extends GeneratorBase
         );
     }
 
-    private function hundredsDigit(float $difficulty): MathProblem
+    private function hundredsDigit(float $difficulty, Randomizer $rng): MathProblem
     {
-        $th = $this->rnd(1, 9);
-        $h = $this->rnd(0, 9);
-        $d = $this->rnd(0, 9);
-        $u = $this->rnd(0, 9);
+        $th = $this->rnd($rng, 1, 9);
+        $h = $this->rnd($rng, 0, 9);
+        $d = $this->rnd($rng, 0, 9);
+        $u = $this->rnd($rng, 0, 9);
         $number = $th * 1000 + $h * 100 + $d * 10 + $u;
 
         $solution = "**Решение:**\n\n"
@@ -240,13 +241,13 @@ final class PlaceValueGenerator extends GeneratorBase
         );
     }
 
-    private function decomposeFive(float $difficulty): MathProblem
+    private function decomposeFive(float $difficulty, Randomizer $rng): MathProblem
     {
-        $tn = $this->rnd(1, 9);
-        $th = $this->rnd(0, 9);
-        $h = $this->rnd(0, 9);
-        $d = $this->rnd(0, 9);
-        $u = $this->rnd(0, 9);
+        $tn = $this->rnd($rng, 1, 9);
+        $th = $this->rnd($rng, 0, 9);
+        $h = $this->rnd($rng, 0, 9);
+        $d = $this->rnd($rng, 0, 9);
+        $u = $this->rnd($rng, 0, 9);
         $number = $tn * 10000 + $th * 1000 + $h * 100 + $d * 10 + $u;
 
         $solution = "**Решение:**\n\n"
@@ -268,13 +269,13 @@ final class PlaceValueGenerator extends GeneratorBase
         );
     }
 
-    private function assembleFive(float $difficulty): MathProblem
+    private function assembleFive(float $difficulty, Randomizer $rng): MathProblem
     {
-        $tn = $this->rnd(1, 9);
-        $th = $this->rnd(0, 9);
-        $h = $this->rnd(0, 9);
-        $d = $this->rnd(0, 9);
-        $u = $this->rnd(0, 9);
+        $tn = $this->rnd($rng, 1, 9);
+        $th = $this->rnd($rng, 0, 9);
+        $h = $this->rnd($rng, 0, 9);
+        $d = $this->rnd($rng, 0, 9);
+        $u = $this->rnd($rng, 0, 9);
         $number = $tn * 10000 + $th * 1000 + $h * 100 + $d * 10 + $u;
 
         $solution = "**Решение:**\n\n"

@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Proportions;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Пропорции: решение уравнений и прямые пропорциональные зависимости.
@@ -20,38 +21,38 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class ProportionsGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->solveSmall($difficulty),
-                fn () => $this->mapDistance($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->solveSmall($difficulty, $rng),
+                fn () => $this->mapDistance($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->priceSimple($difficulty),
-                fn () => $this->candySimple($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->priceSimple($difficulty, $rng),
+                fn () => $this->candySimple($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->solveBig($difficulty),
-                fn () => $this->paintSimple($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->solveBig($difficulty, $rng),
+                fn () => $this->paintSimple($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->recipe($difficulty),
-                fn () => $this->carpenter($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->recipe($difficulty, $rng),
+                fn () => $this->carpenter($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->salary($difficulty),
-                fn () => $this->speedTime($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->salary($difficulty, $rng),
+                fn () => $this->speedTime($difficulty, $rng),
             ])(),
         };
     }
 
-    private function solveSmall(float $difficulty): MathProblem
+    private function solveSmall(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $x = $this->rnd(2, 12);
-        $c = $a * $this->rnd(2, 9);
-        $b = $this->rnd(2, 12);
+        $a = $this->rnd($rng, 2, 9);
+        $x = $this->rnd($rng, 2, 12);
+        $c = $a * $this->rnd($rng, 2, 9);
+        $b = $this->rnd($rng, 2, 12);
 
         $solution = "**Решение:**\n\n"
             . "По основному свойству пропорции произведение крайних равно произведению средних:\n\n"
@@ -71,12 +72,12 @@ final class ProportionsGenerator extends GeneratorBase
         );
     }
 
-    private function mapDistance(float $difficulty): MathProblem
+    private function mapDistance(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $x = $this->rnd(2, 12);
-        $c = $a * $this->rnd(2, 9);
-        $b = $this->rnd(2, 12);
+        $a = $this->rnd($rng, 2, 9);
+        $x = $this->rnd($rng, 2, 12);
+        $c = $a * $this->rnd($rng, 2, 9);
+        $b = $this->rnd($rng, 2, 12);
 
         $solution = "**Решение:**\n\n"
             . "Масштаб карты задаёт пропорцию:\n\n"
@@ -97,13 +98,13 @@ final class ProportionsGenerator extends GeneratorBase
         );
     }
 
-    private function priceSimple(float $difficulty): MathProblem
+    private function priceSimple(float $difficulty, Randomizer $rng): MathProblem
     {
-        $pricePerKg = $this->rnd(20, 200);
-        $k = $this->rnd(2, 8);
-        $n = $this->rnd(2, 10);
+        $pricePerKg = $this->rnd($rng, 20, 200);
+        $k = $this->rnd($rng, 2, 8);
+        $n = $this->rnd($rng, 2, 10);
         while ($n === $k) {
-            $n = $this->rnd(2, 10);
+            $n = $this->rnd($rng, 2, 10);
         }
         $m = $k * $pricePerKg;
         $target = $n * $pricePerKg;
@@ -126,13 +127,13 @@ final class ProportionsGenerator extends GeneratorBase
         );
     }
 
-    private function candySimple(float $difficulty): MathProblem
+    private function candySimple(float $difficulty, Randomizer $rng): MathProblem
     {
-        $perBox = $this->rnd(5, 30);
-        $k = $this->rnd(2, 8);
-        $n = $this->rnd(2, 10);
+        $perBox = $this->rnd($rng, 5, 30);
+        $k = $this->rnd($rng, 2, 8);
+        $n = $this->rnd($rng, 2, 10);
         while ($n === $k) {
-            $n = $this->rnd(2, 10);
+            $n = $this->rnd($rng, 2, 10);
         }
         $m = $k * $perBox;
         $target = $n * $perBox;
@@ -155,12 +156,12 @@ final class ProportionsGenerator extends GeneratorBase
         );
     }
 
-    private function solveBig(float $difficulty): MathProblem
+    private function solveBig(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(5, 25);
-        $x = $this->rnd(4, 30);
-        $c = $a * $this->rnd(2, 6);
-        $b = $this->rnd(5, 25);
+        $a = $this->rnd($rng, 5, 25);
+        $x = $this->rnd($rng, 4, 30);
+        $c = $a * $this->rnd($rng, 2, 6);
+        $b = $this->rnd($rng, 5, 25);
 
         $solution = "**Решение:**\n\n"
             . "Перемножим крест-накрест:\n\n"
@@ -180,13 +181,13 @@ final class ProportionsGenerator extends GeneratorBase
         );
     }
 
-    private function paintSimple(float $difficulty): MathProblem
+    private function paintSimple(float $difficulty, Randomizer $rng): MathProblem
     {
-        $cans = $this->rnd(2, 8);
-        $area = $cans * $this->rnd(5, 20);
-        $n = $this->rnd(3, 12);
+        $cans = $this->rnd($rng, 2, 8);
+        $area = $cans * $this->rnd($rng, 5, 20);
+        $n = $this->rnd($rng, 3, 12);
         while ($n === $cans) {
-            $n = $this->rnd(3, 12);
+            $n = $this->rnd($rng, 3, 12);
         }
         $target = ($area / $cans) * $n;
 
@@ -209,13 +210,13 @@ final class ProportionsGenerator extends GeneratorBase
         );
     }
 
-    private function recipe(float $difficulty): MathProblem
+    private function recipe(float $difficulty, Randomizer $rng): MathProblem
     {
-        $servings = $this->rnd(2, 8);
-        $grams = $servings * $this->rnd(10, 40);
-        $n = $this->rnd(3, 15);
+        $servings = $this->rnd($rng, 2, 8);
+        $grams = $servings * $this->rnd($rng, 10, 40);
+        $n = $this->rnd($rng, 3, 15);
         while ($n === $servings) {
-            $n = $this->rnd(3, 15);
+            $n = $this->rnd($rng, 3, 15);
         }
         $target = ($grams / $servings) * $n;
 
@@ -238,13 +239,13 @@ final class ProportionsGenerator extends GeneratorBase
         );
     }
 
-    private function carpenter($difficulty): MathProblem
+    private function carpenter(float $difficulty, Randomizer $rng): MathProblem
     {
-        $days = $this->rnd(2, 8);
-        $chairs = $days * $this->rnd(5, 20);
-        $n = $this->rnd(3, 15);
+        $days = $this->rnd($rng, 2, 8);
+        $chairs = $days * $this->rnd($rng, 5, 20);
+        $n = $this->rnd($rng, 3, 15);
         while ($n === $days) {
-            $n = $this->rnd(3, 15);
+            $n = $this->rnd($rng, 3, 15);
         }
         $target = ($chairs / $days) * $n;
 
@@ -267,13 +268,13 @@ final class ProportionsGenerator extends GeneratorBase
         );
     }
 
-    private function salary(float $difficulty): MathProblem
+    private function salary(float $difficulty, Randomizer $rng): MathProblem
     {
-        $hours = $this->rnd(4, 10);
-        $pay = $hours * $this->rnd(100, 500);
-        $n = $this->rnd(4, 20);
+        $hours = $this->rnd($rng, 4, 10);
+        $pay = $hours * $this->rnd($rng, 100, 500);
+        $n = $this->rnd($rng, 4, 20);
         while ($n === $hours) {
-            $n = $this->rnd(4, 20);
+            $n = $this->rnd($rng, 4, 20);
         }
         $target = ($pay / $hours) * $n;
 
@@ -296,14 +297,14 @@ final class ProportionsGenerator extends GeneratorBase
         );
     }
 
-    private function speedTime(float $difficulty): MathProblem
+    private function speedTime(float $difficulty, Randomizer $rng): MathProblem
     {
-        $speed = $this->rnd(4, 20);
-        $time = $this->rnd(2, 10);
+        $speed = $this->rnd($rng, 4, 20);
+        $time = $this->rnd($rng, 2, 10);
         $dist = $speed * $time;
-        $n = $this->rnd(2, 12);
+        $n = $this->rnd($rng, 2, 12);
         while ($n === $speed) {
-            $n = $this->rnd(2, 12);
+            $n = $this->rnd($rng, 2, 12);
         }
         $target = ($dist / $speed) * $n;
 

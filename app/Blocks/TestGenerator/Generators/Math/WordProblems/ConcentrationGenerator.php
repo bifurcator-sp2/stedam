@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\WordProblems;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Задачи на концентрацию и проценты в растворах.
@@ -15,41 +16,41 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  *   [0.0–0.2) — найти массу вещества в растворе
  *   [0.2–0.4) — найти концентрацию (в процентах)
  *   [0.4–0.6) — найти массу раствора по массе вещества
- *   [0.6–0.8) — простые проценты (сахар в сиропе)
+ *   [0.6–0.8) — простые проценты (сахар в сиропе / кислота)
  *   [0.8–1.0] — концентрация после разбавления
  */
 final class ConcentrationGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->findMass($difficulty),
-                fn () => $this->findSalt($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->findMass($difficulty, $rng),
+                fn () => $this->findSalt($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->findPercent($difficulty),
-                fn () => $this->findPercentJuice($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->findPercent($difficulty, $rng),
+                fn () => $this->findPercentJuice($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->findSolution($difficulty),
-                fn () => $this->findSolutionSugar($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->findSolution($difficulty, $rng),
+                fn () => $this->findSolutionSugar($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->sugarInSyrup($difficulty),
-                fn () => $this->acidInSolution($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->sugarInSyrup($difficulty, $rng),
+                fn () => $this->acidInSolution($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->dilution($difficulty),
-                fn () => $this->addWater($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->dilution($difficulty, $rng),
+                fn () => $this->addWater($difficulty, $rng),
             ])(),
         };
     }
 
-    private function findMass(float $difficulty): MathProblem
+    private function findMass(float $difficulty, Randomizer $rng): MathProblem
     {
-        $mass = $this->rnd(2, 10) * 100;
-        $p = $this->pick([5, 10, 20, 25, 40]);
+        $mass = $this->rnd($rng, 2, 10) * 100;
+        $p = $this->pick($rng, [5, 10, 20, 25, 40]);
         $substance = $mass * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -70,10 +71,10 @@ final class ConcentrationGenerator extends GeneratorBase
         );
     }
 
-    private function findSalt(float $difficulty): MathProblem
+    private function findSalt(float $difficulty, Randomizer $rng): MathProblem
     {
-        $mass = $this->rnd(2, 10) * 100;
-        $p = $this->pick([5, 10, 20, 25]);
+        $mass = $this->rnd($rng, 2, 10) * 100;
+        $p = $this->pick($rng, [5, 10, 20, 25]);
         $substance = $mass * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -94,14 +95,14 @@ final class ConcentrationGenerator extends GeneratorBase
         );
     }
 
-    private function findPercent(float $difficulty): MathProblem
+    private function findPercent(float $difficulty, Randomizer $rng): MathProblem
     {
-        $mass = $this->rnd(2, 10) * 100;
-        $p = $this->pick([5, 10, 20, 25, 50]);
+        $mass = $this->rnd($rng, 2, 10) * 100;
+        $p = $this->pick($rng, [5, 10, 20, 25, 50]);
         $substance = $mass * $p / 100;
 
         $solution = "**Решение:**\n\n"
-            . "Концентрация = масса вещества : масса раствора · 100\\%:\n\n"
+            . "Концентрация = масса вещества : масса раствора, умноженная на 100\\%:\n\n"
             . KaTeX::display(KaTeX::aligned([
                 "\\dfrac{" . $this->num($substance) . "}{$mass} \\cdot 100\\%",
                 $p . "\\%",
@@ -118,10 +119,10 @@ final class ConcentrationGenerator extends GeneratorBase
         );
     }
 
-    private function findPercentJuice(float $difficulty): MathProblem
+    private function findPercentJuice(float $difficulty, Randomizer $rng): MathProblem
     {
-        $mass = $this->rnd(2, 10) * 100;
-        $p = $this->pick([10, 20, 25, 50]);
+        $mass = $this->rnd($rng, 2, 10) * 100;
+        $p = $this->pick($rng, [10, 20, 25, 50]);
         $substance = $mass * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -142,10 +143,10 @@ final class ConcentrationGenerator extends GeneratorBase
         );
     }
 
-    private function findSolution(float $difficulty): MathProblem
+    private function findSolution(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p = $this->pick([10, 20, 25, 50]);
-        $mass = $this->rnd(2, 10) * 100;
+        $p = $this->pick($rng, [10, 20, 25, 50]);
+        $mass = $this->rnd($rng, 2, 10) * 100;
         $substance = $mass * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -166,10 +167,10 @@ final class ConcentrationGenerator extends GeneratorBase
         );
     }
 
-    private function findSolutionSugar(float $difficulty): MathProblem
+    private function findSolutionSugar(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p = $this->pick([10, 20, 25]);
-        $mass = $this->rnd(2, 10) * 100;
+        $p = $this->pick($rng, [10, 20, 25]);
+        $mass = $this->rnd($rng, 2, 10) * 100;
         $substance = $mass * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -190,10 +191,10 @@ final class ConcentrationGenerator extends GeneratorBase
         );
     }
 
-    private function sugarInSyrup(float $difficulty): MathProblem
+    private function sugarInSyrup(float $difficulty, Randomizer $rng): MathProblem
     {
-        $mass = $this->pick([200, 300, 400, 500]);
-        $p = $this->pick([5, 10, 15, 20]);
+        $mass = $this->pick($rng, [200, 300, 400, 500]);
+        $p = $this->pick($rng, [5, 10, 15, 20]);
         $substance = $mass * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -214,10 +215,10 @@ final class ConcentrationGenerator extends GeneratorBase
         );
     }
 
-    private function acidInSolution(float $difficulty): MathProblem
+    private function acidInSolution(float $difficulty, Randomizer $rng): MathProblem
     {
-        $mass = $this->pick([200, 400, 500, 1000]);
-        $p = $this->pick([5, 10, 12, 15]);
+        $mass = $this->pick($rng, [200, 400, 500, 1000]);
+        $p = $this->pick($rng, [5, 10, 12, 15]);
         $substance = $mass * $p / 100;
 
         $solution = "**Решение:**\n\n"
@@ -238,12 +239,12 @@ final class ConcentrationGenerator extends GeneratorBase
         );
     }
 
-    private function dilution(float $difficulty): MathProblem
+    private function dilution(float $difficulty, Randomizer $rng): MathProblem
     {
-        $mass = $this->pick([200, 300, 400]);
-        $p = $this->pick([10, 20, 25]);
+        $mass = $this->pick($rng, [200, 300, 400]);
+        $p = $this->pick($rng, [10, 20, 25]);
         $substance = $mass * $p / 100;
-        $newMass = $mass + $this->pick([200, 300]);
+        $newMass = $mass + $this->pick($rng, [200, 300]);
         $newP = $substance / $newMass * 100;
 
         $solution = "**Решение:**\n\n"
@@ -265,12 +266,12 @@ final class ConcentrationGenerator extends GeneratorBase
         );
     }
 
-    private function addWater(float $difficulty): MathProblem
+    private function addWater(float $difficulty, Randomizer $rng): MathProblem
     {
-        $mass = $this->pick([200, 400]);
-        $p = $this->pick([10, 20, 25]);
+        $mass = $this->pick($rng, [200, 400]);
+        $p = $this->pick($rng, [10, 20, 25]);
         $substance = $mass * $p / 100;
-        $added = $this->pick([100, 200, 300]);
+        $added = $this->pick($rng, [100, 200, 300]);
         $newMass = $mass + $added;
         $newP = $substance / $newMass * 100;
 
@@ -284,7 +285,7 @@ final class ConcentrationGenerator extends GeneratorBase
             . "\n\n**Ответ:** " . KaTeX::inline($this->num($newP) . "\\%");
 
         return new MathProblem(
-            question: "Рмеется \\($mass\\) г раствора с содержанием вещества \\($p\\%\\). "
+            question: "Имеется \\($mass\\) г раствора с содержанием вещества \\($p\\%\\). "
                 . "Добавили \\($added\\) г воды. Найдите новую концентрацию.",
             solution: $solution,
             answer: $this->num($newP) . '%',

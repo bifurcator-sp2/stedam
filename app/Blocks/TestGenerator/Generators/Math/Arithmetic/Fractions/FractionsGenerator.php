@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Fractions;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Дроби: сравнение, сложение с одинаковыми и разными знаменателями.
@@ -20,28 +21,28 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class FractionsGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->compareSameDen($difficulty),
-                fn () => $this->comparePitsa($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->compareSameDen($difficulty, $rng),
+                fn () => $this->comparePitsa($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->addSameDen($difficulty),
-                fn () => $this->addPies($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->addSameDen($difficulty, $rng),
+                fn () => $this->addPies($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->compareDiffDen($difficulty),
-                fn () => $this->compareNapolnenie($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->compareDiffDen($difficulty, $rng),
+                fn () => $this->compareNapolnenie($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->addMultipleDen($difficulty),
-                fn () => $this->addJuice($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->addMultipleDen($difficulty, $rng),
+                fn () => $this->addJuice($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->addCoprimeDen($difficulty),
-                fn () => $this->addTanks($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->addCoprimeDen($difficulty, $rng),
+                fn () => $this->addTanks($difficulty, $rng),
             ])(),
         };
     }
@@ -51,11 +52,11 @@ final class FractionsGenerator extends GeneratorBase
         return match ($left <=> $right) { 1 => '>', -1 => '<', default => '=' };
     }
 
-    private function compareSameDen(float $difficulty): MathProblem
+    private function compareSameDen(float $difficulty, Randomizer $rng): MathProblem
     {
-        $d = $this->rnd(3, 12);
-        $a = $this->rnd(1, $d - 1);
-        $b = $this->rnd(1, $d - 1);
+        $d = $this->rnd($rng, 3, 12);
+        $a = $this->rnd($rng, 1, $d - 1);
+        $b = $this->rnd($rng, 1, $d - 1);
         $symbol = $this->symbol($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -75,11 +76,11 @@ final class FractionsGenerator extends GeneratorBase
         );
     }
 
-    private function comparePitsa(float $difficulty): MathProblem
+    private function comparePitsa(float $difficulty, Randomizer $rng): MathProblem
     {
-        $d = $this->rnd(4, 12);
-        $a = $this->rnd(1, $d - 1);
-        $b = $this->rnd(1, $d - 1);
+        $d = $this->rnd($rng, 4, 12);
+        $a = $this->rnd($rng, 1, $d - 1);
+        $b = $this->rnd($rng, 1, $d - 1);
         $symbol = $this->symbol($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -100,11 +101,11 @@ final class FractionsGenerator extends GeneratorBase
         );
     }
 
-    private function addSameDen(float $difficulty): MathProblem
+    private function addSameDen(float $difficulty, Randomizer $rng): MathProblem
     {
-        $d = $this->rnd(3, 12);
-        $a = $this->rnd(1, $d - 1);
-        $b = $this->rnd(1, $d - $a);
+        $d = $this->rnd($rng, 3, 12);
+        $a = $this->rnd($rng, 1, $d - 1);
+        $b = $this->rnd($rng, 1, $d - $a);
         $sum = $a + $b;
 
         $solution = "**Решение:**\n\n"
@@ -124,11 +125,11 @@ final class FractionsGenerator extends GeneratorBase
         );
     }
 
-    private function addPies(float $difficulty): MathProblem
+    private function addPies(float $difficulty, Randomizer $rng): MathProblem
     {
-        $d = $this->rnd(4, 12);
-        $a = $this->rnd(1, $d - 1);
-        $b = $this->rnd(1, $d - $a);
+        $d = $this->rnd($rng, 4, 12);
+        $a = $this->rnd($rng, 1, $d - 1);
+        $b = $this->rnd($rng, 1, $d - $a);
         $sum = $a + $b;
 
         $solution = "**Решение:**\n\n"
@@ -149,12 +150,12 @@ final class FractionsGenerator extends GeneratorBase
         );
     }
 
-    private function compareDiffDen(float $difficulty): MathProblem
+    private function compareDiffDen(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b = $this->rnd(2, 9);
-        $a = $this->rnd(1, $b - 1);
-        $d = $this->rnd(2, 9);
-        $c = $this->rnd(1, $d - 1);
+        $b = $this->rnd($rng, 2, 9);
+        $a = $this->rnd($rng, 1, $b - 1);
+        $d = $this->rnd($rng, 2, 9);
+        $c = $this->rnd($rng, 1, $d - 1);
 
         $left  = $a * $d;
         $right = $c * $b;
@@ -182,12 +183,12 @@ final class FractionsGenerator extends GeneratorBase
         );
     }
 
-    private function compareNapolnenie(float $difficulty): MathProblem
+    private function compareNapolnenie(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b = $this->rnd(2, 9);
-        $a = $this->rnd(1, $b - 1);
-        $d = $this->rnd(2, 9);
-        $c = $this->rnd(1, $d - 1);
+        $b = $this->rnd($rng, 2, 9);
+        $a = $this->rnd($rng, 1, $b - 1);
+        $d = $this->rnd($rng, 2, 9);
+        $c = $this->rnd($rng, 1, $d - 1);
 
         $left  = $a * $d;
         $right = $c * $b;
@@ -212,12 +213,12 @@ final class FractionsGenerator extends GeneratorBase
         );
     }
 
-    private function addMultipleDen(float $difficulty): MathProblem
+    private function addMultipleDen(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b1 = $this->rnd(2, 5);
-        $b2 = $b1 * $this->rnd(2, 4);
-        $a1 = $this->rnd(1, $b1 - 1);
-        $a2 = $this->rnd(1, $b2 - 1);
+        $b1 = $this->rnd($rng, 2, 5);
+        $b2 = $b1 * $this->rnd($rng, 2, 4);
+        $a1 = $this->rnd($rng, 1, $b1 - 1);
+        $a2 = $this->rnd($rng, 1, $b2 - 1);
 
         $common = $b2;
         $n1 = $a1 * intdiv($b2, $b1);
@@ -242,12 +243,12 @@ final class FractionsGenerator extends GeneratorBase
         );
     }
 
-    private function addJuice(float $difficulty): MathProblem
+    private function addJuice(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b1 = $this->rnd(2, 4);
-        $b2 = $b1 * $this->rnd(2, 4);
-        $a1 = $this->rnd(1, $b1 - 1);
-        $a2 = $this->rnd(1, $b2 - 1);
+        $b1 = $this->rnd($rng, 2, 4);
+        $b2 = $b1 * $this->rnd($rng, 2, 4);
+        $a1 = $this->rnd($rng, 1, $b1 - 1);
+        $a2 = $this->rnd($rng, 1, $b2 - 1);
         $common = $b2;
         $n1 = $a1 * intdiv($b2, $b1);
         $n2 = $a2;
@@ -272,15 +273,15 @@ final class FractionsGenerator extends GeneratorBase
         );
     }
 
-    private function addCoprimeDen(float $difficulty): MathProblem
+    private function addCoprimeDen(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b1 = $this->rnd(3, 9);
-        $b2 = $this->rnd(3, 9);
+        $b1 = $this->rnd($rng, 3, 9);
+        $b2 = $this->rnd($rng, 3, 9);
         while ($b1 === $b2) {
-            $b2 = $this->rnd(3, 9);
+            $b2 = $this->rnd($rng, 3, 9);
         }
-        $a1 = $this->rnd(1, $b1 - 1);
-        $a2 = $this->rnd(1, $b2 - 1);
+        $a1 = $this->rnd($rng, 1, $b1 - 1);
+        $a2 = $this->rnd($rng, 1, $b2 - 1);
 
         $common = $b1 * $b2;
         $n1 = $a1 * $b2;
@@ -305,15 +306,15 @@ final class FractionsGenerator extends GeneratorBase
         );
     }
 
-    private function addTanks(float $difficulty): MathProblem
+    private function addTanks(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b1 = $this->rnd(3, 9);
-        $b2 = $this->rnd(3, 9);
+        $b1 = $this->rnd($rng, 3, 9);
+        $b2 = $this->rnd($rng, 3, 9);
         while ($b1 === $b2) {
-            $b2 = $this->rnd(3, 9);
+            $b2 = $this->rnd($rng, 3, 9);
         }
-        $a1 = $this->rnd(1, $b1 - 1);
-        $a2 = $this->rnd(1, $b2 - 1);
+        $a1 = $this->rnd($rng, 1, $b1 - 1);
+        $a2 = $this->rnd($rng, 1, $b2 - 1);
         $common = $b1 * $b2;
         $n1 = $a1 * $b2;
         $n2 = $a2 * $b1;

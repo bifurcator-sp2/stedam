@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Numbers;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Округление до десятков / сотен / тысяч.
@@ -20,38 +21,37 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class RoundingGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->roundTensSimple($difficulty),
-                fn () => $this->roundTensWord($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->roundTensSimple($difficulty, $rng),
+                fn () => $this->roundTensWord($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->roundTensCarry($difficulty),
-                fn () => $this->roundTensPrice($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->roundTensCarry($difficulty, $rng),
+                fn () => $this->roundTensPrice($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->roundHundreds($difficulty),
-                fn () => $this->roundHundredsWord($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->roundHundreds($difficulty, $rng),
+                fn () => $this->roundHundredsWord($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->roundHundredsBig($difficulty),
-                fn () => $this->roundHundredsPeople($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->roundHundredsBig($difficulty, $rng),
+                fn () => $this->roundHundredsPeople($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->roundThousands($difficulty),
-                fn () => $this->roundThousandsDist($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->roundThousands($difficulty, $rng),
+                fn () => $this->roundThousandsDist($difficulty, $rng),
             ])(),
         };
     }
 
-    private function roundTensSimple(float $difficulty): MathProblem
+    private function roundTensSimple(float $difficulty, Randomizer $rng): MathProblem
     {
         $unit = 10;
-        $n = $this->rnd(10, 49);
+        $n = $this->rnd($rng, 10, 49);
         $rounded = (int) (round($n / $unit) * $unit);
-        $digit = intdiv($n, $unit) % 10;
 
         $solution = "**Решение:**\n\n"
             . "Смотрим на цифру единиц:\n\n"
@@ -71,9 +71,9 @@ final class RoundingGenerator extends GeneratorBase
         );
     }
 
-    private function roundTensWord(float $difficulty): MathProblem
+    private function roundTensWord(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(10, 49);
+        $n = $this->rnd($rng, 10, 49);
         $rounded = (int) (round($n / 10) * 10);
 
         $solution = "**Решение:**\n\n"
@@ -93,9 +93,9 @@ final class RoundingGenerator extends GeneratorBase
         );
     }
 
-    private function roundTensCarry(float $difficulty): MathProblem
+    private function roundTensCarry(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(50, 99);
+        $n = $this->rnd($rng, 50, 99);
         $rounded = (int) (round($n / 10) * 10);
         $onesDigit = $n % 10;
 
@@ -116,9 +116,9 @@ final class RoundingGenerator extends GeneratorBase
         );
     }
 
-    private function roundTensPrice(float $difficulty): MathProblem
+    private function roundTensPrice(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(50, 99);
+        $n = $this->rnd($rng, 50, 99);
         $rounded = (int) (round($n / 10) * 10);
 
         $solution = "**Решение:**\n\n"
@@ -138,9 +138,9 @@ final class RoundingGenerator extends GeneratorBase
         );
     }
 
-    private function roundHundreds(float $difficulty): MathProblem
+    private function roundHundreds(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(100, 999);
+        $n = $this->rnd($rng, 100, 999);
         $rounded = (int) (round($n / 100) * 100);
         $tensDigit = intdiv($n, 10) % 10;
 
@@ -162,9 +162,9 @@ final class RoundingGenerator extends GeneratorBase
         );
     }
 
-    private function roundHundredsWord(float $difficulty): MathProblem
+    private function roundHundredsWord(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(100, 999);
+        $n = $this->rnd($rng, 100, 999);
         $rounded = (int) (round($n / 100) * 100);
 
         $solution = "**Решение:**\n\n"
@@ -184,9 +184,9 @@ final class RoundingGenerator extends GeneratorBase
         );
     }
 
-    private function roundHundredsBig(float $difficulty): MathProblem
+    private function roundHundredsBig(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(1000, 9999);
+        $n = $this->rnd($rng, 1000, 9999);
         $rounded = (int) (round($n / 100) * 100);
         $tensDigit = intdiv($n, 10) % 10;
 
@@ -207,9 +207,9 @@ final class RoundingGenerator extends GeneratorBase
         );
     }
 
-    private function roundHundredsPeople(float $difficulty): MathProblem
+    private function roundHundredsPeople(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(1000, 9999);
+        $n = $this->rnd($rng, 1000, 9999);
         $rounded = (int) (round($n / 100) * 100);
 
         $solution = "**Решение:**\n\n"
@@ -229,9 +229,9 @@ final class RoundingGenerator extends GeneratorBase
         );
     }
 
-    private function roundThousands(float $difficulty): MathProblem
+    private function roundThousands(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(1000, 99999);
+        $n = $this->rnd($rng, 1000, 99999);
         $rounded = (int) (round($n / 1000) * 1000);
         $hundredsDigit = intdiv($n, 100) % 10;
 
@@ -253,9 +253,9 @@ final class RoundingGenerator extends GeneratorBase
         );
     }
 
-    private function roundThousandsDist(float $difficulty): MathProblem
+    private function roundThousandsDist(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(1000, 99999);
+        $n = $this->rnd($rng, 1000, 99999);
         $rounded = (int) (round($n / 1000) * 1000);
 
         $solution = "**Решение:**\n\n"

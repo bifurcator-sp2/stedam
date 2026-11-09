@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Numbers;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Счёт: продолжить последовательность с заданным шагом.
@@ -20,35 +21,35 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class CountingGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->nextByOne($difficulty),
-                fn () => $this->countUp($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->nextByOne($difficulty, $rng),
+                fn () => $this->countUp($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->nextByTwoFive($difficulty),
-                fn () => $this->stairs($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->nextByTwoFive($difficulty, $rng),
+                fn () => $this->stairs($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->nextByTen($difficulty),
-                fn () => $this->tensRow($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->nextByTen($difficulty, $rng),
+                fn () => $this->tensRow($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->nextByThreeFour($difficulty),
-                fn () => $this->elevator($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->nextByThreeFour($difficulty, $rng),
+                fn () => $this->elevator($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->missingTerm($difficulty),
-                fn () => $this->customStep($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->missingTerm($difficulty, $rng),
+                fn () => $this->customStep($difficulty, $rng),
             ])(),
         };
     }
 
-    private function nextByOne(float $difficulty): MathProblem
+    private function nextByOne(float $difficulty, Randomizer $rng): MathProblem
     {
-        $start = $this->rnd(1, 40);
+        $start = $this->rnd($rng, 1, 40);
         $seq = range($start, $start + 4);
         $next = $start + 5;
         $shown = implode(',\\; ', $seq);
@@ -70,9 +71,9 @@ final class CountingGenerator extends GeneratorBase
         );
     }
 
-    private function countUp(float $difficulty): MathProblem
+    private function countUp(float $difficulty, Randomizer $rng): MathProblem
     {
-        $start = $this->rnd(1, 30);
+        $start = $this->rnd($rng, 1, 30);
         $seq = range($start, $start + 4);
         $next = $start + 5;
         $shown = implode(',\\; ', $seq);
@@ -94,10 +95,10 @@ final class CountingGenerator extends GeneratorBase
         );
     }
 
-    private function nextByTwoFive(float $difficulty): MathProblem
+    private function nextByTwoFive(float $difficulty, Randomizer $rng): MathProblem
     {
-        $step = $this->pick([2, 5]);
-        $start = $this->rnd(1, 20);
+        $step = $this->pick($rng, [2, 5]);
+        $start = $this->rnd($rng, 1, 20);
         $seq = [];
         for ($i = 0; $i < 5; $i++) {
             $seq[] = $start + $i * $step;
@@ -122,10 +123,10 @@ final class CountingGenerator extends GeneratorBase
         );
     }
 
-    private function stairs(float $difficulty): MathProblem
+    private function stairs(float $difficulty, Randomizer $rng): MathProblem
     {
-        $step = $this->pick([2, 5]);
-        $start = $this->rnd(1, 20);
+        $step = $this->pick($rng, [2, 5]);
+        $start = $this->rnd($rng, 1, 20);
         $seq = [];
         for ($i = 0; $i < 5; $i++) {
             $seq[] = $start + $i * $step;
@@ -151,9 +152,9 @@ final class CountingGenerator extends GeneratorBase
         );
     }
 
-    private function nextByTen(float $difficulty): MathProblem
+    private function nextByTen(float $difficulty, Randomizer $rng): MathProblem
     {
-        $start = $this->rnd(1, 60);
+        $start = $this->rnd($rng, 1, 60);
         $seq = [];
         for ($i = 0; $i < 5; $i++) {
             $seq[] = $start + $i * 10;
@@ -178,9 +179,9 @@ final class CountingGenerator extends GeneratorBase
         );
     }
 
-    private function tensRow(float $difficulty): MathProblem
+    private function tensRow(float $difficulty, Randomizer $rng): MathProblem
     {
-        $start = $this->rnd(1, 60);
+        $start = $this->rnd($rng, 1, 60);
         $seq = [];
         for ($i = 0; $i < 5; $i++) {
             $seq[] = $start + $i * 10;
@@ -205,10 +206,10 @@ final class CountingGenerator extends GeneratorBase
         );
     }
 
-    private function nextByThreeFour(float $difficulty): MathProblem
+    private function nextByThreeFour(float $difficulty, Randomizer $rng): MathProblem
     {
-        $step = $this->pick([3, 4]);
-        $start = $this->rnd(1, 15);
+        $step = $this->pick($rng, [3, 4]);
+        $start = $this->rnd($rng, 1, 15);
         $seq = [];
         for ($i = 0; $i < 5; $i++) {
             $seq[] = $start + $i * $step;
@@ -233,10 +234,10 @@ final class CountingGenerator extends GeneratorBase
         );
     }
 
-    private function elevator(float $difficulty): MathProblem
+    private function elevator(float $difficulty, Randomizer $rng): MathProblem
     {
-        $step = $this->pick([3, 4]);
-        $start = $this->rnd(1, 15);
+        $step = $this->pick($rng, [3, 4]);
+        $start = $this->rnd($rng, 1, 15);
         $seq = [];
         for ($i = 0; $i < 5; $i++) {
             $seq[] = $start + $i * $step;
@@ -262,15 +263,15 @@ final class CountingGenerator extends GeneratorBase
         );
     }
 
-    private function missingTerm(float $difficulty): MathProblem
+    private function missingTerm(float $difficulty, Randomizer $rng): MathProblem
     {
-        $step = $this->rnd(3, 9);
-        $start = $this->rnd(1, 20);
+        $step = $this->rnd($rng, 3, 9);
+        $start = $this->rnd($rng, 1, 20);
         $seq = [];
         for ($i = 0; $i < 5; $i++) {
             $seq[] = $start + $i * $step;
         }
-        $hiddenIndex = $this->rnd(1, 3);
+        $hiddenIndex = $this->rnd($rng, 1, 3);
         $hidden = $seq[$hiddenIndex];
         $display = $seq;
         $display[$hiddenIndex] = '?';
@@ -293,10 +294,10 @@ final class CountingGenerator extends GeneratorBase
         );
     }
 
-    private function customStep(float $difficulty): MathProblem
+    private function customStep(float $difficulty, Randomizer $rng): MathProblem
     {
-        $step = $this->rnd(6, 12);
-        $start = $this->rnd(1, 20);
+        $step = $this->rnd($rng, 6, 12);
+        $start = $this->rnd($rng, 1, 20);
         $seq = [];
         for ($i = 0; $i < 5; $i++) {
             $seq[] = $start + $i * $step;

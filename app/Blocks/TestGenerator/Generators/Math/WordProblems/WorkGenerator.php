@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\WordProblems;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Задачи на работу: A = p · t (работа = производительность · время).
@@ -20,36 +21,36 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class WorkGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->findWork($difficulty),
-                fn () => $this->findDetali($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->findWork($difficulty, $rng),
+                fn () => $this->findDetali($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->findTime($difficulty),
-                fn () => $this->findDays($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->findTime($difficulty, $rng),
+                fn () => $this->findDays($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->findRate($difficulty),
-                fn () => $this->findRateMachine($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->findRate($difficulty, $rng),
+                fn () => $this->findRateMachine($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->togetherVolume($difficulty),
-                fn () => $this->togetherPipes($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->togetherVolume($difficulty, $rng),
+                fn () => $this->togetherPipes($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->togetherTime($difficulty),
-                fn () => $this->togetherFinish($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->togetherTime($difficulty, $rng),
+                fn () => $this->togetherFinish($difficulty, $rng),
             ])(),
         };
     }
 
-    private function findWork(float $difficulty): MathProblem
+    private function findWork(float $difficulty, Randomizer $rng): MathProblem
     {
-        $rate = $this->rnd(5, 30);
-        $t = $this->rnd(2, 8);
+        $rate = $this->rnd($rng, 5, 30);
+        $t = $this->rnd($rng, 2, 8);
         $work = $rate * $t;
 
         $solution = "**Решение:**\n\n"
@@ -69,10 +70,10 @@ final class WorkGenerator extends GeneratorBase
         );
     }
 
-    private function findDetali(float $difficulty): MathProblem
+    private function findDetali(float $difficulty, Randomizer $rng): MathProblem
     {
-        $rate = $this->rnd(10, 50);
-        $t = $this->rnd(2, 8);
+        $rate = $this->rnd($rng, 10, 50);
+        $t = $this->rnd($rng, 2, 8);
         $work = $rate * $t;
 
         $solution = "**Решение:**\n\n"
@@ -92,10 +93,10 @@ final class WorkGenerator extends GeneratorBase
         );
     }
 
-    private function findTime(float $difficulty): MathProblem
+    private function findTime(float $difficulty, Randomizer $rng): MathProblem
     {
-        $rate = $this->rnd(5, 25);
-        $t = $this->rnd(2, 8);
+        $rate = $this->rnd($rng, 5, 25);
+        $t = $this->rnd($rng, 2, 8);
         $work = $rate * $t;
 
         $solution = "**Решение:**\n\n"
@@ -116,10 +117,10 @@ final class WorkGenerator extends GeneratorBase
         );
     }
 
-    private function findDays(float $difficulty): MathProblem
+    private function findDays(float $difficulty, Randomizer $rng): MathProblem
     {
-        $rate = $this->rnd(3, 15);
-        $t = $this->rnd(2, 10);
+        $rate = $this->rnd($rng, 3, 15);
+        $t = $this->rnd($rng, 2, 10);
         $work = $rate * $t;
 
         $solution = "**Решение:**\n\n"
@@ -140,10 +141,10 @@ final class WorkGenerator extends GeneratorBase
         );
     }
 
-    private function findRate(float $difficulty): MathProblem
+    private function findRate(float $difficulty, Randomizer $rng): MathProblem
     {
-        $rate = $this->rnd(5, 30);
-        $t = $this->rnd(2, 8);
+        $rate = $this->rnd($rng, 5, 30);
+        $t = $this->rnd($rng, 2, 8);
         $work = $rate * $t;
 
         $solution = "**Решение:**\n\n"
@@ -164,10 +165,10 @@ final class WorkGenerator extends GeneratorBase
         );
     }
 
-    private function findRateMachine(float $difficulty): MathProblem
+    private function findRateMachine(float $difficulty, Randomizer $rng): MathProblem
     {
-        $t = $this->rnd(2, 8);
-        $rate = $this->rnd(5, 30);
+        $t = $this->rnd($rng, 2, 8);
+        $rate = $this->rnd($rng, 5, 30);
         $work = $rate * $t;
 
         $solution = "**Решение:**\n\n"
@@ -188,18 +189,19 @@ final class WorkGenerator extends GeneratorBase
         );
     }
 
-    private function togetherVolume(float $difficulty): MathProblem
+    private function togetherVolume(float $difficulty, Randomizer $rng): MathProblem
     {
-        $r1 = $this->rnd(3, 12);
-        $r2 = $this->rnd(3, 12);
-        $t = $this->rnd(2, 6);
+        $r1 = $this->rnd($rng, 3, 12);
+        $r2 = $this->rnd($rng, 3, 12);
+        $t = $this->rnd($rng, 2, 6);
         $work = ($r1 + $r2) * $t;
 
         $solution = "**Решение:**\n\n"
             . "При совместной работе производительности складываются:\n\n"
             . KaTeX::display(KaTeX::aligned([
                 "A = (p_1 + p_2) \\cdot t",
-                "$work = ($r1 + $r2) \\cdot $t",
+                "A = ($r1 + $r2) \\cdot $t",
+                "A = $work",
             ]))
             . "\n\n**Ответ:** " . KaTeX::inline((string) $work);
 
@@ -213,17 +215,18 @@ final class WorkGenerator extends GeneratorBase
         );
     }
 
-    private function togetherPipes(float $difficulty): MathProblem
+    private function togetherPipes(float $difficulty, Randomizer $rng): MathProblem
     {
-        $r1 = $this->rnd(3, 15);
-        $r2 = $this->rnd(3, 15);
-        $t = $this->rnd(2, 6);
+        $r1 = $this->rnd($rng, 3, 15);
+        $r2 = $this->rnd($rng, 3, 15);
+        $t = $this->rnd($rng, 2, 6);
         $work = ($r1 + $r2) * $t;
 
         $solution = "**Решение:**\n\n"
             . "Две трубы вместе наливают \\((p_1 + p_2)\\) литров в час:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "$work = ($r1 + $r2) \\cdot $t",
+                "A = ($r1 + $r2) \\cdot $t",
+                "A = $work",
             ]))
             . "\n\n**Ответ:** " . KaTeX::inline("$work \\text{ л}");
 
@@ -237,13 +240,13 @@ final class WorkGenerator extends GeneratorBase
         );
     }
 
-    private function togetherTime(float $difficulty): MathProblem
+    private function togetherTime(float $difficulty, Randomizer $rng): MathProblem
     {
-        $r1 = $this->rnd(2, 10);
-        $r2 = $this->rnd(2, 10);
+        $r1 = $this->rnd($rng, 2, 10);
+        $r2 = $this->rnd($rng, 2, 10);
         $total = $r1 + $r2;
-        $work = $total * $this->rnd(2, 6);
-        $t = intdiv($work, $total);
+        $t = $this->rnd($rng, 2, 6);
+        $work = $total * $t;
 
         $solution = "**Решение:**\n\n"
             . "Совместная производительность: \\($r1 + $r2 = $total\\). "
@@ -264,18 +267,18 @@ final class WorkGenerator extends GeneratorBase
         );
     }
 
-    private function togetherFinish(float $difficulty): MathProblem
+    private function togetherFinish(float $difficulty, Randomizer $rng): MathProblem
     {
-        $r1 = $this->rnd(2, 10);
-        $r2 = $this->rnd(2, 10);
+        $r1 = $this->rnd($rng, 2, 10);
+        $r2 = $this->rnd($rng, 2, 10);
         $total = $r1 + $r2;
-        $work = $total * $this->rnd(2, 6);
-        $t = intdiv($work, $total);
+        $t = $this->rnd($rng, 2, 6);
+        $work = $total * $t;
 
         $solution = "**Решение:**\n\n"
             . "Суммарная производительность \\($total\\). Время:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "t = \\dfrac{$work}{" . $total . "}",
+                "t = \\dfrac{$work}{p_1 + p_2}",
                 "t = \\dfrac{$work}{$total} = $t",
             ]))
             . "\n\n**Ответ:** " . KaTeX::inline("$t \\text{ ч}");

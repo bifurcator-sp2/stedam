@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\WordProblems;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Задачи про деньги: стоимость, сдача, покупки.
@@ -15,41 +16,41 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  *   [0.0–0.2) — стоимость покупки (цена · количество)
  *   [0.2–0.4) — сдача
  *   [0.4–0.6) — общая стоимость нескольких товаров
- *   [0.6–0.8) — приведение цены и сдача с банкноты
- *   [0.8–1.0] — распределение денег / остаток бюджета
+ *   [0.6–0.8) — стоимость по цене и сдача с банкноты
+ *   [0.8–1.0] — остаток бюджета / деление денег
  */
 final class MoneyGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->totalCost($difficulty),
-                fn () => $this->applesCost($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->totalCost($difficulty, $rng),
+                fn () => $this->applesCost($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->change($difficulty),
-                fn () => $this->changeBills($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->change($difficulty, $rng),
+                fn () => $this->changeBills($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->severalItems($difficulty),
-                fn () => $this->shoppingList($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->severalItems($difficulty, $rng),
+                fn () => $this->shoppingList($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->banknoteChange($difficulty),
-                fn () => $this->priceAndChange($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->banknoteChange($difficulty, $rng),
+                fn () => $this->priceAndChange($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->budgetLeft($difficulty),
-                fn () => $this->splitMoney($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->budgetLeft($difficulty, $rng),
+                fn () => $this->splitMoney($difficulty, $rng),
             ])(),
         };
     }
 
-    private function totalCost(float $difficulty): MathProblem
+    private function totalCost(float $difficulty, Randomizer $rng): MathProblem
     {
-        $price = $this->rnd(20, 500);
-        $count = $this->rnd(2, 9);
+        $price = $this->rnd($rng, 20, 500);
+        $count = $this->rnd($rng, 2, 9);
         $total = $price * $count;
 
         $solution = "**Решение:**\n\n"
@@ -69,10 +70,10 @@ final class MoneyGenerator extends GeneratorBase
         );
     }
 
-    private function applesCost(float $difficulty): MathProblem
+    private function applesCost(float $difficulty, Randomizer $rng): MathProblem
     {
-        $price = $this->rnd(20, 200);
-        $kg = $this->rnd(2, 9);
+        $price = $this->rnd($rng, 20, 200);
+        $kg = $this->rnd($rng, 2, 9);
         $total = $price * $kg;
 
         $solution = "**Решение:**\n\n"
@@ -92,10 +93,10 @@ final class MoneyGenerator extends GeneratorBase
         );
     }
 
-    private function change(float $difficulty): MathProblem
+    private function change(float $difficulty, Randomizer $rng): MathProblem
     {
-        $price = $this->rnd(20, 400);
-        $paid = $price + $this->rnd(10, 300);
+        $price = $this->rnd($rng, 20, 400);
+        $paid = $price + $this->rnd($rng, 10, 300);
         $change = $paid - $price;
 
         $solution = "**Решение:**\n\n"
@@ -116,10 +117,10 @@ final class MoneyGenerator extends GeneratorBase
         );
     }
 
-    private function changeBills(float $difficulty): MathProblem
+    private function changeBills(float $difficulty, Randomizer $rng): MathProblem
     {
-        $price = $this->rnd(50, 300);
-        $paid = $this->pick([500, 1000]);
+        $price = $this->rnd($rng, 50, 300);
+        $paid = $this->pick($rng, [500, 1000]);
         $change = $paid - $price;
 
         $solution = "**Решение:**\n\n"
@@ -140,10 +141,10 @@ final class MoneyGenerator extends GeneratorBase
         );
     }
 
-    private function severalItems(float $difficulty): MathProblem
+    private function severalItems(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p1 = $this->rnd(20, 300);
-        $p2 = $this->rnd(20, 300);
+        $p1 = $this->rnd($rng, 20, 300);
+        $p2 = $this->rnd($rng, 20, 300);
         $total = $p1 + $p2;
 
         $solution = "**Решение:**\n\n"
@@ -164,11 +165,11 @@ final class MoneyGenerator extends GeneratorBase
         );
     }
 
-    private function shoppingList(float $difficulty): MathProblem
+    private function shoppingList(float $difficulty, Randomizer $rng): MathProblem
     {
-        $p1 = $this->rnd(50, 200);
-        $c1 = $this->rnd(2, 5);
-        $p2 = $this->rnd(50, 200);
+        $p1 = $this->rnd($rng, 50, 200);
+        $c1 = $this->rnd($rng, 2, 5);
+        $p2 = $this->rnd($rng, 50, 200);
         $total = $p1 * $c1 + $p2;
 
         $solution = "**Решение:**\n\n"
@@ -190,10 +191,10 @@ final class MoneyGenerator extends GeneratorBase
         );
     }
 
-    private function banknoteChange(float $difficulty): MathProblem
+    private function banknoteChange(float $difficulty, Randomizer $rng): MathProblem
     {
-        $price = $this->rnd(100, 900);
-        $paid = $this->pick([1000, 2000]);
+        $price = $this->rnd($rng, 100, 900);
+        $paid = $this->pick($rng, [1000, 2000]);
         $change = $paid - $price;
 
         $solution = "**Решение:**\n\n"
@@ -214,11 +215,14 @@ final class MoneyGenerator extends GeneratorBase
         );
     }
 
-    private function priceAndChange(float $difficulty): MathProblem
+    private function priceAndChange(float $difficulty, Randomizer $rng): MathProblem
     {
-        $price = $this->rnd(100, 900);
-        $count = $this->rnd(2, 3);
-        $paid = $this->pick([1000, 2000, 5000]);
+        $price = $this->rnd($rng, 100, 900);
+        $count = $this->rnd($rng, 2, 3);
+        $paid = $this->pick($rng, [1000, 2000, 5000]);
+        while ($paid < $price * $count) {
+            $paid += 1000;
+        }
         $cost = $price * $count;
         $change = $paid - $cost;
 
@@ -240,11 +244,11 @@ final class MoneyGenerator extends GeneratorBase
         );
     }
 
-    private function budgetLeft(float $difficulty): MathProblem
+    private function budgetLeft(float $difficulty, Randomizer $rng): MathProblem
     {
-        $budget = $this->rnd(5, 20) * 100;
-        $spent1 = $this->rnd(100, $budget / 2);
-        $spent2 = $this->rnd(100, $budget / 2);
+        $budget = $this->rnd($rng, 5, 20) * 100;
+        $spent1 = $this->rnd($rng, 100, intdiv($budget, 2));
+        $spent2 = $this->rnd($rng, 100, intdiv($budget, 2));
         $left = $budget - $spent1 - $spent2;
 
         $solution = "**Решение:**\n\n"
@@ -266,10 +270,10 @@ final class MoneyGenerator extends GeneratorBase
         );
     }
 
-    private function splitMoney(float $difficulty): MathProblem
+    private function splitMoney(float $difficulty, Randomizer $rng): MathProblem
     {
-        $people = $this->rnd(2, 6);
-        $each = $this->rnd(100, 600);
+        $people = $this->rnd($rng, 2, 6);
+        $each = $this->rnd($rng, 100, 600);
         $total = $people * $each;
 
         $solution = "**Решение:**\n\n"

@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Operations;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Вычитание: всегда неотрицательный результат.
@@ -20,36 +21,36 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class SubtractionGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->minusShort($difficulty),
-                fn () => $this->leftApples($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->minusShort($difficulty, $rng),
+                fn () => $this->leftApples($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->minusTens($difficulty),
-                fn () => $this->leftPassengers($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->minusTens($difficulty, $rng),
+                fn () => $this->leftPassengers($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->borrowStep($difficulty),
-                fn () => $this->discountDiff($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->borrowStep($difficulty, $rng),
+                fn () => $this->discountDiff($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->minusHundreds($difficulty),
-                fn () => $this->daysLeft($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->minusHundreds($difficulty, $rng),
+                fn () => $this->daysLeft($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->minusBig($difficulty),
-                fn () => $this->minusSum($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->minusBig($difficulty, $rng),
+                fn () => $this->minusSum($difficulty, $rng),
             ])(),
         };
     }
 
-    private function minusShort(float $difficulty): MathProblem
+    private function minusShort(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 10);
-        $b = $this->rnd(1, $a - 1);
+        $a = $this->rnd($rng, 2, 10);
+        $b = $this->rnd($rng, 1, $a - 1);
         $diff = $a - $b;
 
         $solution = "**Решение:**\n\n"
@@ -69,10 +70,10 @@ final class SubtractionGenerator extends GeneratorBase
         );
     }
 
-    private function leftApples(float $difficulty): MathProblem
+    private function leftApples(float $difficulty, Randomizer $rng): MathProblem
     {
-        $total = $this->rnd(3, 10);
-        $taken = $this->rnd(1, $total - 1);
+        $total = $this->rnd($rng, 3, 10);
+        $taken = $this->rnd($rng, 1, $total - 1);
         $left = $total - $taken;
 
         $solution = "**Решение:**\n\n"
@@ -93,10 +94,10 @@ final class SubtractionGenerator extends GeneratorBase
         );
     }
 
-    private function minusTens(float $difficulty): MathProblem
+    private function minusTens(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(20, 99);
-        $b = $this->rnd(10, $a - 1);
+        $a = $this->rnd($rng, 20, 99);
+        $b = $this->rnd($rng, 10, $a - 1);
         $diff = $a - $b;
 
         $solution = "**Решение:**\n\n"
@@ -116,10 +117,10 @@ final class SubtractionGenerator extends GeneratorBase
         );
     }
 
-    private function leftPassengers(float $difficulty): MathProblem
+    private function leftPassengers(float $difficulty, Randomizer $rng): MathProblem
     {
-        $total = $this->rnd(30, 99);
-        $exited = $this->rnd(10, $total - 1);
+        $total = $this->rnd($rng, 30, 99);
+        $exited = $this->rnd($rng, 10, $total - 1);
         $left = $total - $exited;
 
         $solution = "**Решение:**\n\n"
@@ -140,10 +141,10 @@ final class SubtractionGenerator extends GeneratorBase
         );
     }
 
-    private function borrowStep(float $difficulty): MathProblem
+    private function borrowStep(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(100, 500);
-        $b = $this->rnd(10, 99);
+        $a = $this->rnd($rng, 100, 500);
+        $b = $this->rnd($rng, 10, 99);
         $diff = $a - $b;
 
         $solution = "**Решение:**\n\n"
@@ -163,10 +164,10 @@ final class SubtractionGenerator extends GeneratorBase
         );
     }
 
-    private function discountDiff(float $difficulty): MathProblem
+    private function discountDiff(float $difficulty, Randomizer $rng): MathProblem
     {
-        $old = $this->rnd(100, 999);
-        $new = $this->rnd(50, $old - 1);
+        $old = $this->rnd($rng, 100, 999);
+        $new = $this->rnd($rng, 50, $old - 1);
         $diff = $old - $new;
 
         $solution = "**Решение:**\n\n"
@@ -187,10 +188,10 @@ final class SubtractionGenerator extends GeneratorBase
         );
     }
 
-    private function minusHundreds(float $difficulty): MathProblem
+    private function minusHundreds(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(1000, 9999);
-        $b = $this->rnd(100, 999);
+        $a = $this->rnd($rng, 1000, 9999);
+        $b = $this->rnd($rng, 100, 999);
         $diff = $a - $b;
 
         $solution = "**Решение:**\n\n"
@@ -210,10 +211,10 @@ final class SubtractionGenerator extends GeneratorBase
         );
     }
 
-    private function daysLeft(float $difficulty): MathProblem
+    private function daysLeft(float $difficulty, Randomizer $rng): MathProblem
     {
-        $total = $this->rnd(200, 999);
-        $done = $this->rnd(50, $total - 1);
+        $total = $this->rnd($rng, 200, 999);
+        $done = $this->rnd($rng, 50, $total - 1);
         $left = $total - $done;
 
         $solution = "**Решение:**\n\n"
@@ -234,10 +235,10 @@ final class SubtractionGenerator extends GeneratorBase
         );
     }
 
-    private function minusBig(float $difficulty): MathProblem
+    private function minusBig(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10000, 99999);
-        $b = $this->rnd(1000, 9999);
+        $a = $this->rnd($rng, 10000, 99999);
+        $b = $this->rnd($rng, 1000, 9999);
         $diff = $a - $b;
 
         $solution = "**Решение:**\n\n"
@@ -257,11 +258,11 @@ final class SubtractionGenerator extends GeneratorBase
         );
     }
 
-    private function minusSum(float $difficulty): MathProblem
+    private function minusSum(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(5000, 9999);
-        $b = $this->rnd(1000, 4999);
-        $c = $this->rnd(10, 999);
+        $a = $this->rnd($rng, 5000, 9999);
+        $b = $this->rnd($rng, 1000, 4999);
+        $c = $this->rnd($rng, 10, 999);
         $diff = $a - $b - $c;
         if ($diff < 0) {
             [$b, $c] = [$c + $b - $a + 1, 0];

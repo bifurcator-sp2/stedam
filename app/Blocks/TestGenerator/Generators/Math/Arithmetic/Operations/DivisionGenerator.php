@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Operations;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Деление: без остатка (проверяем делением) и с остатком на старших уровнях.
@@ -20,36 +21,36 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class DivisionGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->divideShort($difficulty),
-                fn () => $this->shareCandy($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->divideShort($difficulty, $rng),
+                fn () => $this->shareCandy($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->divideColumn($difficulty),
-                fn () => $this->pagesPerDay($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->divideColumn($difficulty, $rng),
+                fn () => $this->pagesPerDay($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->divideTwoDigit($difficulty),
-                fn () => $this->packBoxes($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->divideTwoDigit($difficulty, $rng),
+                fn () => $this->packBoxes($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->divideThreeDigit($difficulty),
-                fn () => $this->rowsEvenly($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->divideThreeDigit($difficulty, $rng),
+                fn () => $this->rowsEvenly($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->withRemainder($difficulty),
-                fn () => $this->bagsWithRest($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->withRemainder($difficulty, $rng),
+                fn () => $this->bagsWithRest($difficulty, $rng),
             ])(),
         };
     }
 
-    private function divideShort(float $difficulty): MathProblem
+    private function divideShort(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b = $this->rnd(2, 9);
-        $q = $this->rnd(2, 9);
+        $b = $this->rnd($rng, 2, 9);
+        $q = $this->rnd($rng, 2, 9);
         $a = $b * $q;
 
         $solution = "**Решение:**\n\n"
@@ -69,10 +70,10 @@ final class DivisionGenerator extends GeneratorBase
         );
     }
 
-    private function shareCandy(float $difficulty): MathProblem
+    private function shareCandy(float $difficulty, Randomizer $rng): MathProblem
     {
-        $children = $this->rnd(2, 9);
-        $each = $this->rnd(2, 9);
+        $children = $this->rnd($rng, 2, 9);
+        $each = $this->rnd($rng, 2, 9);
         $total = $children * $each;
 
         $solution = "**Решение:**\n\n"
@@ -93,10 +94,10 @@ final class DivisionGenerator extends GeneratorBase
         );
     }
 
-    private function divideColumn(float $difficulty): MathProblem
+    private function divideColumn(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b = $this->rnd(2, 9);
-        $q = $this->rnd(10, 40);
+        $b = $this->rnd($rng, 2, 9);
+        $q = $this->rnd($rng, 10, 40);
         $a = $b * $q;
 
         $solution = "**Решение:**\n\n"
@@ -116,10 +117,10 @@ final class DivisionGenerator extends GeneratorBase
         );
     }
 
-    private function pagesPerDay(float $difficulty): MathProblem
+    private function pagesPerDay(float $difficulty, Randomizer $rng): MathProblem
     {
-        $days = $this->rnd(2, 9);
-        $perDay = $this->rnd(10, 50);
+        $days = $this->rnd($rng, 2, 9);
+        $perDay = $this->rnd($rng, 10, 50);
         $total = $days * $perDay;
 
         $solution = "**Решение:**\n\n"
@@ -140,10 +141,10 @@ final class DivisionGenerator extends GeneratorBase
         );
     }
 
-    private function divideTwoDigit(float $difficulty): MathProblem
+    private function divideTwoDigit(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b = $this->rnd(10, 30);
-        $q = $this->rnd(2, 9);
+        $b = $this->rnd($rng, 10, 30);
+        $q = $this->rnd($rng, 2, 9);
         $a = $b * $q;
 
         $solution = "**Решение:**\n\n"
@@ -163,10 +164,10 @@ final class DivisionGenerator extends GeneratorBase
         );
     }
 
-    private function packBoxes(float $difficulty): MathProblem
+    private function packBoxes(float $difficulty, Randomizer $rng): MathProblem
     {
-        $perBox = $this->rnd(10, 30);
-        $boxes = $this->rnd(2, 9);
+        $perBox = $this->rnd($rng, 10, 30);
+        $boxes = $this->rnd($rng, 2, 9);
         $total = $perBox * $boxes;
 
         $solution = "**Решение:**\n\n"
@@ -187,10 +188,10 @@ final class DivisionGenerator extends GeneratorBase
         );
     }
 
-    private function divideThreeDigit(float $difficulty): MathProblem
+    private function divideThreeDigit(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b = $this->rnd(2, 9);
-        $q = $this->rnd(20, 100);
+        $b = $this->rnd($rng, 2, 9);
+        $q = $this->rnd($rng, 20, 100);
         $a = $b * $q;
 
         $solution = "**Решение:**\n\n"
@@ -210,10 +211,10 @@ final class DivisionGenerator extends GeneratorBase
         );
     }
 
-    private function rowsEvenly(float $difficulty): MathProblem
+    private function rowsEvenly(float $difficulty, Randomizer $rng): MathProblem
     {
-        $rows = $this->rnd(2, 9);
-        $perRow = $this->rnd(20, 100);
+        $rows = $this->rnd($rng, 2, 9);
+        $perRow = $this->rnd($rng, 20, 100);
         $total = $rows * $perRow;
 
         $solution = "**Решение:**\n\n"
@@ -234,11 +235,11 @@ final class DivisionGenerator extends GeneratorBase
         );
     }
 
-    private function withRemainder(float $difficulty): MathProblem
+    private function withRemainder(float $difficulty, Randomizer $rng): MathProblem
     {
-        $divisor = $this->rnd(2, 20);
-        $quotient = $this->rnd(1, 50);
-        $remainder = $this->rnd(0, $divisor - 1);
+        $divisor = $this->rnd($rng, 2, 20);
+        $quotient = $this->rnd($rng, 1, 50);
+        $remainder = $this->rnd($rng, 0, $divisor - 1);
         $dividend = $divisor * $quotient + $remainder;
 
         $answer = "неполное частное $quotient, остаток $remainder";
@@ -261,11 +262,11 @@ final class DivisionGenerator extends GeneratorBase
         );
     }
 
-    private function bagsWithRest(float $difficulty): MathProblem
+    private function bagsWithRest(float $difficulty, Randomizer $rng): MathProblem
     {
-        $perBag = $this->rnd(3, 15);
-        $bags = $this->rnd(2, 30);
-        $remainder = $this->rnd(1, $perBag - 1);
+        $perBag = $this->rnd($rng, 3, 15);
+        $bags = $this->rnd($rng, 2, 30);
+        $remainder = $this->rnd($rng, 1, $perBag - 1);
         $total = $perBag * $bags + $remainder;
 
         $answer = "полных пакетов $bags, останется $remainder";

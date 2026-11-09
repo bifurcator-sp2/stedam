@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Numbers;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Сравнение чисел: поставить знак <, > или =.
@@ -20,28 +21,28 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class NumberComparisonGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->compareDigit($difficulty),
-                fn () => $this->compareScore($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->compareDigit($difficulty, $rng),
+                fn () => $this->compareScore($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->compareTwoDigit($difficulty),
-                fn () => $this->compareAge($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->compareTwoDigit($difficulty, $rng),
+                fn () => $this->compareAge($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->compareDifferentLength($difficulty),
-                fn () => $this->comparePrice($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->compareDifferentLength($difficulty, $rng),
+                fn () => $this->comparePrice($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->compareBig($difficulty),
-                fn () => $this->compareDistance($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->compareBig($difficulty, $rng),
+                fn () => $this->compareDistance($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->compareGreat($difficulty),
-                fn () => $this->compareEqual($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->compareGreat($difficulty, $rng),
+                fn () => $this->compareEqual($difficulty, $rng),
             ])(),
         };
     }
@@ -51,10 +52,10 @@ final class NumberComparisonGenerator extends GeneratorBase
         return match ($a <=> $b) { 1 => '>', -1 => '<', default => '=' };
     }
 
-    private function compareDigit(float $difficulty): MathProblem
+    private function compareDigit(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(1, 9);
-        $b = $this->rnd(1, 9);
+        $a = $this->rnd($rng, 1, 9);
+        $b = $this->rnd($rng, 1, 9);
         $symbol = $this->sign($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -74,10 +75,10 @@ final class NumberComparisonGenerator extends GeneratorBase
         );
     }
 
-    private function compareScore(float $difficulty): MathProblem
+    private function compareScore(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(1, 9);
-        $b = $this->rnd(1, 9);
+        $a = $this->rnd($rng, 1, 9);
+        $b = $this->rnd($rng, 1, 9);
         $symbol = $this->sign($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -98,10 +99,10 @@ final class NumberComparisonGenerator extends GeneratorBase
         );
     }
 
-    private function compareTwoDigit(float $difficulty): MathProblem
+    private function compareTwoDigit(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 99);
-        $b = $this->rnd(10, 99);
+        $a = $this->rnd($rng, 10, 99);
+        $b = $this->rnd($rng, 10, 99);
         $symbol = $this->sign($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -121,10 +122,10 @@ final class NumberComparisonGenerator extends GeneratorBase
         );
     }
 
-    private function compareAge(float $difficulty): MathProblem
+    private function compareAge(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 99);
-        $b = $this->rnd(10, 99);
+        $a = $this->rnd($rng, 10, 99);
+        $b = $this->rnd($rng, 10, 99);
         $symbol = $this->sign($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -144,10 +145,10 @@ final class NumberComparisonGenerator extends GeneratorBase
         );
     }
 
-    private function compareDifferentLength(float $difficulty): MathProblem
+    private function compareDifferentLength(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 99);
-        $b = $this->rnd(100, 999);
+        $a = $this->rnd($rng, 10, 99);
+        $b = $this->rnd($rng, 100, 999);
         $symbol = $this->sign($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -167,10 +168,10 @@ final class NumberComparisonGenerator extends GeneratorBase
         );
     }
 
-    private function comparePrice(float $difficulty): MathProblem
+    private function comparePrice(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 99);
-        $b = $this->rnd(100, 999);
+        $a = $this->rnd($rng, 10, 99);
+        $b = $this->rnd($rng, 100, 999);
         $symbol = $this->sign($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -190,10 +191,10 @@ final class NumberComparisonGenerator extends GeneratorBase
         );
     }
 
-    private function compareBig(float $difficulty): MathProblem
+    private function compareBig(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(1000, 9999);
-        $b = $this->rnd(1000, 9999);
+        $a = $this->rnd($rng, 1000, 9999);
+        $b = $this->rnd($rng, 1000, 9999);
         $symbol = $this->sign($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -213,10 +214,10 @@ final class NumberComparisonGenerator extends GeneratorBase
         );
     }
 
-    private function compareDistance(float $difficulty): MathProblem
+    private function compareDistance(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(1000, 9999);
-        $b = $this->rnd(1000, 9999);
+        $a = $this->rnd($rng, 1000, 9999);
+        $b = $this->rnd($rng, 1000, 9999);
         $symbol = $this->sign($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -236,10 +237,10 @@ final class NumberComparisonGenerator extends GeneratorBase
         );
     }
 
-    private function compareGreat(float $difficulty): MathProblem
+    private function compareGreat(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10000, 99999);
-        $b = $this->rnd(10000, 99999);
+        $a = $this->rnd($rng, 10000, 99999);
+        $b = $this->rnd($rng, 10000, 99999);
         $symbol = $this->sign($a, $b);
 
         $solution = "**Решение:**\n\n"
@@ -259,10 +260,10 @@ final class NumberComparisonGenerator extends GeneratorBase
         );
     }
 
-    private function compareEqual(float $difficulty): MathProblem
+    private function compareEqual(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(1000, 9999);
-        $b = random_int(0, 1) === 1 ? $a : $a + $this->rnd(1, 999);
+        $a = $this->rnd($rng, 1000, 9999);
+        $b = $this->rnd($rng, 0, 1) === 1 ? $a : $a + $this->rnd($rng, 1, 999);
         $symbol = $this->sign($a, $b);
 
         $solution = "**Решение:**\n\n"

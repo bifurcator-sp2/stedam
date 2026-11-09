@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Operations;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Сложение.
@@ -20,37 +21,37 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class AdditionGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->chainSum($difficulty),
-                fn () => $this->dailySum($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->chainSum($difficulty, $rng),
+                fn () => $this->dailySum($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->columnSum($difficulty),
-                fn () => $this->shopsSum($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->columnSum($difficulty, $rng),
+                fn () => $this->shopsSum($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->threeTerms($difficulty),
-                fn () => $this->librarySum($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->threeTerms($difficulty, $rng),
+                fn () => $this->librarySum($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->bigColumn($difficulty),
-                fn () => $this->fourNumbers($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->bigColumn($difficulty, $rng),
+                fn () => $this->fourNumbers($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->manyTerms($difficulty),
-                fn () => $this->roundTens($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->manyTerms($difficulty, $rng),
+                fn () => $this->roundTens($difficulty, $rng),
             ])(),
         };
     }
 
-    private function chainSum(float $difficulty): MathProblem
+    private function chainSum(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(1, 9);
-        $b = $this->rnd(1, 9);
-        $c = $this->rnd(1, 9);
+        $a = $this->rnd($rng, 1, 9);
+        $b = $this->rnd($rng, 1, 9);
+        $c = $this->rnd($rng, 1, 9);
         $sum = $a + $b + $c;
 
         $solution = "**Решение:**\n\n"
@@ -71,10 +72,10 @@ final class AdditionGenerator extends GeneratorBase
         );
     }
 
-    private function dailySum(float $difficulty): MathProblem
+    private function dailySum(float $difficulty, Randomizer $rng): MathProblem
     {
-        $morning = $this->rnd(1, 9);
-        $evening = $this->rnd(1, 9);
+        $morning = $this->rnd($rng, 1, 9);
+        $evening = $this->rnd($rng, 1, 9);
         $sum = $morning + $evening;
 
         $solution = "**Решение:**\n\n"
@@ -95,10 +96,10 @@ final class AdditionGenerator extends GeneratorBase
         );
     }
 
-    private function columnSum(float $difficulty): MathProblem
+    private function columnSum(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 99);
-        $b = $this->rnd(10, 99);
+        $a = $this->rnd($rng, 10, 99);
+        $b = $this->rnd($rng, 10, 99);
         $sum = $a + $b;
 
         $solution = "**Решение:**\n\n"
@@ -118,10 +119,10 @@ final class AdditionGenerator extends GeneratorBase
         );
     }
 
-    private function shopsSum(float $difficulty): MathProblem
+    private function shopsSum(float $difficulty, Randomizer $rng): MathProblem
     {
-        $first = $this->rnd(10, 99);
-        $second = $this->rnd(10, 99);
+        $first = $this->rnd($rng, 10, 99);
+        $second = $this->rnd($rng, 10, 99);
         $sum = $first + $second;
 
         $solution = "**Решение:**\n\n"
@@ -142,11 +143,11 @@ final class AdditionGenerator extends GeneratorBase
         );
     }
 
-    private function threeTerms(float $difficulty): MathProblem
+    private function threeTerms(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(100, 999);
-        $b = $this->rnd(100, 999);
-        $c = $this->rnd(10, 99);
+        $a = $this->rnd($rng, 100, 999);
+        $b = $this->rnd($rng, 100, 999);
+        $c = $this->rnd($rng, 10, 99);
         $sum = $a + $b + $c;
 
         $solution = "**Решение:**\n\n"
@@ -167,10 +168,10 @@ final class AdditionGenerator extends GeneratorBase
         );
     }
 
-    private function librarySum(float $difficulty): MathProblem
+    private function librarySum(float $difficulty, Randomizer $rng): MathProblem
     {
-        $novels = $this->rnd(100, 999);
-        $poems = $this->rnd(100, 999);
+        $novels = $this->rnd($rng, 100, 999);
+        $poems = $this->rnd($rng, 100, 999);
         $sum = $novels + $poems;
 
         $solution = "**Решение:**\n\n"
@@ -191,10 +192,10 @@ final class AdditionGenerator extends GeneratorBase
         );
     }
 
-    private function bigColumn(float $difficulty): MathProblem
+    private function bigColumn(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(1000, 9999);
-        $b = $this->rnd(1000, 9999);
+        $a = $this->rnd($rng, 1000, 9999);
+        $b = $this->rnd($rng, 1000, 9999);
         $sum = $a + $b;
 
         $solution = "**Решение:**\n\n"
@@ -214,12 +215,12 @@ final class AdditionGenerator extends GeneratorBase
         );
     }
 
-    private function fourNumbers(float $difficulty): MathProblem
+    private function fourNumbers(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(1000, 9999);
-        $b = $this->rnd(1000, 9999);
-        $c = $this->rnd(100, 999);
-        $d = $this->rnd(10, 99);
+        $a = $this->rnd($rng, 1000, 9999);
+        $b = $this->rnd($rng, 1000, 9999);
+        $c = $this->rnd($rng, 100, 999);
+        $d = $this->rnd($rng, 10, 99);
         $sum = $a + $b + $c + $d;
 
         $solution = "**Решение:**\n\n"
@@ -240,11 +241,11 @@ final class AdditionGenerator extends GeneratorBase
         );
     }
 
-    private function manyTerms(float $difficulty): MathProblem
+    private function manyTerms(float $difficulty, Randomizer $rng): MathProblem
     {
         $terms = [];
         for ($i = 0; $i < 5; $i++) {
-            $terms[] = $this->rnd(1000, 9999);
+            $terms[] = $this->rnd($rng, 1000, 9999);
         }
         $sum = array_sum($terms);
         $expr = implode(' + ', $terms);
@@ -266,11 +267,11 @@ final class AdditionGenerator extends GeneratorBase
         );
     }
 
-    private function roundTens(float $difficulty): MathProblem
+    private function roundTens(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 90) * 100;
-        $b = $this->rnd(10, 90) * 1000;
-        $c = $this->rnd(10, 90) * 10;
+        $a = $this->rnd($rng, 10, 90) * 100;
+        $b = $this->rnd($rng, 10, 90) * 1000;
+        $c = $this->rnd($rng, 10, 90) * 10;
         $sum = $a + $b + $c;
 
         $solution = "**Решение:**\n\n"

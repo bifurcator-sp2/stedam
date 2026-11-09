@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Algebra\Equations;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Системы линейных уравнений 2×2.
@@ -17,19 +18,19 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class SystemOfEquationsGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return $difficulty < 0.5
-            ? $this->byAddition($difficulty)
-            : $this->bySubstitution($difficulty);
+            ? $this->byAddition($difficulty, $rng)
+            : $this->bySubstitution($difficulty, $rng);
     }
 
-    private function byAddition(float $difficulty): MathProblem
+    private function byAddition(float $difficulty, Randomizer $rng): MathProblem
     {
-        $x = $this->rnd(1, 10);
-        $y = $this->rnd(1, 10);
+        $x = $this->rnd($rng, 1, 10);
+        $y = $this->rnd($rng, 1, 10);
         while ($x === $y) {
-            $y = $this->rnd(1, 10);
+            $y = $this->rnd($rng, 1, 10);
         }
         $sum = $x + $y;
         $diff = $x - $y;
@@ -59,19 +60,18 @@ final class SystemOfEquationsGenerator extends GeneratorBase
         );
     }
 
-    private function bySubstitution(float $difficulty): MathProblem
+    private function bySubstitution(float $difficulty, Randomizer $rng): MathProblem
     {
-        // Система: 2x + y = a; x - y = b. Строим от целых x, y.
-        $x = $this->rnd(1, 8);
-        $y = $this->rnd(1, 8);
+        $x = $this->rnd($rng, 1, 8);
+        $y = $this->rnd($rng, 1, 8);
         while ($x === $y) {
-            $y = $this->rnd(1, 8);
+            $y = $this->rnd($rng, 1, 8);
         }
         $a = 2 * $x + $y;
         $b = $x - $y;
 
         $solution = "**Решение:**\n\n"
-            . "Рз второго уравнения выразим \\(x\\):\n\n"
+            . "Из второго уравнения выразим \\(x\\):\n\n"
             . KaTeX::display(KaTeX::alignedRaw([
                 "x = y + $b",
             ]))

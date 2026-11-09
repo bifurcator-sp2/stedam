@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Combinatorics;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Графы: степень вершины, рёбра, рукопожатия, деревья, формула Эйлера.
@@ -16,39 +17,39 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  *   [0.2–0.4) — рёбра дерева (n − 1)
  *   [0.4–0.6) — сумма рёбер из степеней вершин
  *   [0.6–0.8) — полный граф, обратная задача (найти число вершин)
- *   [0.8–1.0) — формула Эйлера V − E + F = 2
+ *   [0.8–1.0] — формула Эйлера V − E + F = 2
  */
 final class GraphsGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->handshakes($difficulty),
-                fn () => $this->greetings($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->handshakes($difficulty, $rng),
+                fn () => $this->greetings($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->treeEdges($difficulty),
-                fn () => $this->railwayTree($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->treeEdges($difficulty, $rng),
+                fn () => $this->railwayTree($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->sumDegrees($difficulty),
-                fn () => $this->handshakeDegrees($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->sumDegrees($difficulty, $rng),
+                fn () => $this->handshakeDegrees($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->completeGraphInverse($difficulty),
-                fn () => $this->completeGraphInverseWord($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->completeGraphInverse($difficulty, $rng),
+                fn () => $this->completeGraphInverseWord($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->euler($difficulty),
-                fn () => $this->eulerEdges($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->euler($difficulty, $rng),
+                fn () => $this->eulerEdges($difficulty, $rng),
             ])(),
         };
     }
 
-    private function handshakes(float $difficulty): MathProblem
+    private function handshakes(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 8);
+        $n = $this->rnd($rng, 3, 8);
         $edges = intdiv($n * ($n - 1), 2);
 
         $solution = "**Решение:**\n\n"
@@ -70,9 +71,9 @@ final class GraphsGenerator extends GeneratorBase
         );
     }
 
-    private function greetings($difficulty): MathProblem
+    private function greetings(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 8);
+        $n = $this->rnd($rng, 3, 8);
         $edges = intdiv($n * ($n - 1), 2);
 
         $solution = "**Решение:**\n\n"
@@ -92,9 +93,9 @@ final class GraphsGenerator extends GeneratorBase
         );
     }
 
-    private function treeEdges(float $difficulty): MathProblem
+    private function treeEdges(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 12);
+        $n = $this->rnd($rng, 3, 12);
         $edges = $n - 1;
 
         $solution = "**Решение:**\n\n"
@@ -114,9 +115,9 @@ final class GraphsGenerator extends GeneratorBase
         );
     }
 
-    private function railwayTree(float $difficulty): MathProblem
+    private function railwayTree(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 12);
+        $n = $this->rnd($rng, 3, 12);
         $edges = $n - 1;
 
         $solution = "**Решение:**\n\n"
@@ -137,14 +138,13 @@ final class GraphsGenerator extends GeneratorBase
         );
     }
 
-    private function sumDegrees(float $difficulty): MathProblem
+    private function sumDegrees(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 6);
-        // Строим степени с чётной суммой
+        $n = $this->rnd($rng, 3, 6);
         $degrees = [];
         $sum = 0;
         for ($i = 0; $i < $n; $i++) {
-            $d = $this->rnd(1, 4);
+            $d = $this->rnd($rng, 1, 4);
             $degrees[] = $d;
             $sum += $d;
         }
@@ -173,13 +173,13 @@ final class GraphsGenerator extends GeneratorBase
         );
     }
 
-    private function handshakeDegrees(float $difficulty): MathProblem
+    private function handshakeDegrees(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 5);
+        $n = $this->rnd($rng, 3, 5);
         $degrees = [];
         $sum = 0;
         for ($i = 0; $i < $n; $i++) {
-            $d = $this->rnd(1, 4);
+            $d = $this->rnd($rng, 1, 4);
             $degrees[] = $d;
             $sum += $d;
         }
@@ -209,16 +209,18 @@ final class GraphsGenerator extends GeneratorBase
         );
     }
 
-    private function completeGraphInverse(float $difficulty): MathProblem
+    private function completeGraphInverse(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 8);
+        $n = $this->rnd($rng, 3, 8);
         $edges = intdiv($n * ($n - 1), 2);
+        $pairs = $n * ($n - 1);
 
         $solution = "**Решение:**\n\n"
             . "В полном графе \\(E = \\dfrac{n(n-1)}{2} = $edges\\). "
-            . "Отсюда \\(n(n-1) = " . ($n * ($n - 1)) . "\\), значит \\(n = $n\\):\n\n"
+            . "Отсюда \\(n(n-1) = $pairs\\), значит \\(n = $n\\):\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "\\dfrac{$n($n - 1)}{2} = $edges",
+                "\\dfrac{n(n - 1)}{2} = $edges",
+                "n(n - 1) = $pairs",
                 "n = $n",
             ]))
             . "\n\n**Ответ:** " . KaTeX::inline((string) $n);
@@ -232,9 +234,9 @@ final class GraphsGenerator extends GeneratorBase
         );
     }
 
-    private function completeGraphInverseWord(float $difficulty): MathProblem
+    private function completeGraphInverseWord(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 8);
+        $n = $this->rnd($rng, 3, 8);
         $edges = intdiv($n * ($n - 1), 2);
 
         $solution = "**Решение:**\n\n"
@@ -255,11 +257,15 @@ final class GraphsGenerator extends GeneratorBase
         );
     }
 
-    private function euler(float $difficulty): MathProblem
+    private function euler(float $difficulty, Randomizer $rng): MathProblem
     {
-        $v = $this->rnd(4, 12);
-        $e = $this->rnd($v - 1, $v + 6);
+        $v = $this->rnd($rng, 4, 12);
+        $e = $this->rnd($rng, $v - 1, $v + 6);
         $f = 2 - $v + $e;
+        if ($f < 1) {
+            $f = 1;
+            $e = $v + $f - 2;
+        }
 
         $solution = "**Решение:**\n\n"
             . "Формула Эйлера для планарного графа: \\(V - E + F = 2\\). "
@@ -280,14 +286,14 @@ final class GraphsGenerator extends GeneratorBase
         );
     }
 
-    private function eulerEdges(float $difficulty): MathProblem
+    private function eulerEdges(float $difficulty, Randomizer $rng): MathProblem
     {
-        $v = $this->rnd(4, 12);
-        $f = $this->rnd(2, 10);
+        $v = $this->rnd($rng, 4, 12);
+        $f = $this->rnd($rng, 2, 10);
         $e = $v + $f - 2;
 
         $solution = "**Решение:**\n\n"
-            . "Рз формулы Эйлера \\(V - E + F = 2\\) выразим рёбра:\n\n"
+            . "Из формулы Эйлера \\(V - E + F = 2\\) выразим рёбра:\n\n"
             . KaTeX::display(KaTeX::aligned([
                 "E = V + F - 2",
                 "E = $v + $f - 2 = $e",

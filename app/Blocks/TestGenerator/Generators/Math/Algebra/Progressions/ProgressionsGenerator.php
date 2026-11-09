@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Algebra\Progressions;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Прогрессии.
@@ -18,20 +19,20 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class ProgressionsGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.4 => $this->arithmeticTerm($difficulty),
-            $difficulty < 0.7 => $this->arithmeticSum($difficulty),
-            default           => $this->geometricTerm($difficulty),
+            $difficulty < 0.4 => $this->arithmeticTerm($difficulty, $rng),
+            $difficulty < 0.7 => $this->arithmeticSum($difficulty, $rng),
+            default           => $this->geometricTerm($difficulty, $rng),
         };
     }
 
-    private function arithmeticTerm(float $difficulty): MathProblem
+    private function arithmeticTerm(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a1 = $this->rnd(1, 10);
-        $d  = $this->rnd(2, 8);
-        $n  = $this->rnd(5, 15);
+        $a1 = $this->rnd($rng, 1, 10);
+        $d  = $this->rnd($rng, 2, 8);
+        $n  = $this->rnd($rng, 5, 15);
         $an = $a1 + ($n - 1) * $d;
         $nMinus1 = $n - 1;
         $prod = $nMinus1 * $d;
@@ -57,13 +58,13 @@ final class ProgressionsGenerator extends GeneratorBase
         );
     }
 
-    private function arithmeticSum(float $difficulty): MathProblem
+    private function arithmeticSum(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a1 = $this->rnd(1, 8);
-        $d  = $this->rnd(2, 5);
-        $n  = $this->rnd(6, 12);
+        $a1 = $this->rnd($rng, 1, 8);
+        $d  = $this->rnd($rng, 2, 5);
+        $n  = $this->rnd($rng, 6, 12);
         $an = $a1 + ($n - 1) * $d;
-        $sumPairs = $a1 + $an;              // a1 + an
+        $sumPairs = $a1 + $an;
         $product = $sumPairs * $n;
         $sn = intdiv($product, 2);
 
@@ -92,11 +93,11 @@ final class ProgressionsGenerator extends GeneratorBase
         );
     }
 
-    private function geometricTerm(float $difficulty): MathProblem
+    private function geometricTerm(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b1 = $this->rnd(1, 3);
-        $q  = $this->rnd(2, 3);
-        $n  = $this->rnd(3, 5);
+        $b1 = $this->rnd($rng, 1, 3);
+        $q  = $this->rnd($rng, 2, 3);
+        $n  = $this->rnd($rng, 3, 5);
         $bn = $b1 * ($q ** ($n - 1));
         $nMinus1 = $n - 1;
 

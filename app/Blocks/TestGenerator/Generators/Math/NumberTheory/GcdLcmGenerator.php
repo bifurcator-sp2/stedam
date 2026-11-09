@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\NumberTheory;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * НОД и НОК (алгоритм Евклида).
@@ -20,36 +21,36 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class GcdLcmGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->gcdSmall($difficulty),
-                fn () => $this->gcdTiles($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->gcdSmall($difficulty, $rng),
+                fn () => $this->gcdTiles($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->lcmSmall($difficulty),
-                fn () => $this->lcmBuses($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->lcmSmall($difficulty, $rng),
+                fn () => $this->lcmBuses($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->gcdMid($difficulty),
-                fn () => $this->gcdRibbon($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->gcdMid($difficulty, $rng),
+                fn () => $this->gcdRibbon($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->lcmMid($difficulty),
-                fn () => $this->lcmGear($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->lcmMid($difficulty, $rng),
+                fn () => $this->lcmGear($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->gcdBig($difficulty),
-                fn () => $this->lcmBig($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->gcdBig($difficulty, $rng),
+                fn () => $this->lcmBig($difficulty, $rng),
             ])(),
         };
     }
 
-    private function gcdSmall(float $difficulty): MathProblem
+    private function gcdSmall(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(6, 40);
-        $b = $this->rnd(6, 40);
+        $a = $this->rnd($rng, 6, 40);
+        $b = $this->rnd($rng, 6, 40);
         if ($a === $b) {
             $b = $a + 1;
         }
@@ -69,10 +70,10 @@ final class GcdLcmGenerator extends GeneratorBase
         );
     }
 
-    private function gcdTiles(float $difficulty): MathProblem
+    private function gcdTiles(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(6, 40);
-        $b = $this->rnd(6, 40);
+        $a = $this->rnd($rng, 6, 40);
+        $b = $this->rnd($rng, 6, 40);
         if ($a === $b) {
             $b = $a + 2;
         }
@@ -93,10 +94,10 @@ final class GcdLcmGenerator extends GeneratorBase
         );
     }
 
-    private function lcmSmall(float $difficulty): MathProblem
+    private function lcmSmall(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(4, 20);
-        $b = $this->rnd(4, 20);
+        $a = $this->rnd($rng, 4, 20);
+        $b = $this->rnd($rng, 4, 20);
         if ($a === $b) {
             $b = $a + 1;
         }
@@ -123,10 +124,10 @@ final class GcdLcmGenerator extends GeneratorBase
         );
     }
 
-    private function lcmBuses(float $difficulty): MathProblem
+    private function lcmBuses(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(4, 20);
-        $b = $this->rnd(4, 20);
+        $a = $this->rnd($rng, 4, 20);
+        $b = $this->rnd($rng, 4, 20);
         if ($a === $b) {
             $b = $a + 1;
         }
@@ -152,10 +153,10 @@ final class GcdLcmGenerator extends GeneratorBase
         );
     }
 
-    private function gcdMid(float $difficulty): MathProblem
+    private function gcdMid(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(30, 200);
-        $b = $this->rnd(30, 200);
+        $a = $this->rnd($rng, 30, 200);
+        $b = $this->rnd($rng, 30, 200);
         if ($a === $b) {
             $b = $a + 1;
         }
@@ -175,10 +176,10 @@ final class GcdLcmGenerator extends GeneratorBase
         );
     }
 
-    private function gcdRibbon(float $difficulty): MathProblem
+    private function gcdRibbon(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(30, 200);
-        $b = $this->rnd(30, 200);
+        $a = $this->rnd($rng, 30, 200);
+        $b = $this->rnd($rng, 30, 200);
         if ($a === $b) {
             $b = $a + 5;
         }
@@ -199,10 +200,10 @@ final class GcdLcmGenerator extends GeneratorBase
         );
     }
 
-    private function lcmMid(float $difficulty): MathProblem
+    private function lcmMid(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 40);
-        $b = $this->rnd(10, 40);
+        $a = $this->rnd($rng, 10, 40);
+        $b = $this->rnd($rng, 10, 40);
         if ($a === $b) {
             $b = $a + 1;
         }
@@ -227,10 +228,10 @@ final class GcdLcmGenerator extends GeneratorBase
         );
     }
 
-    private function lcmGear(float $difficulty): MathProblem
+    private function lcmGear(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 40);
-        $b = $this->rnd(10, 40);
+        $a = $this->rnd($rng, 10, 40);
+        $b = $this->rnd($rng, 10, 40);
         if ($a === $b) {
             $b = $a + 2;
         }
@@ -256,10 +257,10 @@ final class GcdLcmGenerator extends GeneratorBase
         );
     }
 
-    private function gcdBig(float $difficulty): MathProblem
+    private function gcdBig(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(200, 900);
-        $b = $this->rnd(200, 900);
+        $a = $this->rnd($rng, 200, 900);
+        $b = $this->rnd($rng, 200, 900);
         if ($a === $b) {
             $b = $a + 1;
         }
@@ -279,10 +280,10 @@ final class GcdLcmGenerator extends GeneratorBase
         );
     }
 
-    private function lcmBig(float $difficulty): MathProblem
+    private function lcmBig(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(20, 90);
-        $b = $this->rnd(20, 90);
+        $a = $this->rnd($rng, 20, 90);
+        $b = $this->rnd($rng, 20, 90);
         if ($a === $b) {
             $b = $a + 1;
         }

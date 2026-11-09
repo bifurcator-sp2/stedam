@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Algebra\Inequalities;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Неравенства.
@@ -18,19 +19,19 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class InequalitiesGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.4 => $this->simple($difficulty),
-            $difficulty < 0.7 => $this->withOffset($difficulty),
-            default           => $this->withNegative($difficulty),
+            $difficulty < 0.4 => $this->simple($difficulty, $rng),
+            $difficulty < 0.7 => $this->withOffset($difficulty, $rng),
+            default           => $this->withNegative($difficulty, $rng),
         };
     }
 
-    private function simple(float $difficulty): MathProblem
+    private function simple(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $k = $this->rnd(1, 12);          // граница решения: x < k
+        $a = $this->rnd($rng, 2, 9);
+        $k = $this->rnd($rng, 1, 12);          // граница решения: x < k
         $c = $a * $k;
 
         $solution = "**Решение:**\n\n"
@@ -51,11 +52,11 @@ final class InequalitiesGenerator extends GeneratorBase
         );
     }
 
-    private function withOffset(float $difficulty): MathProblem
+    private function withOffset(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $b = $this->rnd(1, 20);
-        $k = $this->rnd(1, 10);          // x в‰¤ k
+        $a = $this->rnd($rng, 2, 9);
+        $b = $this->rnd($rng, 1, 20);
+        $k = $this->rnd($rng, 1, 10);          // x ≤ k
         $c = $a * $k + $b;
 
         $solution = "**Решение:**\n\n"
@@ -70,19 +71,19 @@ final class InequalitiesGenerator extends GeneratorBase
         return new MathProblem(
             question: "Решите неравенство: " . KaTeX::inline("{$a}x + {$b} \\leq {$c}"),
             solution: $solution,
-            answer: "x в‰¤ $k",
+            answer: "x ≤ $k",
             topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function withNegative(float $difficulty): MathProblem
+    private function withNegative(float $difficulty, Randomizer $rng): MathProblem
     {
-        // -ax + b < c  ⇔  -ax < c - b  ⇔  x > (b - c)/a.  Пусть x > k, тогда b - c = a·k.
-        $a = $this->rnd(2, 9);
-        $b = $this->rnd(10, 30);
-        $k = $this->rnd(1, 8);           // x > k
-        $c = $b - $a * $k;               // b - c = aВ·k
+        // −ax + b < c  ⇔  −ax < c − b  ⇔  x > (b − c)/a. Пусть x > k, тогда b − c = a·k.
+        $a = $this->rnd($rng, 2, 9);
+        $b = $this->rnd($rng, 10, 30);
+        $k = $this->rnd($rng, 1, 8);           // x > k
+        $c = $b - $a * $k;                     // b − c = a·k
 
         $solution = "**Решение:**\n\n"
             . "Перенесём \\($b\\) вправо, затем разделим на \\(-$a < 0\\) — "

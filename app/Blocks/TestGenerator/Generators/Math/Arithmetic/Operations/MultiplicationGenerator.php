@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Arithmetic\Operations;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Умножение: произведение неотрицательных целых.
@@ -20,36 +21,36 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class MultiplicationGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->timesShort($difficulty),
-                fn () => $this->boxRows($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->timesShort($difficulty, $rng),
+                fn () => $this->boxRows($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->timesColumn($difficulty),
-                fn () => $this->weeklyOutput($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->timesColumn($difficulty, $rng),
+                fn () => $this->weeklyOutput($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->timesDouble($difficulty),
-                fn () => $this->tileArea($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->timesDouble($difficulty, $rng),
+                fn () => $this->tileArea($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->timesTriple($difficulty),
-                fn () => $this->booksTotal($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->timesTriple($difficulty, $rng),
+                fn () => $this->booksTotal($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->timesThree($difficulty),
-                fn () => $this->powerOfTwo($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->timesThree($difficulty, $rng),
+                fn () => $this->powerOfTwo($difficulty, $rng),
             ])(),
         };
     }
 
-    private function timesShort(float $difficulty): MathProblem
+    private function timesShort(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $b = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 2, 9);
+        $b = $this->rnd($rng, 2, 9);
         $product = $a * $b;
 
         $solution = "**Решение:**\n\n"
@@ -69,10 +70,10 @@ final class MultiplicationGenerator extends GeneratorBase
         );
     }
 
-    private function boxRows(float $difficulty): MathProblem
+    private function boxRows(float $difficulty, Randomizer $rng): MathProblem
     {
-        $rows = $this->rnd(2, 9);
-        $cols = $this->rnd(2, 9);
+        $rows = $this->rnd($rng, 2, 9);
+        $cols = $this->rnd($rng, 2, 9);
         $total = $rows * $cols;
 
         $solution = "**Решение:**\n\n"
@@ -93,10 +94,10 @@ final class MultiplicationGenerator extends GeneratorBase
         );
     }
 
-    private function timesColumn(float $difficulty): MathProblem
+    private function timesColumn(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 99);
-        $b = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 10, 99);
+        $b = $this->rnd($rng, 2, 9);
         $product = $a * $b;
 
         $solution = "**Решение:**\n\n"
@@ -116,10 +117,10 @@ final class MultiplicationGenerator extends GeneratorBase
         );
     }
 
-    private function weeklyOutput(float $difficulty): MathProblem
+    private function weeklyOutput(float $difficulty, Randomizer $rng): MathProblem
     {
-        $perDay = $this->rnd(10, 99);
-        $days = $this->rnd(2, 9);
+        $perDay = $this->rnd($rng, 10, 99);
+        $days = $this->rnd($rng, 2, 9);
         $total = $perDay * $days;
 
         $solution = "**Решение:**\n\n"
@@ -140,10 +141,10 @@ final class MultiplicationGenerator extends GeneratorBase
         );
     }
 
-    private function timesDouble(float $difficulty): MathProblem
+    private function timesDouble(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 99);
-        $b = $this->rnd(10, 99);
+        $a = $this->rnd($rng, 10, 99);
+        $b = $this->rnd($rng, 10, 99);
         $product = $a * $b;
 
         $solution = "**Решение:**\n\n"
@@ -163,10 +164,10 @@ final class MultiplicationGenerator extends GeneratorBase
         );
     }
 
-    private function tileArea(float $difficulty): MathProblem
+    private function tileArea(float $difficulty, Randomizer $rng): MathProblem
     {
-        $width = $this->rnd(10, 99);
-        $height = $this->rnd(10, 99);
+        $width = $this->rnd($rng, 10, 99);
+        $height = $this->rnd($rng, 10, 99);
         $area = $width * $height;
 
         $solution = "**Решение:**\n\n"
@@ -187,10 +188,10 @@ final class MultiplicationGenerator extends GeneratorBase
         );
     }
 
-    private function timesTriple(float $difficulty): MathProblem
+    private function timesTriple(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(100, 999);
-        $b = $this->rnd(10, 99);
+        $a = $this->rnd($rng, 100, 999);
+        $b = $this->rnd($rng, 10, 99);
         $product = $a * $b;
 
         $solution = "**Решение:**\n\n"
@@ -210,10 +211,10 @@ final class MultiplicationGenerator extends GeneratorBase
         );
     }
 
-    private function booksTotal(float $difficulty): MathProblem
+    private function booksTotal(float $difficulty, Randomizer $rng): MathProblem
     {
-        $shelves = $this->rnd(10, 99);
-        $perShelf = $this->rnd(100, 999);
+        $shelves = $this->rnd($rng, 10, 99);
+        $perShelf = $this->rnd($rng, 100, 999);
         $total = $shelves * $perShelf;
 
         $solution = "**Решение:**\n\n"
@@ -234,11 +235,11 @@ final class MultiplicationGenerator extends GeneratorBase
         );
     }
 
-    private function timesThree(float $difficulty): MathProblem
+    private function timesThree(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(10, 50);
-        $b = $this->rnd(10, 50);
-        $c = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 10, 50);
+        $b = $this->rnd($rng, 10, 50);
+        $c = $this->rnd($rng, 2, 9);
         $product = $a * $b * $c;
 
         $solution = "**Решение:**\n\n"
@@ -259,10 +260,10 @@ final class MultiplicationGenerator extends GeneratorBase
         );
     }
 
-    private function powerOfTwo(float $difficulty): MathProblem
+    private function powerOfTwo(float $difficulty, Randomizer $rng): MathProblem
     {
-        $base = $this->rnd(2, 5);
-        $power = $this->rnd(3, 5);
+        $base = $this->rnd($rng, 2, 5);
+        $power = $this->rnd($rng, 3, 5);
         $product = $base ** $power;
         $chain = implode(' \\cdot ', array_fill(0, $power, (string) $base));
 

@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\WordProblems;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Задачи на движение: s = v · t.
@@ -15,41 +16,41 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  *   [0.0–0.2) — найти путь по скорости и времени
  *   [0.2–0.4) — найти время по пути и скорости
  *   [0.4–0.6) — найти скорость по пути и времени
- *   [0.6–0.8) — путь двух объектов (встречное/суммарное)
- *   [0.8–1.0] — скорость удаления / общая скорость
+ *   [0.6–0.8) — путь за несколько участков / время до встречи
+ *   [0.8–1.0) — разность путей / скорость удаления
  */
 final class MotionGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->findDistance($difficulty),
-                fn () => $this->findDistanceCar($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->findDistance($difficulty, $rng),
+                fn () => $this->findDistanceCar($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->findTime($difficulty),
-                fn () => $this->findTimeTrain($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->findTime($difficulty, $rng),
+                fn () => $this->findTimeTrain($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->findSpeed($difficulty),
-                fn () => $this->findSpeedSwimmer($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->findSpeed($difficulty, $rng),
+                fn () => $this->findSpeedSwimmer($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->combinedPath($difficulty),
-                fn () => $this->meetingTime($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->combinedPath($difficulty, $rng),
+                fn () => $this->meetingTime($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->relativeSpeed($difficulty),
-                fn () => $this->overtake($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->relativeSpeed($difficulty, $rng),
+                fn () => $this->overtake($difficulty, $rng),
             ])(),
         };
     }
 
-    private function findDistance(float $difficulty): MathProblem
+    private function findDistance(float $difficulty, Randomizer $rng): MathProblem
     {
-        $v = $this->rnd(3, 15) * 10;
-        $t = $this->rnd(2, 6);
+        $v = $this->rnd($rng, 3, 15) * 10;
+        $t = $this->rnd($rng, 2, 6);
         $s = $v * $t;
 
         $solution = "**Решение:**\n\n"
@@ -70,10 +71,10 @@ final class MotionGenerator extends GeneratorBase
         );
     }
 
-    private function findDistanceCar(float $difficulty): MathProblem
+    private function findDistanceCar(float $difficulty, Randomizer $rng): MathProblem
     {
-        $v = $this->rnd(4, 12) * 10;
-        $t = $this->rnd(2, 5);
+        $v = $this->rnd($rng, 4, 12) * 10;
+        $t = $this->rnd($rng, 2, 5);
         $s = $v * $t;
 
         $solution = "**Решение:**\n\n"
@@ -94,10 +95,10 @@ final class MotionGenerator extends GeneratorBase
         );
     }
 
-    private function findTime(float $difficulty): MathProblem
+    private function findTime(float $difficulty, Randomizer $rng): MathProblem
     {
-        $v = $this->rnd(4, 12) * 10;
-        $t = $this->rnd(2, 6);
+        $v = $this->rnd($rng, 4, 12) * 10;
+        $t = $this->rnd($rng, 2, 6);
         $s = $v * $t;
 
         $solution = "**Решение:**\n\n"
@@ -118,10 +119,10 @@ final class MotionGenerator extends GeneratorBase
         );
     }
 
-    private function findTimeTrain(float $difficulty): MathProblem
+    private function findTimeTrain(float $difficulty, Randomizer $rng): MathProblem
     {
-        $v = $this->rnd(4, 12) * 10;
-        $t = $this->rnd(2, 6);
+        $v = $this->rnd($rng, 4, 12) * 10;
+        $t = $this->rnd($rng, 2, 6);
         $s = $v * $t;
 
         $solution = "**Решение:**\n\n"
@@ -142,10 +143,10 @@ final class MotionGenerator extends GeneratorBase
         );
     }
 
-    private function findSpeed(float $difficulty): MathProblem
+    private function findSpeed(float $difficulty, Randomizer $rng): MathProblem
     {
-        $t = $this->rnd(2, 6);
-        $v = $this->rnd(3, 12) * 10;
+        $t = $this->rnd($rng, 2, 6);
+        $v = $this->rnd($rng, 3, 12) * 10;
         $s = $v * $t;
 
         $solution = "**Решение:**\n\n"
@@ -166,10 +167,10 @@ final class MotionGenerator extends GeneratorBase
         );
     }
 
-    private function findSpeedSwimmer(float $difficulty): MathProblem
+    private function findSpeedSwimmer(float $difficulty, Randomizer $rng): MathProblem
     {
-        $t = $this->rnd(2, 6);
-        $v = $this->rnd(2, 9) * 10;
+        $t = $this->rnd($rng, 2, 6);
+        $v = $this->rnd($rng, 2, 9) * 10;
         $s = $v * $t;
 
         $solution = "**Решение:**\n\n"
@@ -190,11 +191,11 @@ final class MotionGenerator extends GeneratorBase
         );
     }
 
-    private function combinedPath(float $difficulty): MathProblem
+    private function combinedPath(float $difficulty, Randomizer $rng): MathProblem
     {
-        $v = $this->rnd(3, 10) * 10;
-        $t1 = $this->rnd(1, 3);
-        $t2 = $this->rnd(1, 3);
+        $v = $this->rnd($rng, 3, 10) * 10;
+        $t1 = $this->rnd($rng, 1, 3);
+        $t2 = $this->rnd($rng, 1, 3);
         $s = $v * ($t1 + $t2);
 
         $solution = "**Решение:**\n\n"
@@ -215,11 +216,11 @@ final class MotionGenerator extends GeneratorBase
         );
     }
 
-    private function meetingTime(float $difficulty): MathProblem
+    private function meetingTime(float $difficulty, Randomizer $rng): MathProblem
     {
-        $v1 = $this->rnd(2, 6) * 10;
-        $v2 = $this->rnd(2, 6) * 10;
-        $t = $this->rnd(2, 5);
+        $v1 = $this->rnd($rng, 2, 6) * 10;
+        $v2 = $this->rnd($rng, 2, 6) * 10;
+        $t = $this->rnd($rng, 2, 5);
         $s = ($v1 + $v2) * $t;
 
         $solution = "**Решение:**\n\n"
@@ -231,7 +232,7 @@ final class MotionGenerator extends GeneratorBase
             . "\n\n**Ответ:** " . KaTeX::inline("$t \\text{ ч}");
 
         return new MathProblem(
-            question: "Рз двух городов, расстояние между которыми \\($s\\) км, одновременно навстречу "
+            question: "Из двух городов, расстояние между которыми \\($s\\) км, одновременно навстречу "
                 . "друг другу выехали два автомобиля со скоростями \\($v1\\) и \\($v2\\) км/ч. "
                 . "Через сколько часов они встретятся?",
             solution: $solution,
@@ -241,17 +242,17 @@ final class MotionGenerator extends GeneratorBase
         );
     }
 
-    private function relativeSpeed(float $difficulty): MathProblem
+    private function relativeSpeed(float $difficulty, Randomizer $rng): MathProblem
     {
-        $v1 = $this->rnd(3, 8) * 10;
-        $v2 = $this->rnd(2, 5) * 10;
-        $t = $this->rnd(2, 5);
+        $v1 = $this->rnd($rng, 5, 9) * 10;
+        $v2 = $this->rnd($rng, 2, 4) * 10;
+        $t = $this->rnd($rng, 2, 5);
         $s = ($v1 - $v2) * $t;
 
         $solution = "**Решение:**\n\n"
-            . "Число километров, на которое грузовик обгонит автомобиль, "
-            . "\\(s = (v_1 - v_2) \\cdot t\\):\n\n"
+            . "На сколько километров грузовик обгонит автомобиль:\n\n"
             . KaTeX::display(KaTeX::aligned([
+                "s = (v_1 - v_2) \\cdot t",
                 "s = ($v1 - $v2) \\cdot $t",
                 "$s = $s",
             ]))
@@ -267,19 +268,19 @@ final class MotionGenerator extends GeneratorBase
         );
     }
 
-    private function overtake(float $difficulty): MathProblem
+    private function overtake(float $difficulty, Randomizer $rng): MathProblem
     {
-        $vBig = $this->rnd(5, 9) * 10;
-        $vDiff = $this->rnd(1, 3) * 10;
+        $vBig = $this->rnd($rng, 5, 9) * 10;
+        $vDiff = $this->rnd($rng, 1, 3) * 10;
         $vSmall = $vBig - $vDiff;
-        $t = $this->rnd(2, 5);
+        $t = $this->rnd($rng, 2, 5);
         $s = $vDiff * $t;
 
         $solution = "**Решение:**\n\n"
-            . "Скорость сближения — разность скоростей \\($vDiff\\) км/ч. Расстояние между ними:\n\n"
+            . "Скорость удаления — разность скоростей \\($vDiff\\) км/ч. Расстояние между ними:\n\n"
             . KaTeX::display(KaTeX::aligned([
                 "s = ($vBig - $vSmall) \\cdot $t",
-                "$s = $vDiff \\cdot $t = $s",
+                "s = $vDiff \\cdot $t = $s",
             ]))
             . "\n\n**Ответ:** " . KaTeX::inline("$s \\text{ км}");
 

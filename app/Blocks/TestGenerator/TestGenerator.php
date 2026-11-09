@@ -8,6 +8,7 @@ use App\Blocks\TestGenerator\Contracts\MathProblemGeneratorInterface;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Support\PathResolver;
 use InvalidArgumentException;
+use Random\Randomizer;
 
 /**
  * Реестр генераторов: индекс по resolver-пути ('math.algebra.equations.linearEquation').
@@ -54,12 +55,14 @@ final class TestGenerator
     /**
      * Генерирует задание по resolver-пути.
      *
-     * @param string $path       resolver-путь генератора, например 'math.algebra.equations.linearEquation'.
-     * @param float  $difficulty от 0.0 (просто) до 1.0 (сложно).
+     * @param string          $path       resolver-путь генератора, например 'math.algebra.equations.linearEquation'.
+     * @param float           $difficulty от 0.0 (просто) до 1.0 (сложно).
+     * @param Randomizer|null $rng        сидированный источник случайности (см. Random\Seed);
+     *                                    null — несидированный (случайный результат).
      *
      * @throws InvalidArgumentException если difficulty вне [0.0, 1.0] или путь не найден.
      */
-    public function generate(string $path, float $difficulty): MathProblem
+    public function generate(string $path, float $difficulty, ?Randomizer $rng = null): MathProblem
     {
         if ($difficulty < 0.0 || $difficulty > 1.0) {
             throw new InvalidArgumentException(
@@ -81,7 +84,7 @@ final class TestGenerator
             );
         }
 
-        return $this->generators[$path]->generate($difficulty);
+        return $this->generators[$path]->generate($difficulty, $rng);
     }
 
     /**

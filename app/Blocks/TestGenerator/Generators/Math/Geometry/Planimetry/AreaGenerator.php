@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Geometry\Planimetry;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Площадь плоских фигур.
@@ -14,42 +15,42 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  * Пять уровней сложности, на каждом — по две формулировки:
  *   [0.0–0.2) — площадь прямоугольника
  *   [0.2–0.4) — площадь квадрата
- *   [0.4–0.6) — площадь прямоугольного треугольника
+ *   [0.4–0.6) — площадь треугольника
  *   [0.6–0.8) — площадь параллелограмма и обратная задача
  *   [0.8–1.0] — площадь трапеции и круга
  */
 final class AreaGenerator extends GeneratorBase
 {
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.2 => $this->pick([
-                fn () => $this->rectangle($difficulty),
-                fn () => $this->rectangleRoom($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->rectangle($difficulty, $rng),
+                fn () => $this->rectangleRoom($difficulty, $rng),
             ])(),
-            $difficulty < 0.4 => $this->pick([
-                fn () => $this->square($difficulty),
-                fn () => $this->squarePlot($difficulty),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->square($difficulty, $rng),
+                fn () => $this->squarePlot($difficulty, $rng),
             ])(),
-            $difficulty < 0.6 => $this->pick([
-                fn () => $this->rightTriangle($difficulty),
-                fn () => $this->triangleBaseHeight($difficulty),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->rightTriangle($difficulty, $rng),
+                fn () => $this->triangleBaseHeight($difficulty, $rng),
             ])(),
-            $difficulty < 0.8 => $this->pick([
-                fn () => $this->parallelogram($difficulty),
-                fn () => $this->findHeight($difficulty),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->parallelogram($difficulty, $rng),
+                fn () => $this->findHeight($difficulty, $rng),
             ])(),
-            default => $this->pick([
-                fn () => $this->trapezoid($difficulty),
-                fn () => $this->circle($difficulty),
+            default => $this->pick($rng, [
+                fn () => $this->trapezoid($difficulty, $rng),
+                fn () => $this->circle($difficulty, $rng),
             ])(),
         };
     }
 
-    private function rectangle(float $difficulty): MathProblem
+    private function rectangle(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(3, 20);
-        $b = $this->rnd(3, 20);
+        $a = $this->rnd($rng, 3, 20);
+        $b = $this->rnd($rng, 3, 20);
         $s = $a * $b;
 
         $solution = "**Решение:**\n\n"
@@ -68,10 +69,10 @@ final class AreaGenerator extends GeneratorBase
         );
     }
 
-    private function rectangleRoom(float $difficulty): MathProblem
+    private function rectangleRoom(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(3, 12);
-        $b = $this->rnd(3, 12);
+        $a = $this->rnd($rng, 3, 12);
+        $b = $this->rnd($rng, 3, 12);
         $s = $a * $b;
 
         $solution = "**Решение:**\n\n"
@@ -91,9 +92,9 @@ final class AreaGenerator extends GeneratorBase
         );
     }
 
-    private function square(float $difficulty): MathProblem
+    private function square(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 20);
+        $a = $this->rnd($rng, 2, 20);
         $s = $a * $a;
 
         $solution = "**Решение:**\n\n"
@@ -112,9 +113,9 @@ final class AreaGenerator extends GeneratorBase
         );
     }
 
-    private function squarePlot(float $difficulty): MathProblem
+    private function squarePlot(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(3, 15);
+        $a = $this->rnd($rng, 3, 15);
         $s = $a * $a;
 
         $solution = "**Решение:**\n\n"
@@ -133,10 +134,10 @@ final class AreaGenerator extends GeneratorBase
         );
     }
 
-    private function rightTriangle(float $difficulty): MathProblem
+    private function rightTriangle(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 12) * 2;
-        $b = $this->rnd(2, 12) * 2;
+        $a = $this->rnd($rng, 2, 12) * 2;
+        $b = $this->rnd($rng, 2, 12) * 2;
         $s = $a * $b / 2;
 
         $solution = "**Решение:**\n\n"
@@ -157,10 +158,10 @@ final class AreaGenerator extends GeneratorBase
         );
     }
 
-    private function triangleBaseHeight(float $difficulty): MathProblem
+    private function triangleBaseHeight(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b = $this->rnd(2, 15) * 2;
-        $h = $this->rnd(2, 15);
+        $b = $this->rnd($rng, 2, 15) * 2;
+        $h = $this->rnd($rng, 2, 15);
         $s = $b * $h / 2;
 
         $solution = "**Решение:**\n\n"
@@ -181,10 +182,10 @@ final class AreaGenerator extends GeneratorBase
         );
     }
 
-    private function parallelogram(float $difficulty): MathProblem
+    private function parallelogram(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(3, 20);
-        $h = $this->rnd(2, 15);
+        $a = $this->rnd($rng, 3, 20);
+        $h = $this->rnd($rng, 2, 15);
         $s = $a * $h;
 
         $solution = "**Решение:**\n\n"
@@ -204,14 +205,14 @@ final class AreaGenerator extends GeneratorBase
         );
     }
 
-    private function findHeight(float $difficulty): MathProblem
+    private function findHeight(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(3, 20);
-        $h = $this->rnd(2, 15);
+        $a = $this->rnd($rng, 3, 20);
+        $h = $this->rnd($rng, 2, 15);
         $s = $a * $h;
 
         $solution = "**Решение:**\n\n"
-            . "Рз \\(S = a \\cdot h\\) выразим высоту:\n\n"
+            . "Из \\(S = a \\cdot h\\) выразим высоту:\n\n"
             . KaTeX::display(KaTeX::aligned([
                 "h = \\dfrac{S}{a}",
                 "h = \\dfrac{$s}{$a} = $h",
@@ -228,11 +229,11 @@ final class AreaGenerator extends GeneratorBase
         );
     }
 
-    private function trapezoid(float $difficulty): MathProblem
+    private function trapezoid(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 10) * 2;
-        $b = $this->rnd(2, 10) * 2;
-        $h = $this->rnd(2, 15);
+        $a = $this->rnd($rng, 2, 10) * 2;
+        $b = $this->rnd($rng, 2, 10) * 2;
+        $h = $this->rnd($rng, 2, 15);
         $s = ($a + $b) / 2 * $h;
 
         $solution = "**Решение:**\n\n"
@@ -253,9 +254,9 @@ final class AreaGenerator extends GeneratorBase
         );
     }
 
-    private function circle(float $difficulty): MathProblem
+    private function circle(float $difficulty, Randomizer $rng): MathProblem
     {
-        $r = $this->rnd(2, 10);
+        $r = $this->rnd($rng, 2, 10);
         $s = round(3.14 * $r * $r, 2);
         $sNum = $this->num($s);
 
