@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Algebra\Expressions;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Буквенные выражения.
@@ -18,25 +19,20 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class ExpressionsGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.algebra.expressions.expressions';
-    }
-
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.3 => $this->substitution($difficulty),
-            $difficulty < 0.6 => $this->combineLike($difficulty),
-            default           => $this->expandBrackets($difficulty),
+            $difficulty < 0.3 => $this->substitution($difficulty, $rng),
+            $difficulty < 0.6 => $this->combineLike($difficulty, $rng),
+            default           => $this->expandBrackets($difficulty, $rng),
         };
     }
 
-    private function substitution(float $difficulty): MathProblem
+    private function substitution(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $b = $this->rnd(1, 20);
-        $x = $this->rnd(1, 10);
+        $a = $this->rnd($rng, 2, 9);
+        $b = $this->rnd($rng, 1, 20);
+        $x = $this->rnd($rng, 1, 10);
 
         $product = $a * $x;
         $value = $product + $b;
@@ -56,15 +52,15 @@ final class ExpressionsGenerator extends GeneratorBase
             . " при \\(x = $x\\).",
             solution: $solution,
             answer: (string) $value,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function combineLike(float $difficulty): MathProblem
+    private function combineLike(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $b = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 2, 9);
+        $b = $this->rnd($rng, 2, 9);
         $sum = $a + $b;
 
         $solution = "**Решение:**\n\n"
@@ -81,15 +77,15 @@ final class ExpressionsGenerator extends GeneratorBase
             question: "Упростите выражение: " . KaTeX::inline("{$a}x + {$b}x"),
             solution: $solution,
             answer: "{$sum}x",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function expandBrackets(float $difficulty): MathProblem
+    private function expandBrackets(float $difficulty, Randomizer $rng): MathProblem
     {
-        $a = $this->rnd(2, 9);
-        $b = $this->rnd(2, 9);
+        $a = $this->rnd($rng, 2, 9);
+        $b = $this->rnd($rng, 2, 9);
         $product = $a * $b;
 
         $solution = "**Решение:**\n\n"
@@ -105,7 +101,7 @@ final class ExpressionsGenerator extends GeneratorBase
             question: "Раскройте скобки: " . KaTeX::inline("{$a}(x + {$b})"),
             solution: $solution,
             answer: "{$a}x + {$product}",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

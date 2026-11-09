@@ -18,11 +18,15 @@ use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
  * Генерация случайного задания.
  *
  * Поддерживает поиск по:
- *   1. topic          — прямой ключ (например, 'algebra')
+ *   1. topic          — прямой resolver-путь (например, 'math.algebra.equations.linearEquation')
  *   2. test_resolver  — адрес узла (например, 'math.algebra')
  *   3. taxonomy_id    — ID узла дерева
- *   4. subject        — если ничего не найдено, берет случайную тему из указанного предмета
- *   5. Глобальный фолбэк — если для предмета нет тем, берет ЛЮБУЮ доступную тему из всех генераторов
+ *   4. subject        — если ничего не найдено, берёт случайный путь из указанного предмета
+ *   5. Глобальный фолбэк — если для предмета нет тем, берёт любой доступный путь из всех генераторов
+ *
+ * Предмет в ответе всегда выводится из первого сегмента итогового resolver-пути,
+ * поэтому системы с несколькими дисциплинами (math, physics, chemistry, ...)
+ * возвращают корректный subject автоматически.
  */
 final class TaskGenerateController extends Controller
 {
@@ -31,35 +35,32 @@ final class TaskGenerateController extends Controller
         TestGenerator $testGenerator,
         TestResolverMap $resolverMap,
     ): JsonResponse {
-        $subject = $request->resolvedSubject()
-            ?? (string) config('test_generator.default_subject', 'math');
+        $availablePaths = $testGenerator->availablePaths();
+        $difficulty     = $request->resolvedDifficulty();
 
-        $availableTopics = $testGenerator->availableTopics();
-        $difficulty      = $request->resolvedDifficulty();
+        $path = null;
 
-        $topic = null;
-
-        // 1) Прямой topic.
+        // 1) Прямой resolver-путь (topic).
         if (($direct = $request->input('topic')) !== null && $direct !== '') {
-            if (! in_array($direct, $availableTopics, true)) {
+            if (! in_array($direct, $availablePaths, true)) {
                 throw new UnprocessableEntityHttpException(
-                    sprintf('Топик "%s" недоступен. Доступные: %s.',
-                        $direct, implode(', ', $availableTopics))
+                    sprintf('Генератор "%s" недоступен. Доступные: %s.',
+                        $direct, implode(', ', $availablePaths))
                 );
             }
-            $topic = $direct;
+            $path = $direct;
         }
 
-        // 2) Через test_resolver.
-        if ($topic === null
+        // 2) Через test_resolver (точный путь).
+        if ($path === null
             && ($tr = $request->input('test_resolver')) !== null
             && $tr !== ''
         ) {
-            $topic = $resolverMap->topicFor((string) $tr);
+            $path = $resolverMap->matchedPath((string) $tr);
         }
 
-        // 3) Через taxonomy_id.
-        if ($topic === null
+        // 3) Через taxonomy_id: поднимаемся по дереву до ближайшего test_resolver.
+        if ($path === null
             && ($tid = $request->input('taxonomy_id')) !== null
             && is_numeric($tid)
         ) {
@@ -72,8 +73,8 @@ final class TaskGenerateController extends Controller
                     : '';
 
                 if ($resolver !== '') {
-                    $topic = $resolverMap->topicFor($resolver);
-                    if ($topic !== null) {
+                    $path = $resolverMap->matchedPath($resolver);
+                    if ($path !== null) {
                         break;
                     }
                 }
@@ -85,26 +86,62 @@ final class TaskGenerateController extends Controller
             }
         }
 
-        // 4) Если тема всё ещё не определена — ищем случайную.
-        if ($topic === null) {
-            // Сначала пробуем найти темы, привязанные к конкретному предмету в конфиге.
-            $configured = array_keys((array) config("test_generator.subjects.{$subject}.topics", []));
-            $pool = array_values(array_intersect($configured, $availableTopics));
+        // 4) Случайный путь, если ничего не задано.
+        if ($path === null) {
+            $requestedSubject = $request->resolvedSubject();
 
-            // Если для предмета ничего нет (как в вашем случае), берем ВСЕ доступные темы.
-            if ($pool === []) {
-                $pool = $availableTopics;
+            $configuredTopics = $requestedSubject !== null
+                ? array_keys((array) config("test_generator.subjects.{$requestedSubject}.topics", []))
+                : [];
+
+            $pool = $availablePaths;
+
+            if ($requestedSubject !== null && $configuredTopics !== []) {
+                $prefixes = array_map(
+                    static fn (string $t): string => $requestedSubject . '.' . $t,
+                    $configuredTopics,
+                );
+
+                // Короткие ключи конфига (arithmetic, algebra, ...) сопоставляем
+                // по префиксу resolver-пути предмета.
+                $pool = array_values(array_filter(
+                    $availablePaths,
+                    static function (string $p) use ($prefixes): bool {
+                        foreach ($prefixes as $prefix) {
+                            if ($p === $prefix || str_starts_with($p, $prefix . '.')) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    },
+                ));
+
+                // Если короткие ключи не совпали — берём все пути предмета.
+                if ($pool === []) {
+                    $pool = array_values(array_filter(
+                        $availablePaths,
+                        static fn (string $p): bool => $p === $requestedSubject
+                            || str_starts_with($p, $requestedSubject . '.'),
+                    ));
+                }
             }
 
-            // Если вообще нет ни одного генератора в системе — 404.
             if ($pool === []) {
-                throw new NotFoundHttpException('В системе нет доступных тем для генерации заданий.');
+                $pool = $availablePaths;
             }
 
-            $topic = $pool[array_rand($pool)];
+            if ($pool === []) {
+                throw new NotFoundHttpException('В генераторе нет ни одного доступного генератора.');
+            }
+
+            $path = $pool[array_rand($pool)];
         }
 
-        $problem = $testGenerator->generate($topic, $difficulty);
+        $problem = $testGenerator->generate($path, $difficulty);
+
+        // Предмет — первый сегмент resolver-пути ('physics.mechanics.x' → 'physics').
+        // Ответ не «врёт» про предмет, даже если генератор выбран случайно.
+        $subject = explode('.', $path, 2)[0];
 
         return (new MathProblemResource($problem, $subject))->response();
     }

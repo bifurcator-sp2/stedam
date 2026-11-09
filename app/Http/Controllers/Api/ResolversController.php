@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Blocks\TestGenerator\Resolvers\TestResolverMap;
-use App\Blocks\TestGenerator\TestGenerator;
 use App\Http\Controllers\Controller;
 use App\Models\Taxonomy;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +15,6 @@ final class ResolversController extends Controller
 {
     public function __invoke(
         Request $request,
-        TestGenerator $generators,
         TestResolverMap $resolverMap,
     ): JsonResponse {
         $request->validate([
@@ -40,13 +38,12 @@ final class ResolversController extends Controller
             ->get()
             ->groupBy('test_resolver');
 
-        $items = [];
+        $items     = [];
         $seenPaths = [];
 
-        // Основной список — из автообнаруженных путей.
+        // Зарегистрированные резолверы (точные пути).
         foreach ($resolverMap->all() as $entry) {
-            $path  = $entry['path'];
-            $topic = $entry['topic'];
+            $path = $entry['path'];
 
             $subject = $resolverMap->subjectFor($path);
             if ($subjectFilter !== null && $subject !== $subjectFilter) {
@@ -57,20 +54,16 @@ final class ResolversController extends Controller
 
             $items[] = $this->buildItem(
                 path:         $path,
-                topic:        $topic,
+                available:    true,
                 subject:      $subject,
                 subjects:     $subjects,
                 nodeGroup:    $nodesByResolver->get($path),
                 inConfig:     true,
-                available:    $generators->supports($topic),
                 includeNodes: $includeNodes,
             );
         }
 
-        // Сироты в дереве — узлы, чей test_resolver не покрыт ни одним
-        // зарегистрированным путём. Это нормальный кейс: узел размечен,
-        // но генератора ещё нет (или он унаследует от предка, если
-        // предок зарегистрирован).
+        // Пути из дерева, которых нет среди генераторов.
         $orphans = [];
         foreach ($nodesByResolver as $path => $nodeGroup) {
             if (isset($seenPaths[$path])) {
@@ -82,21 +75,16 @@ final class ResolversController extends Controller
                 continue;
             }
 
-            $resolvedTopic = $resolverMap->topicFor((string) $path);
-            $matchedPath   = $resolverMap->matchedPath((string) $path);
-            $available     = $resolvedTopic !== null && $generators->supports($resolvedTopic);
-
             $item = $this->buildItem(
                 path:         (string) $path,
-                topic:        $resolvedTopic,
+                available:    $resolverMap->classFor((string) $path) !== null,
                 subject:      $subject,
                 subjects:     $subjects,
                 nodeGroup:    $nodeGroup,
                 inConfig:     false,
-                available:    $available,
                 includeNodes: $includeNodes,
             );
-            $item['inherits_from'] = $matchedPath;
+            $item['inherits_from'] = $resolverMap->matchedPath((string) $path);
 
             if ($includeOrphans) {
                 $orphans[] = $item;
@@ -121,25 +109,23 @@ final class ResolversController extends Controller
      */
     private function buildItem(
         string $path,
-        ?string $topic,
+        bool $available,
         string $subject,
         array $subjects,
         ?Collection $nodeGroup,
         bool $inConfig,
-        bool $available,
         bool $includeNodes,
     ): array {
         $segments = explode('.', $path);
-        $isContainer = $topic === null;
 
         $item = [
             'value'        => $path,
-            'label'        => $this->shortLabel($path, $topic, $subject, $subjects, $nodeGroup),
+            'label'        => $this->shortLabel($path, $subject, $subjects, $nodeGroup),
             'label_full'   => $this->fullLabel($path, $subject, $subjects, $nodeGroup),
             'segments'     => $segments,
             'subject'      => $subject,
-            'topic'        => $topic,
-            'is_container' => $isContainer,
+            'topic'        => $path,
+            'is_container' => false,
             'available'    => $available,
             'depth'        => count($segments),
             'in_config'    => $inConfig,
@@ -166,7 +152,6 @@ final class ResolversController extends Controller
      */
     private function shortLabel(
         string $path,
-        ?string $topic,
         string $subject,
         array $subjects,
         ?Collection $nodeGroup,
@@ -176,16 +161,9 @@ final class ResolversController extends Controller
             return $nodeTitle;
         }
 
-        if ($topic !== null) {
-            $configTitle = $subjects[$subject]['topics'][$topic]['title'] ?? null;
-            if (is_string($configTitle) && $configTitle !== '') {
-                return $configTitle;
-            }
-        } else {
-            $subjectTitle = $subjects[$subject]['title'] ?? null;
-            if (is_string($subjectTitle) && $subjectTitle !== '') {
-                return $subjectTitle;
-            }
+        $configTitle = $subjects[$subject]['topics'][$path]['title'] ?? null;
+        if (is_string($configTitle) && $configTitle !== '') {
+            return $configTitle;
         }
 
         $parts = explode('.', $path);
@@ -235,6 +213,6 @@ final class ResolversController extends Controller
             $labels[] = ucfirst(str_replace('_', ' ', $seg));
         }
 
-        return implode(' → ', $labels);
+        return implode('.', $labels);
     }
 }

@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Probability;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Статистика.
@@ -20,25 +21,21 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class StatisticsGenerator extends GeneratorBase
 {
-    public static function topic(): string
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
-        return 'math.probability.statistics.statistics';
-    }
-
-    protected function build(float $difficulty): MathProblem
-    {
-        $series = $this->randomSeries();
+        $series = $this->randomSeries($rng);
 
         return match (true) {
             $difficulty < 0.35 => $this->mean($difficulty, $series),
-            $difficulty < 0.65 => $this->oneOfMedianModeRange($difficulty, $series),
+            $difficulty < 0.65 => $this->oneOfMedianModeRange($difficulty, $series, $rng),
             default            => $this->fullSummary($difficulty, $series),
         };
     }
 
     private function mean(float $difficulty, array $series): MathProblem
     {
-        [$sum, $count] = [array_sum($series), count($series)];
+        $sum = array_sum($series);
+        $count = count($series);
         $mean = $sum / $count;
         $answer = $this->num($mean, 2);
 
@@ -57,15 +54,14 @@ final class StatisticsGenerator extends GeneratorBase
             question: "Дан ряд чисел: " . implode(', ', $series) . ". Найдите среднее арифметическое.",
             solution: $solution,
             answer: $answer,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function oneOfMedianModeRange(float $difficulty, array $series): MathProblem
+    private function oneOfMedianModeRange(float $difficulty, array $series, Randomizer $rng): MathProblem
     {
-        $kind = $this->pick(['median', 'mode', 'range']);
-        return match ($kind) {
+        return match ($this->pick($rng, ['median', 'mode', 'range'])) {
             'median' => $this->median($difficulty, $series),
             'mode'   => $this->mode($difficulty, $series),
             'range'  => $this->range($difficulty, $series),
@@ -90,8 +86,6 @@ final class StatisticsGenerator extends GeneratorBase
             $b = $sorted[intdiv($n, 2)];
             $mid = ($a + $b) / 2;
             $answer = $this->num($mid, 2);
-            // ФИКС: было "\\dfrac{$a + $b}{2}" — невалидный PHP.
-            // Стало — раздельные complex-блоки {{$a} + {$b}}.
             $steps = [
                 "\\text{отсортированный ряд: } & " . implode(', ', $sorted) . " \\\\",
                 "\\text{два центральных элемента: } & $a, \\; $b \\\\",
@@ -108,7 +102,7 @@ final class StatisticsGenerator extends GeneratorBase
             question: "Дан ряд чисел: " . implode(', ', $series) . ". Найдите медиану.",
             solution: $solution,
             answer: $answer,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -117,14 +111,10 @@ final class StatisticsGenerator extends GeneratorBase
     {
         $counts = array_count_values($series);
         $maxFreq = max($counts);
-
-        // Мод может быть несколько; берём только те, у кого maxFreq.
         $modes = array_keys(array_filter($counts, static fn ($c) => $c === $maxFreq));
         sort($modes);
 
-        // Для однозначности ответа сделаем так, чтобы мода была одна.
         if (count($modes) > 1) {
-            // Добавляем ещё одно вхождение первой моды, чтобы стала уникальной.
             $series[] = $modes[0];
             $counts = array_count_values($series);
             $maxFreq = max($counts);
@@ -137,7 +127,7 @@ final class StatisticsGenerator extends GeneratorBase
         $freqLines = [];
         ksort($counts);
         foreach ($counts as $value => $freq) {
-            $freqLines[] = "\\text{число } $value & \\text{ встречается } $freq \\text{ раз(-)}";
+            $freqLines[] = "\\text{число } & $value \\text{ — } $freq \\text{ раз(-)}";
         }
 
         $solution = "**Решение:**\n\n"
@@ -149,7 +139,7 @@ final class StatisticsGenerator extends GeneratorBase
             question: "Дан ряд чисел: " . implode(', ', $series) . ". Найдите моду.",
             solution: $solution,
             answer: $answer,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -172,7 +162,7 @@ final class StatisticsGenerator extends GeneratorBase
             question: "Дан ряд чисел: " . implode(', ', $series) . ". Найдите размах.",
             solution: $solution,
             answer: (string) $range,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -188,13 +178,10 @@ final class StatisticsGenerator extends GeneratorBase
 
         if ($n % 2 === 1) {
             $median = $sorted[intdiv($n, 2)];
-            $medianStr = (string) $median;
         } else {
-            $a = $sorted[intdiv($n, 2) - 1];
-            $b = $sorted[intdiv($n, 2)];
-            $median = ($a + $b) / 2;
-            $medianStr = $this->num($median, 2);
+            $median = ($sorted[intdiv($n, 2) - 1] + $sorted[intdiv($n, 2)]) / 2;
         }
+        $medianStr = $this->num((float) $median, 2);
 
         $counts = array_count_values($series);
         $maxFreq = max($counts);
@@ -235,22 +222,20 @@ final class StatisticsGenerator extends GeneratorBase
             . ". Найдите среднее, медиану, моду и размах.",
             solution: $solution,
             answer: $answer,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    // ---------------------------------------------------------- помощники
-
     /**
      * @return list<int> ряд из 6–10 целых от 1 до 20
      */
-    private function randomSeries(): array
+    private function randomSeries(Randomizer $rng): array
     {
-        $n = $this->rnd(6, 10);
+        $n = $this->rnd($rng, 6, 10);
         $out = [];
         for ($i = 0; $i < $n; $i++) {
-            $out[] = $this->rnd(1, 20);
+            $out[] = $this->rnd($rng, 1, 20);
         }
         return $out;
     }

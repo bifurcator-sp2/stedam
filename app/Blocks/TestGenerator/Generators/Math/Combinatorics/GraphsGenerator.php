@@ -7,237 +7,306 @@ namespace App\Blocks\TestGenerator\Generators\Math\Combinatorics;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
- * Графы.
+ * Графы: степень вершины, рёбра, рукопожатия, деревья, формула Эйлера.
  *
- * difficulty:
- *   0.0–0.40  — степень заданной вершины
- *   0.40–0.70 — число рёбер по сумме степеней (лемма о рукопожатиях)
- *   0.70–1.00 — есть ли эйлеров путь (0 или 2 вершины нечётной степени)
- *
- * Граф задаётся списком рёбер; вершины нумеруются с 1.
- * В условии граф выводится как последовательность рёбер (u—v).
+ * Пять уровней сложности, на каждом — по две формулировки:
+ *   [0.0–0.2) — рукопожатия (полный граф) n(n−1)/2
+ *   [0.2–0.4) — рёбра дерева (n − 1)
+ *   [0.4–0.6) — сумма рёбер из степеней вершин
+ *   [0.6–0.8) — полный граф, обратная задача (найти число вершин)
+ *   [0.8–1.0] — формула Эйлера V − E + F = 2
  */
 final class GraphsGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.combinatorics.graphs.graphs';
-    }
-
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.40 => $this->vertexDegree($difficulty),
-            $difficulty < 0.70 => $this->edgeCount($difficulty),
-            default            => $this->eulerPath($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->handshakes($difficulty, $rng),
+                fn () => $this->greetings($difficulty, $rng),
+            ])(),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->treeEdges($difficulty, $rng),
+                fn () => $this->railwayTree($difficulty, $rng),
+            ])(),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->sumDegrees($difficulty, $rng),
+                fn () => $this->handshakeDegrees($difficulty, $rng),
+            ])(),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->completeGraphInverse($difficulty, $rng),
+                fn () => $this->completeGraphInverseWord($difficulty, $rng),
+            ])(),
+            default => $this->pick($rng, [
+                fn () => $this->euler($difficulty, $rng),
+                fn () => $this->eulerEdges($difficulty, $rng),
+            ])(),
         };
     }
 
-    // ---------------------------------------------------------- степень
-
-    private function vertexDegree(float $difficulty): MathProblem
+    private function handshakes(float $difficulty, Randomizer $rng): MathProblem
     {
-        [$edges, $n] = $this->randomGraph(
-            minVertices: 4,
-            maxVertices: 6,
-            minEdges: 3,
-            maxEdges: 7,
-        );
-
-        $v = $this->rnd(1, $n);
-        $degrees = self::degrees($edges, $n);
-        $answer = $degrees[$v];
-
-        $edgesStr = self::formatEdges($edges);
-        $stepLines = [
-            "\\text{рёбра: } & $edgesStr",
-            "\\text{степень вершины } $v\\text{: } & $answer",
-        ];
+        $n = $this->rnd($rng, 3, 8);
+        $edges = intdiv($n * ($n - 1), 2);
 
         $solution = "**Решение:**\n\n"
-            . "Степень вершины — число рёбер, выходящих из неё.\n\n"
-            . KaTeX::display(KaTeX::alignedRaw($stepLines))
-            . "\n\n**Ответ:** " . KaTeX::inline((string) $answer);
-
-        return new MathProblem(
-            question: "Дан граф с рёбрами: $edgesStr. Найдите степень вершины $v.",
-            solution: $solution,
-            answer: (string) $answer,
-            topic: self::topic(),
-            difficulty: $difficulty,
-        );
-    }
-
-    // ---------------------------------------------------------- число рёбер
-
-    private function edgeCount(float $difficulty): MathProblem
-    {
-        [$edges, $n] = $this->randomGraph(
-            minVertices: 4,
-            maxVertices: 7,
-            minEdges: 4,
-            maxEdges: 9,
-        );
-
-        $degrees = self::degrees($edges, $n);
-        $sum = array_sum($degrees);
-        $count = intdiv($sum, 2);
-
-        $parts = [];
-        for ($i = 1; $i <= $n; $i++) {
-            $parts[] = "\\deg(v_{$i}) = {$degrees[$i]}";
-        }
-
-        $solution = "**Решение:**\n\n"
-            . "Сумма степеней всех вершин равна удвоенному числу рёбер "
-            . "(лемма о рукопожатиях).\n\n"
-            . KaTeX::display(KaTeX::alignedRaw($parts))
-            . "\n\n"
+            . "Каждый из \\($n\\) человек пожимает руку каждому из остальных, "
+            . "каждое рукопожатие считаем дважды:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "\\sum \\deg = $sum",
-                "|E| = \\dfrac{$sum}{2} = $count",
+                "\\dfrac{" . $n . " \\cdot (" . $n . " - 1)}{2}",
+                "= \\dfrac{" . ($n * ($n - 1)) . "}{2} = $edges",
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline((string) $count);
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $edges);
 
         return new MathProblem(
-            question: "В графе степени вершин: "
-                . implode(', ', array_map(fn ($i) => "\\deg(v_{$i}) = {$degrees[$i]}", range(1, $n)))
-                . ". Сколько в графе рёбер?",
+            question: "\\($n\\) человек при встрече обменялись рукопожатиями (каждый с каждым). "
+                . "Сколько было рукопожатий?",
             solution: $solution,
-            answer: (string) $count,
-            topic: self::topic(),
+            answer: (string) $edges,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    // ---------------------------------------------------------- эйлеров путь
-
-    private function eulerPath(float $difficulty): MathProblem
+    private function greetings(float $difficulty, Randomizer $rng): MathProblem
     {
-        // Сгенерируем связный граф путём последовательного добавления рёбер.
-        [$edges, $n] = $this->randomGraph(
-            minVertices: 4,
-            maxVertices: 6,
-            minEdges: 4,
-            maxEdges: 7,
-        );
-
-        $degrees = self::degrees($edges, $n);
-
-        $odd = 0;
-        $parts = [];
-        for ($i = 1; $i <= $n; $i++) {
-            $parts[] = "\\deg(v_{$i}) = {$degrees[$i]}";
-            if ($degrees[$i] % 2 !== 0) {
-                $odd++;
-            }
-        }
-
-        $canTraverse = ($odd === 0 || $odd === 2);
-        $verdict = $canTraverse ? 'да' : 'нет';
-
-        $edgesStr = self::formatEdges($edges);
+        $n = $this->rnd($rng, 3, 8);
+        $edges = intdiv($n * ($n - 1), 2);
 
         $solution = "**Решение:**\n\n"
-            . "Эйлеров путь существует тогда и только тогда, когда "
-            . "число вершин нечётной степени равно 0 или 2.\n\n"
-            . KaTeX::display(KaTeX::alignedRaw([
-                "\\text{рёбра: } & $edgesStr",
-                ...$parts,
-                "\\text{вершин нечётной степени: } & $odd",
+            . "Число пар из \\($n\\) — это \\(\\dfrac{n(n-1)}{2}\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\dfrac{" . $n . " \\cdot (" . $n . " - 1)}{2} = $edges",
             ]))
-            . "\n\n"
-            . ($canTraverse
-                ? "Значит, эйлеров путь существует."
-                : "Значит, эйлерова пути не существует.")
-            . "\n\n**Ответ:** " . KaTeX::inline($verdict);
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $edges);
 
         return new MathProblem(
-            question: "Дан граф с рёбрами: $edgesStr. Можно ли обойти все его рёбра ровно по одному разу (эйлеров путь)? Ответьте «да» или «нет».",
+            question: "В турнире каждый участник (их всего \\($n\\)) сыграл с каждым по одной партии. "
+                . "Сколько всего партий было сыграно?",
             solution: $solution,
-            answer: $verdict,
-            topic: self::topic(),
+            answer: (string) $edges,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    // ---------------------------------------------------------- помощники
+    private function treeEdges(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 3, 12);
+        $edges = $n - 1;
 
-    /**
-     * Строит связный случайный граф.
-     *
-     * Гарантирует связность: сначала создаётся дерево-остов
-     * (n-1 рёбер), затем добавляются случайные рёбра до желаемого
-     * количества. Между вершинами не бывает кратных рёбер и петель.
-     *
-     * @return array{0: list<array{0:int,1:int}>, 1: int}
-     */
-    private function randomGraph(
-        int $minVertices,
-        int $maxVertices,
-        int $minEdges,
-        int $maxEdges,
-    ): array {
-        $n = $this->rnd($minVertices, $maxVertices);
+        $solution = "**Решение:**\n\n"
+            . "У дерева с \\($n\\) вершинами ровно \\(n - 1\\) ребро:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$n - 1 = $edges",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $edges);
 
-        $edgeSet = [];
-        // Остовное дерево.
-        for ($v = 2; $v <= $n; $v++) {
-            $u = $this->rnd(1, $v - 1);
-            $edgeSet[self::edgeKey($u, $v)] = [$u, $v];
-        }
-
-        $target = min(
-            $maxEdges,
-            max($minEdges, count($edgeSet) + $this->rnd(0, 3)),
+        return new MathProblem(
+            question: "Связный граф без циклов (дерево) имеет \\($n\\) вершин. "
+                . "Сколько у него рёбер?",
+            solution: $solution,
+            answer: (string) $edges,
+            topic: $this->path(),
+            difficulty: $difficulty,
         );
+    }
 
-        $attempts = 0;
-        while (count($edgeSet) < $target && $attempts < 50) {
-            $u = $this->rnd(1, $n);
-            $v = $this->rnd(1, $n);
-            $attempts++;
-            if ($u === $v) {
-                continue;
-            }
-            $edgeSet[self::edgeKey($u, $v)] = [min($u, $v), max($u, $v)];
+    private function railwayTree(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 3, 12);
+        $edges = $n - 1;
+
+        $solution = "**Решение:**\n\n"
+            . "Дерево из \\($n\\) вершин содержит \\(n - 1\\) рёбер:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$n - 1 = $edges",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $edges);
+
+        return new MathProblem(
+            question: "\\($n\\) городов нужно соединить дорогами так, чтобы из любого города "
+                . "можно было попасть в любой другой, но без лишних дорог (дерево). "
+                . "Сколько дорог потребуется?",
+            solution: $solution,
+            answer: (string) $edges,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function sumDegrees(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 3, 6);
+        $degrees = [];
+        $sum = 0;
+        for ($i = 0; $i < $n; $i++) {
+            $d = $this->rnd($rng, 1, 4);
+            $degrees[] = $d;
+            $sum += $d;
+        }
+        if ($sum % 2 !== 0) {
+            $degrees[0] += 1;
+            $sum += 1;
+        }
+        $edges = intdiv($sum, 2);
+        $degreeStr = implode(' + ', $degrees);
+
+        $solution = "**Решение:**\n\n"
+            . "Сумма степеней всех вершин равна удвоенному числу рёбер:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\sum \\deg = $degreeStr = $sum",
+                "E = \\dfrac{$sum}{2} = $edges",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $edges);
+
+        return new MathProblem(
+            question: "В графе степени вершин равны: \\(" . implode('\\), \\(', $degrees) . "\\). "
+                . "Сколько рёбер в этом графе?",
+            solution: $solution,
+            answer: (string) $edges,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function handshakeDegrees(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 3, 5);
+        $degrees = [];
+        $sum = 0;
+        for ($i = 0; $i < $n; $i++) {
+            $d = $this->rnd($rng, 1, 4);
+            $degrees[] = $d;
+            $sum += $d;
+        }
+        if ($sum % 2 !== 0) {
+            $degrees[0] += 1;
+            $sum += 1;
+        }
+        $edges = intdiv($sum, 2);
+        $degreeStr = implode(' + ', $degrees);
+
+        $solution = "**Решение:**\n\n"
+            . "По лемме о рукопожатиях сумма степеней = \\(2E\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$degreeStr = $sum",
+                "E = \\dfrac{$sum}{2} = $edges",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $edges);
+
+        return new MathProblem(
+            question: "У \\($n\\) человек количества знакомых равны \\("
+                . implode('\\), \\(', $degrees) . "\\). "
+                . "Сколько всего пар знакомых (рёбер) в этом графе знакомств?",
+            solution: $solution,
+            answer: (string) $edges,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function completeGraphInverse(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 3, 8);
+        $edges = intdiv($n * ($n - 1), 2);
+        $pairs = $n * ($n - 1);
+
+        $solution = "**Решение:**\n\n"
+            . "В полном графе \\(E = \\dfrac{n(n-1)}{2} = $edges\\). "
+            . "Отсюда \\(n(n-1) = $pairs\\), значит \\(n = $n\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\dfrac{n(n - 1)}{2} = $edges",
+                "n(n - 1) = $pairs",
+                "n = $n",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $n);
+
+        return new MathProblem(
+            question: "В полном графе \\($edges\\) рёбер. Сколько в нём вершин?",
+            solution: $solution,
+            answer: (string) $n,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function completeGraphInverseWord(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 3, 8);
+        $edges = intdiv($n * ($n - 1), 2);
+
+        $solution = "**Решение:**\n\n"
+            . "Если игроков \\(n\\), партий \\(\\dfrac{n(n-1)}{2}\\). При \\($edges\\) партиях:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\dfrac{n(n - 1)}{2} = $edges",
+                "n = $n",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $n);
+
+        return new MathProblem(
+            question: "В турнире «каждый с каждым» сыграли \\($edges\\) партий. "
+                . "Сколько было участников?",
+            solution: $solution,
+            answer: (string) $n,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function euler(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $v = $this->rnd($rng, 4, 12);
+        $e = $this->rnd($rng, $v - 1, $v + 6);
+        $f = 2 - $v + $e;
+        if ($f < 1) {
+            $f = 1;
+            $e = $v + $f - 2;
         }
 
-        $edges = array_values($edgeSet);
-        shuffle($edges);
+        $solution = "**Решение:**\n\n"
+            . "Формула Эйлера для планарного графа: \\(V - E + F = 2\\). "
+            . "Найдём число граней:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "F = 2 - V + E",
+                "F = 2 - $v + $e = $f",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $f);
 
-        return [$edges, $n];
+        return new MathProblem(
+            question: "Связный планарный граф имеет \\($v\\) вершин и \\($e\\) рёбер. "
+                . "Сколько у него граней (включая внешнюю)?",
+            solution: $solution,
+            answer: (string) $f,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
     }
 
-    private static function edgeKey(int $u, int $v): string
+    private function eulerEdges(float $difficulty, Randomizer $rng): MathProblem
     {
-        return min($u, $v) . '-' . max($u, $v);
-    }
+        $v = $this->rnd($rng, 4, 12);
+        $f = $this->rnd($rng, 2, 10);
+        $e = $v + $f - 2;
 
-    /**
-     * @param list<array{0:int,1:int}> $edges
-     * @return array<int, int> степени, индексированные с 1
-     */
-    private static function degrees(array $edges, int $n): array
-    {
-        $deg = array_fill(1, $n, 0);
-        foreach ($edges as [$u, $v]) {
-            $deg[$u]++;
-            $deg[$v]++;
-        }
-        return $deg;
-    }
+        $solution = "**Решение:**\n\n"
+            . "Из формулы Эйлера \\(V - E + F = 2\\) выразим рёбра:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "E = V + F - 2",
+                "E = $v + $f - 2 = $e",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $e);
 
-    /**
-     * @param list<array{0:int,1:int}> $edges
-     */
-    private static function formatEdges(array $edges): string
-    {
-        return implode(',\\; ', array_map(
-            static fn (array $e): string => "{$e[0]}{-}{$e[1]}",
-            $edges,
-        ));
+        return new MathProblem(
+            question: "Связный планарный граф имеет \\($v\\) вершин и \\($f\\) граней. "
+                . "Сколько у него рёбер?",
+            solution: $solution,
+            answer: (string) $e,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
     }
 }

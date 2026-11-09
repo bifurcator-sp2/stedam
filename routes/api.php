@@ -182,6 +182,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tasks/resolvers', \App\Http\Controllers\Api\ResolversController::class)
         ->name('api.resolvers');
 
+    Route::get('/tasks/forlearn', \App\Http\Controllers\Api\TaskForLearnController::class)
+        ->name('api.tasks.forlearn');
+
     Route::get('/tasks/random', \App\Http\Controllers\Api\TaskGenerateController::class)
         ->name('api.tasks.random');
 

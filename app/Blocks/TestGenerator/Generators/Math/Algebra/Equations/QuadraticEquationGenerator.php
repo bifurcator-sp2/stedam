@@ -7,6 +7,7 @@ namespace App\Blocks\TestGenerator\Generators\Math\Algebra\Equations;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Квадратные уравнения.
@@ -18,23 +19,18 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class QuadraticEquationGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.algebra.equations.quadratic';
-    }
-
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.3 => $this->simple($difficulty),
-            $difficulty < 0.6 => $this->missingConstant($difficulty),
-            default           => $this->full($difficulty),
+            $difficulty < 0.3 => $this->simple($difficulty, $rng),
+            $difficulty < 0.6 => $this->missingConstant($difficulty, $rng),
+            default           => $this->full($difficulty, $rng),
         };
     }
 
-    private function simple(float $difficulty): MathProblem
+    private function simple(float $difficulty, Randomizer $rng): MathProblem
     {
-        $root = $this->rnd(2, 12);
+        $root = $this->rnd($rng, 2, 12);
         $c = $root * $root;
 
         $solution = "**Решение:**\n\n"
@@ -50,15 +46,14 @@ final class QuadraticEquationGenerator extends GeneratorBase
             question: "Решите уравнение: " . KaTeX::inline("x^{2} = $c"),
             solution: $solution,
             answer: "x = ±{$root}",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function missingConstant(float $difficulty): MathProblem
+    private function missingConstant(float $difficulty, Randomizer $rng): MathProblem
     {
-        $b = $this->rnd(1, 12);      // коэффициент при x
-        // x² + bx = 0  ⇔  x(x + b) = 0  ⇔  x = 0 или x = −b
+        $b = $this->rnd($rng, 1, 12);
         $root2 = -$b;
 
         $solution = "**Решение:**\n\n"
@@ -74,23 +69,22 @@ final class QuadraticEquationGenerator extends GeneratorBase
             question: "Решите уравнение: " . KaTeX::inline("x^{2} + {$b}x = 0"),
             solution: $solution,
             answer: "x = 0, x = $root2",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function full(float $difficulty): MathProblem
+    private function full(float $difficulty, Randomizer $rng): MathProblem
     {
-        // Строим от целых корней через теорему Виета: p = -(r1+r2), q = r1·r2.
-        $r1 = $this->rnd(1, 8);
-        $r2 = $this->rnd(1, 8);
+        $r1 = $this->rnd($rng, 1, 8);
+        $r2 = $this->rnd($rng, 1, 8);
         while ($r1 === $r2) {
-            $r2 = $this->rnd(1, 8);
+            $r2 = $this->rnd($rng, 1, 8);
         }
         $sum = $r1 + $r2;
         $product = $r1 * $r2;
-        $p = -$sum;                  // коэффициент при x
-        $q = $product;               // свободный член
+        $p = -$sum;
+        $q = $product;
 
         $signP = $p < 0 ? '-' : '+';
         $absP  = abs($p);
@@ -111,7 +105,7 @@ final class QuadraticEquationGenerator extends GeneratorBase
             question: "Решите уравнение: " . KaTeX::inline("x^{2} $signP {$absP}x + {$q} = 0"),
             solution: $solution,
             answer: "x = $r1, x = $r2",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

@@ -7,192 +7,302 @@ namespace App\Blocks\TestGenerator\Generators\Math\Combinatorics;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
- * Комбинаторика.
+ * Комбинаторика: правило умножения, перестановки, сочетания, размещения.
  *
- * difficulty:
- *   0.0–0.35  — правило произведения: сколько вариантов из n₁·n₂·…
- *   0.35–0.60 — перестановки: P(n) = n!
- *   0.60–0.85 — размещения: A(n,k) = n! / (n−k)!
- *   0.85–1.00 — сочетания: C(n,k) = n! / (k!(n−k)!)
- *
- * Все ответы — целые числа. Для n до 10 включительно, чтобы
- * факториалы оставались в пределах int.
+ * Пять уровней сложности, на каждом — по две формулировки:
+ *   [0.0–0.2) — правило умножения (одежда/меню)
+ *   [0.2–0.4) — перестановки Pₙ = n!
+ *   [0.4–0.6) — перестановки (рассадка/слова)
+ *   [0.6–0.8) — сочетания C(n,k)
+ *   [0.8–1.0] — размещения A(n,k)
  */
 final class CombinatoricsGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.combinatorics.rules.combinatorics';
-    }
-
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.35 => $this->ruleOfProduct($difficulty),
-            $difficulty < 0.60 => $this->permutations($difficulty),
-            $difficulty < 0.85 => $this->arrangements($difficulty),
-            default            => $this->combinations($difficulty),
+            $difficulty < 0.2 => $this->pick($rng, [
+                fn () => $this->productRule($difficulty, $rng),
+                fn () => $this->menu($difficulty, $rng),
+            ])(),
+            $difficulty < 0.4 => $this->pick($rng, [
+                fn () => $this->permutations($difficulty, $rng),
+                fn () => $this->permutationsWord($difficulty, $rng),
+            ])(),
+            $difficulty < 0.6 => $this->pick($rng, [
+                fn () => $this->seating($difficulty, $rng),
+                fn () => $this->words($difficulty, $rng),
+            ])(),
+            $difficulty < 0.8 => $this->pick($rng, [
+                fn () => $this->combinations($difficulty, $rng),
+                fn () => $this->teamCombinations($difficulty, $rng),
+            ])(),
+            default => $this->pick($rng, [
+                fn () => $this->arrangements($difficulty, $rng),
+                fn () => $this->podium($difficulty, $rng),
+            ])(),
         };
     }
 
-    // ---------------------------------------------------------- правила
-
-    private function ruleOfProduct(float $difficulty): MathProblem
+    private function productRule(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n1 = $this->rnd(2, 6);
-        $n2 = $this->rnd(2, 6);
-        $n3 = random_int(0, 1) === 1 ? $this->rnd(2, 5) : null;
-
-        $total = $n1 * $n2 * ($n3 ?? 1);
-
-        $steps = [
-            "\\text{первый выбор: } & $n1 \\text{ вариантов}",
-            "\\text{второй выбор: } & $n2 \\text{ вариантов}",
-        ];
-        if ($n3 !== null) {
-            $steps[] = "\\text{третий выбор: } & $n3 \\text{ варианта}";
-        }
-        $steps[] = "\\text{всего: } & " . implode(' \\cdot ', array_filter([$n1, $n2, $n3])) . " = $total";
+        $a = $this->rnd($rng, 2, 6);
+        $b = $this->rnd($rng, 2, 6);
+        $c = $this->rnd($rng, 2, 6);
+        $total = $a * $b * $c;
 
         $solution = "**Решение:**\n\n"
-            . "По правилу произведения варианты перемножаются:\n\n"
-            . KaTeX::display(KaTeX::alignedRaw($steps))
+            . "По правилу умножения перемножаем число вариантов на каждом шаге:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$a \\cdot $b \\cdot $c = $total",
+            ]))
             . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
 
-        $items = $n3 === null
-            ? "Выбираем одно из $n1 блюд и один из $n2 напитков. Сколько есть вариантов обеда?"
-            : "Выбираем одно из $n1 блюд, один из $n2 напитков и один из $n3 десертов. Сколько есть вариантов обеда?";
-
         return new MathProblem(
-            question: $items,
+            question: "Есть \\($a\\) вида рубашек, \\($b\\) вида брюк и \\($c\\) вида обуви. "
+                . "Сколько разных комплектов можно составить?",
             solution: $solution,
             answer: (string) $total,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    // ---------------------------------------------------------- перестановки
-
-    private function permutations(float $difficulty): MathProblem
+    private function menu(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(3, 7);
-        $p = self::fact($n);
-
-        $chain = implode(' \\cdot ', range($n, 1, -1));
+        $a = $this->rnd($rng, 2, 6);
+        $b = $this->rnd($rng, 2, 6);
+        $total = $a * $b;
 
         $solution = "**Решение:**\n\n"
-            . "Число перестановок из $n элементов:\n\n"
-            . KaTeX::display('P_n = n!')
-            . "\n\nПодставим:\n\n"
+            . "Каждое первое блюдо можно сочетать с любым вторым:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "P_{$n} = {$n}!",
-                "P_{$n} = $chain",
-                "P_{$n} = $p",
+                "$a \\cdot $b = $total",
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline((string) $p);
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
 
         return new MathProblem(
-            question: "Сколькими способами можно расставить $n различных книг на полке?",
+            question: "В меню \\($a\\) первых блюда и \\($b\\) вторых. "
+                . "Сколько вариантов обеда из двух блюд можно выбрать?",
             solution: $solution,
-            answer: (string) $p,
-            topic: self::topic(),
+            answer: (string) $total,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    // ---------------------------------------------------------- размещения
-
-    private function arrangements(float $difficulty): MathProblem
+    private function permutations(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(5, 9);
-        $k = $this->rnd(2, $n - 1);
-
-        $a = self::arrangementsCount($n, $k);
-
-        $chain = implode(' \\cdot ', range($n, $n - $k + 1, -1));
+        $n = $this->rnd($rng, 3, 6);
+        $total = self::factorial($n);
 
         $solution = "**Решение:**\n\n"
-            . "Размещения — выбор $k элементов из $n с учётом порядка:\n\n"
-            . KaTeX::display('A_n^k = \dfrac{n!}{(n - k)!}')
-            . "\n\nПодставим:\n\n"
+            . "Число перестановок из \\($n\\) элементов: \\(P_n = n!\\):\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "A_{$n}^{$k} = \\dfrac{{$n}!}{(" . ($n - $k) . ")!}",
-                "A_{$n}^{$k} = $chain",
-                "A_{$n}^{$k} = $a",
+                "P_{$n} = $n!",
+                "= " . self::factorialExpr($n) . " = $total",
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline((string) $a);
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
 
         return new MathProblem(
-            question: "Сколькими способами можно выбрать $k из $n различных предметов, если порядок важен?",
+            question: "Сколькими способами можно расставить \\($n\\) разных книг в ряд на полке?",
             solution: $solution,
-            answer: (string) $a,
-            topic: self::topic(),
+            answer: (string) $total,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    // ---------------------------------------------------------- сочетания
-
-    private function combinations(float $difficulty): MathProblem
+    private function permutationsWord(float $difficulty, Randomizer $rng): MathProblem
     {
-        $n = $this->rnd(6, 10);
-        $k = $this->rnd(2, $n - 2);
-
-        $c = self::combinationsCount($n, $k);
-        $k2 = $n - $k;
+        $n = $this->rnd($rng, 3, 6);
+        $total = self::factorial($n);
 
         $solution = "**Решение:**\n\n"
-            . "Сочетания — выбор $k элементов из $n без учёта порядка:\n\n"
-            . KaTeX::display('C_n^k = \dfrac{n!}{k!\,(n - k)!}')
-            . "\n\nПодставим:\n\n"
-            . KaTeX::display(KaTeX::alignedRaw([
-                "C_{$n}^{$k} &= \\dfrac{{$n}!}{{$k}! \\cdot ({$n} - $k)!} \\\\",
-                "&= \\dfrac{{$n}!}{{$k}! \\cdot {$k2}!} \\\\",
-                "&= $c",
+            . "Число перестановок \\(P_n = n!\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$n! = " . self::factorialExpr($n) . " = $total",
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline((string) $c);
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
 
         return new MathProblem(
-            question: "Сколькими способами можно выбрать $k из $n различных предметов, если порядок не важен?",
+            question: "\\($n\\) человек выстраиваются в шеренгу. "
+                . "Сколькими способами это можно сделать?",
             solution: $solution,
-            answer: (string) $c,
-            topic: self::topic(),
+            answer: (string) $total,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    // ---------------------------------------------------------- помощники
-
-    private static function fact(int $n): int
+    private function seating(float $difficulty, Randomizer $rng): MathProblem
     {
-        $r = 1;
+        $n = $this->rnd($rng, 4, 6);
+        $total = self::factorial($n);
+
+        $solution = "**Решение:**\n\n"
+            . "Перестановки за столом по \\(P_n = n!\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$n! = " . self::factorialExpr($n) . " = $total",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
+
+        return new MathProblem(
+            question: "\\($n\\) гостей рассаживаются на \\($n\\) стульев в ряд. "
+                . "Сколько есть способов рассадки?",
+            solution: $solution,
+            answer: (string) $total,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function words(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 3, 5);
+        $total = self::factorial($n);
+
+        $solution = "**Решение:**\n\n"
+            . "Число перестановок \\($n\\) различных букв:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "P_{$n} = $n! = " . self::factorialExpr($n) . " = $total",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
+
+        return new MathProblem(
+            question: "Сколько различных \\($n\\)-буквенных «слов» можно составить "
+                . "из \\($n\\) разных букв (каждая используется один раз)?",
+            solution: $solution,
+            answer: (string) $total,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function combinations(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 4, 7);
+        $k = $this->rnd($rng, 2, $n - 2);
+        $total = self::combination($n, $k);
+
+        $solution = "**Решение:**\n\n"
+            . "Число сочетаний: \\(C_n^k = \\dfrac{n!}{k!(n-k)!}\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "C_{$n}^{$k} = \\dfrac{" . $n . "!}{" . $k . "!\\,(" . ($n - $k) . ")!}",
+                "= $total",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
+
+        return new MathProblem(
+            question: "Из \\($n\\) предметов выбирают \\($k\\) (порядок не важен). "
+                . "Сколькими способами это можно сделать?",
+            solution: $solution,
+            answer: (string) $total,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function teamCombinations(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 5, 8);
+        $k = $this->rnd($rng, 2, $n - 2);
+        $total = self::combination($n, $k);
+
+        $solution = "**Решение:**\n\n"
+            . "Выбираем \\($k\\) из \\($n\\) без учёта порядка, число сочетаний:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "C_{$n}^{$k} = \\dfrac{" . $n . "!}{" . $k . "!\\,(" . ($n - $k) . ")!}",
+                "= $total",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
+
+        return new MathProblem(
+            question: "Из \\($n\\) учеников нужно выбрать команду из \\($k\\) человек. "
+                . "Сколькими способами это можно сделать?",
+            solution: $solution,
+            answer: (string) $total,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function arrangements(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 4, 7);
+        $k = $this->rnd($rng, 2, $n - 1);
+        $total = self::arrangement($n, $k);
+
+        $solution = "**Решение:**\n\n"
+            . "Число размещений: \\(A_n^k = \\dfrac{n!}{(n-k)!}\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "A_{$n}^{$k} = \\dfrac{" . $n . "!}{(" . ($n - $k) . ")!}",
+                "= $total",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
+
+        return new MathProblem(
+            question: "Из \\($n\\) предметов выбирают \\($k\\) и расставляют по порядку. "
+                . "Сколько существует способов?",
+            solution: $solution,
+            answer: (string) $total,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function podium(float $difficulty, Randomizer $rng): MathProblem
+    {
+        $n = $this->rnd($rng, 4, 8);
+        $k = $this->rnd($rng, 2, 3);
+        $total = self::arrangement($n, $k);
+
+        $solution = "**Решение:**\n\n"
+            . "Порядок важен, поэтому используем размещения \\(A_n^k\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "A_{$n}^{$k} = \\dfrac{" . $n . "!}{(" . ($n - $k) . ")!}",
+                "= $total",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $total);
+
+        return new MathProblem(
+            question: "В забеге участвуют \\($n\\) спортсменов. Сколькими способами могут "
+                . "распределиться первые \\($k\\) мест (призовой подиум)?",
+            solution: $solution,
+            answer: (string) $total,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private static function factorial(int $n): int
+    {
+        $result = 1;
         for ($i = 2; $i <= $n; $i++) {
-            $r *= $i;
+            $result *= $i;
         }
-        return $r;
+        return $result;
     }
 
-    private static function arrangementsCount(int $n, int $k): int
+    private static function factorialExpr(int $n): string
     {
-        $r = 1;
-        for ($i = $n - $k + 1; $i <= $n; $i++) {
-            $r *= $i;
+        $parts = [];
+        for ($i = $n; $i >= 2; $i--) {
+            $parts[] = (string) $i;
         }
-        return $r;
+        return implode(' \\cdot ', $parts);
     }
 
-    private static function combinationsCount(int $n, int $k): int
+    private static function combination(int $n, int $k): int
     {
-        if ($k > $n - $k) {
-            $k = $n - $k;
-        }
-        $r = 1;
-        for ($i = 0; $i < $k; $i++) {
-            $r = intdiv($r * ($n - $i), $i + 1);
-        }
-        return $r;
+        return intdiv(self::factorial($n), self::factorial($k) * self::factorial($n - $k));
+    }
+
+    private static function arrangement(int $n, int $k): int
+    {
+        return intdiv(self::factorial($n), self::factorial($n - $k));
     }
 }

@@ -7,46 +7,39 @@ namespace App\Blocks\TestGenerator\Generators\Math\Probability;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
+use Random\Randomizer;
 
 /**
  * Вероятность.
  *
  * difficulty:
  *   0.0–0.35  — классическое определение на кубике (P = m/n)
- *   0.35–0.65 — на монетах / картах
+ *   0.35–0.65 — на монетах
  *   0.65–1.00 — независимые события (P(A·B) = P(A)·P(B))
  *
  * Все ответы — несократимые дроби в формате «m/n».
  */
 final class ProbabilityGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.probability.probability.probability';
-    }
-
-    protected function build(float $difficulty): MathProblem
+    protected function build(float $difficulty, Randomizer $rng): MathProblem
     {
         return match (true) {
-            $difficulty < 0.35 => $this->die($difficulty),
-            $difficulty < 0.65 => $this->coins($difficulty),
-            default            => $this->independent($difficulty),
+            $difficulty < 0.35 => $this->die($difficulty, $rng),
+            $difficulty < 0.65 => $this->coins($difficulty, $rng),
+            default            => $this->independent($difficulty, $rng),
         };
     }
 
-    // ---------------------------------------------------------- кубик
-
-    private function die(float $difficulty): MathProblem
+    private function die(float $difficulty, Randomizer $rng): MathProblem
     {
-        // Событие: выпадение числа из заданного множества.
-        $targets = $this->pick([
-            [2],                         // P = 1/6
-            [1, 3, 5],                   // P = 1/2 — нечётное
-            [2, 4, 6],                   // P = 1/2 — чётное
-            [1, 2, 3],                   // P = 1/2
-            [4, 5, 6],                   // P = 1/2
-            [1, 2, 3, 4],                // P = 2/3
-            [3],                         // P = 1/6
+        $targets = $this->pick($rng, [
+            [2],
+            [1, 3, 5],
+            [2, 4, 6],
+            [1, 2, 3],
+            [4, 5, 6],
+            [1, 2, 3, 4],
+            [3],
         ]);
         $targetsStr = implode(',\\; ', $targets);
         $m = count($targets);
@@ -67,27 +60,23 @@ final class ProbabilityGenerator extends GeneratorBase
             question: "Бросают игральный кубик. Найдите вероятность того, что выпадет число $targetsStr.",
             solution: $solution,
             answer: "$num/$den",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    // ---------------------------------------------------------- монеты
-
-    private function coins(float $difficulty): MathProblem
+    private function coins(float $difficulty, Randomizer $rng): MathProblem
     {
-        $count = $this->rnd(2, 4);
+        $count = $this->rnd($rng, 2, 4);
         $total = 2 ** $count;
-
-        // Событие: ровно k орлов.
-        $k = $this->rnd(1, $count - 1);
+        $k = $this->rnd($rng, 1, $count - 1);
         $favor = self::combinations($count, $k);
 
         [$num, $den] = self::reduce($favor, $total);
 
         $solution = "**Решение:**\n\n"
             . "При броске $count монет всего $total равновероятных исходов.\n\n"
-            . "Число исходов «ровно $k орла(-ов)» — это $favor:\n\n"
+            . "Число исходов «ровно $k орла(-ов)» равно $favor:\n\n"
             . KaTeX::display(KaTeX::aligned([
                 "C_{$count}^{$k} = \\dfrac{{$count}!}{{$k}! \\cdot (" . ($count - $k) . ")!}",
                 "C_{$count}^{$k} = $favor",
@@ -103,18 +92,15 @@ final class ProbabilityGenerator extends GeneratorBase
             question: "Монету бросают $count раза(-). Какова вероятность, что ровно $k раз(-) выпадет орёл?",
             solution: $solution,
             answer: "$num/$den",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    // ---------------------------------------------------------- независимые
-
-    private function independent(float $difficulty): MathProblem
+    private function independent(float $difficulty, Randomizer $rng): MathProblem
     {
-        // Два независимых события с вероятностями p1 и p2.
-        [$n1, $d1] = $this->pick([[1, 2], [1, 3], [1, 4], [2, 5], [3, 5], [1, 6], [5, 6]]);
-        [$n2, $d2] = $this->pick([[1, 2], [1, 3], [1, 4], [2, 5], [3, 5], [1, 6], [5, 6]]);
+        [$n1, $d1] = $this->pick($rng, [[1, 2], [1, 3], [1, 4], [2, 5], [3, 5], [1, 6], [5, 6]]);
+        [$n2, $d2] = $this->pick($rng, [[1, 2], [1, 3], [1, 4], [2, 5], [3, 5], [1, 6], [5, 6]]);
 
         [$num, $den] = self::reduce($n1 * $n2, $d1 * $d2);
 
@@ -136,12 +122,10 @@ final class ProbabilityGenerator extends GeneratorBase
                 . "События независимы. Найдите \\(P(A \\cap B)\\).",
             solution: $solution,
             answer: "$num/$den",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
-
-    // ---------------------------------------------------------- помощники
 
     /**
      * @return array{0:int,1:int} несократимая пара (числитель, знаменатель)
