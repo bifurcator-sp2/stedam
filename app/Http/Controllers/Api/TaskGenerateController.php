@@ -15,14 +15,18 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 /**
- * Р“РµРЅРµСЂР°С†РёСЏ СЃР»СѓС‡Р°Р№РЅРѕРіРѕ Р·Р°РґР°РЅРёСЏ.
+ * Генерация случайного задания.
  *
- * РџРѕРґРґРµСЂР¶РёРІР°РµС‚ РїРѕРёСЃРє РїРѕ:
- *   1. topic          вЂ” РїСЂСЏРСРѕР№ РєР»СЋС‡ (РЅР°РїСЂРёРСРµСЂ, 'algebra')
- *   2. test_resolver  вЂ” Р°РґСЂРµСЃ СѓР·Р»Р° (РЅР°РїСЂРёРСРµСЂ, 'math.algebra')
- *   3. taxonomy_id    вЂ” ID СѓР·Р»Р° РґРµСЂРµРІР°
- *   4. subject        вЂ” РµСЃР»Рё РЅРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ, Р±РµСЂРµС‚ СЃР»СѓС‡Р°Р№РЅСѓСЋ С‚РµРССѓ РёР· СѓРєР°Р·Р°РЅРЅРѕРіРѕ РїСЂРµРґРСРµС‚Р°
- *   5. Р“Р»РѕР±Р°Р»СЊРЅС‹Р№ С„РѕР»Р±СЌРє вЂ” РµСЃР»Рё РґР»СЏ РїСЂРµРґРСРµС‚Р° РЅРµС‚ С‚РµРС, Р±РµСЂРµС‚ Р›Р®РвЂРЈР® РґРѕСЃС‚СѓРїРЅСѓСЋ С‚РµРССѓ РёР· РІСЃРµС… РіРµРЅРµСЂР°С‚РѕСЂРѕРІ
+ * Поддерживает поиск по:
+ *   1. topic          — прямой resolver-путь (например, 'math.algebra.equations.linearEquation')
+ *   2. test_resolver  — адрес узла (например, 'math.algebra')
+ *   3. taxonomy_id    — ID узла дерева
+ *   4. subject        — если ничего не найдено, берёт случайный путь из указанного предмета
+ *   5. Глобальный фолбэк — если для предмета нет тем, берёт любой доступный путь из всех генераторов
+ *
+ * Предмет в ответе всегда выводится из первого сегмента итогового resolver-пути,
+ * поэтому системы с несколькими дисциплинами (math, physics, chemistry, ...)
+ * возвращают корректный subject автоматически.
  */
 final class TaskGenerateController extends Controller
 {
@@ -31,9 +35,6 @@ final class TaskGenerateController extends Controller
         TestGenerator $testGenerator,
         TestResolverMap $resolverMap,
     ): JsonResponse {
-        $subject = $request->resolvedSubject()
-            ?? (string) config('test_generator.default_subject', 'math');
-
         $availablePaths = $testGenerator->availablePaths();
         $difficulty     = $request->resolvedDifficulty();
 
@@ -87,8 +88,43 @@ final class TaskGenerateController extends Controller
 
         // 4) Случайный путь, если ничего не задано.
         if ($path === null) {
-            $configured = array_keys((array) config("test_generator.subjects.{$subject}.topics", []));
-            $pool = array_values(array_intersect($configured, $availablePaths));
+            $requestedSubject = $request->resolvedSubject();
+
+            $configuredTopics = $requestedSubject !== null
+                ? array_keys((array) config("test_generator.subjects.{$requestedSubject}.topics", []))
+                : [];
+
+            $pool = $availablePaths;
+
+            if ($requestedSubject !== null && $configuredTopics !== []) {
+                $prefixes = array_map(
+                    static fn (string $t): string => $requestedSubject . '.' . $t,
+                    $configuredTopics,
+                );
+
+                // Короткие ключи конфига (arithmetic, algebra, ...) сопоставляем
+                // по префиксу resolver-пути предмета.
+                $pool = array_values(array_filter(
+                    $availablePaths,
+                    static function (string $p) use ($prefixes): bool {
+                        foreach ($prefixes as $prefix) {
+                            if ($p === $prefix || str_starts_with($p, $prefix . '.')) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    },
+                ));
+
+                // Если короткие ключи не совпали — берём все пути предмета.
+                if ($pool === []) {
+                    $pool = array_values(array_filter(
+                        $availablePaths,
+                        static fn (string $p): bool => $p === $requestedSubject
+                            || str_starts_with($p, $requestedSubject . '.'),
+                    ));
+                }
+            }
 
             if ($pool === []) {
                 $pool = $availablePaths;
@@ -102,6 +138,11 @@ final class TaskGenerateController extends Controller
         }
 
         $problem = $testGenerator->generate($path, $difficulty);
+
+        // Предмет — первый сегмент resolver-пути ('physics.mechanics.x' → 'physics').
+        // Ответ не «врёт» про предмет, даже если генератор выбран случайно.
+        $subject = explode('.', $path, 2)[0];
+
         return (new MathProblemResource($problem, $subject))->response();
     }
 }
