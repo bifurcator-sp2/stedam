@@ -18,11 +18,6 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class InequalitiesGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.algebra.inequalities.inequalities';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
@@ -51,7 +46,7 @@ final class InequalitiesGenerator extends GeneratorBase
             question: "Решите неравенство: " . KaTeX::inline("{$a}x < {$c}"),
             solution: $solution,
             answer: "x < $k",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -60,7 +55,7 @@ final class InequalitiesGenerator extends GeneratorBase
     {
         $a = $this->rnd(2, 9);
         $b = $this->rnd(1, 20);
-        $k = $this->rnd(1, 10);          // x ≤ k
+        $k = $this->rnd(1, 10);          // x в‰¤ k
         $c = $a * $k + $b;
 
         $solution = "**Решение:**\n\n"
@@ -75,8 +70,8 @@ final class InequalitiesGenerator extends GeneratorBase
         return new MathProblem(
             question: "Решите неравенство: " . KaTeX::inline("{$a}x + {$b} \\leq {$c}"),
             solution: $solution,
-            answer: "x ≤ $k",
-            topic: self::topic(),
+            answer: "x в‰¤ $k",
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -87,7 +82,7 @@ final class InequalitiesGenerator extends GeneratorBase
         $a = $this->rnd(2, 9);
         $b = $this->rnd(10, 30);
         $k = $this->rnd(1, 8);           // x > k
-        $c = $b - $a * $k;               // b - c = a·k
+        $c = $b - $a * $k;               // b - c = aВ·k
 
         $solution = "**Решение:**\n\n"
             . "Перенесём \\($b\\) вправо, затем разделим на \\(-$a < 0\\) — "
@@ -104,7 +99,7 @@ final class InequalitiesGenerator extends GeneratorBase
             question: "Решите неравенство: " . KaTeX::inline("-{$a}x + {$b} < {$c}"),
             solution: $solution,
             answer: "x > $k",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

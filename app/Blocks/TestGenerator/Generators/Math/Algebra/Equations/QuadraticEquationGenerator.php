@@ -18,11 +18,6 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class QuadraticEquationGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.algebra.equations.quadratic';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
@@ -38,7 +33,7 @@ final class QuadraticEquationGenerator extends GeneratorBase
         $c = $root * $root;
 
         $solution = "**Решение:**\n\n"
-            . "Извлекаем квадратный корень из обеих частей:\n\n"
+            . "Рзвлекаем квадратный корень из обеих частей:\n\n"
             . KaTeX::display(KaTeX::alignedRaw([
                 "&x^{2} = $c \\\\",
                 "&x = \\pm\\sqrt{$c} \\\\",
@@ -49,8 +44,8 @@ final class QuadraticEquationGenerator extends GeneratorBase
         return new MathProblem(
             question: "Решите уравнение: " . KaTeX::inline("x^{2} = $c"),
             solution: $solution,
-            answer: "x = ±{$root}",
-            topic: self::topic(),
+            answer: "x = В±{$root}",
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -74,7 +69,7 @@ final class QuadraticEquationGenerator extends GeneratorBase
             question: "Решите уравнение: " . KaTeX::inline("x^{2} + {$b}x = 0"),
             solution: $solution,
             answer: "x = 0, x = $root2",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -111,7 +106,7 @@ final class QuadraticEquationGenerator extends GeneratorBase
             question: "Решите уравнение: " . KaTeX::inline("x^{2} $signP {$absP}x + {$q} = 0"),
             solution: $solution,
             answer: "x = $r1, x = $r2",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

@@ -4,135 +4,78 @@ declare(strict_types=1);
 
 namespace App\Blocks\TestGenerator\Resolvers;
 
-use App\Blocks\TestGenerator\Contracts\MathProblemGeneratorInterface;
 use App\Blocks\TestGenerator\Discovery\GeneratorDiscovery;
-use App\Blocks\TestGenerator\TestGenerator;
 
 /**
- * Мост «адрес узла дерева ↔ ключ стратегии».
+ * Карта resolver-путей (path => класс генератора).
  *
- * Источник данных — GeneratorDiscovery (скан папки Generators).
- * Никаких config-маппингов и fallback-ов: единственный источник правды
- * о доступных путях — файловая структура + топики классов.
+ * Основа - GeneratorDiscovery (сканирует Generators/). Путь - основной
+ * идентификатор генератора, отдельного topic() больше нет.
  *
- * Префиксный алгоритм:
- *   'math.algebra.equals' → 'math.algebra.equals', 'math.algebra', 'math'
- *   Первое совпадение в карте выигрывает.
- *
- * Возвращаемое значение — topic() найденного генератора, что удобно
- * для TestGenerator::generate() (он работает с топиками).
+ * matchedPath() - точное совпадение пути: 'math.algebra.equations.linearEquation'
+ * вернёт сам себя, а несуществующий 'math.algebra.equations' вернёт null.
  */
 final class TestResolverMap
 {
-    /** @var array<string, class-string<MathProblemGeneratorInterface>> */
+    /** @var array<string, class-string> */
     private readonly array $paths;
 
-    public function __construct(
-        private readonly TestGenerator $generators,
-        GeneratorDiscovery $discovery,
-    ) {
+    public function __construct(GeneratorDiscovery $discovery)
+    {
         $this->paths = $discovery->discover();
     }
 
-/**
- * Резолвит адрес узла в topic генератора.
- *
- * @return string|null topic() найденного генератора либо null,
- *                     если ни один префикс не совпал.
- */
-public function topicFor(string $resolverPath): ?string
-{
-    $resolverPath = trim($resolverPath, '.');
-    if ($resolverPath === '') {
-        return null;
+    /**
+     * Точный путь, если он зарегистрирован; иначе null.
+     */
+    public function matchedPath(string $path): ?string
+    {
+        $path = trim($path, '.');
+
+        return isset($this->paths[$path]) ? $path : null;
     }
 
-    $parts = explode('.', $resolverPath);
+    /**
+     * Класс генератора по точному пути; null - если не найден.
+     *
+     * @return class-string|null
+     */
+    public function classFor(string $path): ?string
+    {
+        return $this->paths[trim($path, '.')] ?? null;
+    }
 
-    while ($parts !== []) {
-        $prefix = implode('.', $parts);
+    /**
+     * Субъект (первый сегмент пути): 'math.algebra.equations' => 'math'.
+     */
+    public function subjectFor(string $path): string
+    {
+        return explode('.', trim($path, '.'), 2)[0];
+    }
 
-        if (isset($this->paths[$prefix])) {
-            /** @var class-string<MathProblemGeneratorInterface> $class */
-            $class = $this->paths[$prefix];
+    /**
+     * Все пути с классами.
+     *
+     * @return list<array{path:string, class:class-string}>
+     */
+    public function all(): array
+    {
+        $out = [];
 
-            return $class::topic();
+        foreach ($this->paths as $path => $class) {
+            $out[] = ['path' => $path, 'class' => $class];
         }
 
-        array_pop($parts);
+        return $out;
     }
 
-    return null;
-}
-
-/**
- * Полный адрес (path) ближайшего зарегистрированного предка.
- * Нужен для аудита и для include_nodes в /api/tasks/resolvers.
- */
-public function matchedPath(string $resolverPath): ?string
-{
-    $resolverPath = trim($resolverPath, '.');
-    $parts = explode('.', $resolverPath);
-
-    while ($parts !== []) {
-        $prefix = implode('.', $parts);
-        if (isset($this->paths[$prefix])) {
-            return $prefix;
-        }
-        array_pop($parts);
+    /**
+     * Список известных путей.
+     *
+     * @return list<string>
+     */
+    public function paths(): array
+    {
+        return array_keys($this->paths);
     }
-
-    return null;
-}
-
-public function subjectFor(string $resolverPath): string
-{
-    return explode('.', trim($resolverPath, '.'), 2)[0];
-}
-
-/**
- * @return list<array{path:string, topic:string, class:class-string}>
- */
-public function all(): array
-{
-    $out = [];
-
-    foreach ($this->paths as $path => $class) {
-        /** @var class-string<MathProblemGeneratorInterface> $class */
-        $out[] = [
-            'path'  => $path,
-            'topic' => $class::topic(),
-            'class' => $class,
-        ];
-    }
-
-    return $out;
-}
-
-/**
- * Проверка: все пути в карте разрешаются в зарегистрированные топики.
- *
- * @return list<string>
- */
-public function validate(): array
-{
-    $errors    = [];
-    $available = $this->generators->availableTopics();
-
-    foreach ($this->paths as $path => $class) {
-        /** @var class-string<MathProblemGeneratorInterface> $class */
-        $topic = $class::topic();
-
-        if (! in_array($topic, $available, true)) {
-            $errors[] = sprintf(
-                'Path "%s" → topic "%s", но топик не зарегистрирован в TestGenerator. '
-                . 'Проверьте регистрацию генератора в провайдере.',
-                $path,
-                $topic,
-            );
-        }
-    }
-
-    return $errors;
-}
 }

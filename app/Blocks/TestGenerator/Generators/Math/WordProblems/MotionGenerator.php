@@ -9,146 +9,287 @@ use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
 
 /**
- * Задачи на движение.
+ * Задачи на движение: s = v · t.
  *
- * difficulty:
- *   0.0–0.35  — расстояние: S = v · t
- *   0.35–0.55 — скорость:   v = S / t
- *   0.55–0.75 — время:      t = S / v
- *   0.75–1.00 — встречное:  S = (v₁ + v₂) · t
- *
- * Скорости и времена — целые; S получается целым.
+ * Пять уровней сложности, на каждом — по две формулировки:
+ *   [0.0–0.2) — найти путь по скорости и времени
+ *   [0.2–0.4) — найти время по пути и скорости
+ *   [0.4–0.6) — найти скорость по пути и времени
+ *   [0.6–0.8) — путь двух объектов (встречное/суммарное)
+ *   [0.8–1.0] — скорость удаления / общая скорость
  */
 final class MotionGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.word_problems.motion.motion';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
-            $difficulty < 0.35 => $this->distance($difficulty),
-            $difficulty < 0.55 => $this->speed($difficulty),
-            $difficulty < 0.75 => $this->time($difficulty),
-            default            => $this->meeting($difficulty),
+            $difficulty < 0.2 => $this->pick([
+                fn () => $this->findDistance($difficulty),
+                fn () => $this->findDistanceCar($difficulty),
+            ])(),
+            $difficulty < 0.4 => $this->pick([
+                fn () => $this->findTime($difficulty),
+                fn () => $this->findTimeTrain($difficulty),
+            ])(),
+            $difficulty < 0.6 => $this->pick([
+                fn () => $this->findSpeed($difficulty),
+                fn () => $this->findSpeedSwimmer($difficulty),
+            ])(),
+            $difficulty < 0.8 => $this->pick([
+                fn () => $this->combinedPath($difficulty),
+                fn () => $this->meetingTime($difficulty),
+            ])(),
+            default => $this->pick([
+                fn () => $this->relativeSpeed($difficulty),
+                fn () => $this->overtake($difficulty),
+            ])(),
         };
     }
 
-    private function distance(float $difficulty): MathProblem
+    private function findDistance(float $difficulty): MathProblem
     {
-        $v = $this->rnd(3, 60);
-        $t = $this->rnd(2, 8);
-        $s = $v * $t;
-
-        $solution = "**Решение:**\n\n"
-            . "Скорость \\(v = $v\\) км/ч, время \\(t = $t\\) ч.\n\n"
-            . "Формула пути:\n\n"
-            . KaTeX::display('S = v \cdot t')
-            . "\n\nПодставим:\n\n"
-            . KaTeX::display(KaTeX::aligned([
-                "S = $v \\cdot $t",
-                "S = $s \\text{ км}",
-            ]))
-            . "\n\n**Ответ:** " . KaTeX::inline("$s \\text{ км}");
-
-        return new MathProblem(
-            question: "Автомобиль едет со скоростью \\($v\\) км/ч в течение \\($t\\) ч. "
-                . "Какое расстояние он проедет?",
-            solution: $solution,
-            answer: (string) $s,
-            topic: self::topic(),
-            difficulty: $difficulty,
-        );
-    }
-
-    private function speed(float $difficulty): MathProblem
-    {
-        $v = $this->rnd(5, 80);
+        $v = $this->rnd(3, 15) * 10;
         $t = $this->rnd(2, 6);
         $s = $v * $t;
 
         $solution = "**Решение:**\n\n"
-            . "Путь \\(S = $s\\) км, время \\(t = $t\\) ч.\n\n"
-            . "Скорость — это путь, делённый на время:\n\n"
-            . KaTeX::display('v = \dfrac{S}{t}')
-            . "\n\nПодставим:\n\n"
+            . "Путь равен произведению скорости на время:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "v = \\dfrac{$s}{$t}",
-                "v = $v \\text{ км/ч}",
-            ]))
-            . "\n\n**Ответ:** " . KaTeX::inline("$v \\text{ км/ч}");
-
-        return new MathProblem(
-            question: "Поезд прошёл \\($s\\) км за \\($t\\) ч. "
-                . "С какой скоростью он двигался?",
-            solution: $solution,
-            answer: (string) $v,
-            topic: self::topic(),
-            difficulty: $difficulty,
-        );
-    }
-
-    private function time(float $difficulty): MathProblem
-    {
-        $v = $this->rnd(5, 60);
-        $t = $this->rnd(2, 7);
-        $s = $v * $t;
-
-        $solution = "**Решение:**\n\n"
-            . "Путь \\(S = $s\\) км, скорость \\(v = $v\\) км/ч.\n\n"
-            . "Время — это путь, делённый на скорость:\n\n"
-            . KaTeX::display('t = \dfrac{S}{v}')
-            . "\n\nПодставим:\n\n"
-            . KaTeX::display(KaTeX::aligned([
-                "t = \\dfrac{$s}{$v}",
-                "t = $t \\text{ ч}",
-            ]))
-            . "\n\n**Ответ:** " . KaTeX::inline("$t \\text{ ч}");
-
-        return new MathProblem(
-            question: "Велосипедист проехал \\($s\\) км со скоростью \\($v\\) км/ч. "
-                . "Сколько времени он был в пути?",
-            solution: $solution,
-            answer: (string) $t,
-            topic: self::topic(),
-            difficulty: $difficulty,
-        );
-    }
-
-    private function meeting(float $difficulty): MathProblem
-    {
-        $v1 = $this->rnd(20, 70);
-        $v2 = $this->rnd(20, 70);
-        while ($v1 === $v2) {
-            $v2 = $this->rnd(20, 70);
-        }
-        $t = $this->rnd(2, 5);
-        $s = ($v1 + $v2) * $t;
-
-        $solution = "**Решение:**\n\n"
-            . "Два объекта движутся навстречу друг другу. "
-            . "Скорость их сближения:\n\n"
-            . KaTeX::display(KaTeX::aligned([
-                "v_{\\text{сбл}} = v_1 + v_2",
-                "v_{\\text{сбл}} = $v1 + $v2 = " . ($v1 + $v2) . " \\text{ км/ч}",
-            ]))
-            . "\n\nРасстояние между пунктами:\n\n"
-            . KaTeX::display(KaTeX::aligned([
-                "S = v_{\\text{сбл}} \\cdot t",
-                "S = " . ($v1 + $v2) . " \\cdot $t",
-                "S = $s \\text{ км}",
+                "s = v \\cdot t",
+                "$s = $v \\cdot $t = $s",
             ]))
             . "\n\n**Ответ:** " . KaTeX::inline("$s \\text{ км}");
 
         return new MathProblem(
-            question: "Из двух городов одновременно навстречу друг другу выехали "
-                . "два автомобиля со скоростями \\($v1\\) км/ч и \\($v2\\) км/ч. "
-                . "Через \\($t\\) ч они встретились. Каково расстояние между городами?",
+            question: "Велосипедист едет со скоростью \\($v\\) км/ч в течение \\($t\\) часов. "
+                . "Какой путь он проедет?",
             solution: $solution,
             answer: (string) $s,
-            topic: self::topic(),
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function findDistanceCar(float $difficulty): MathProblem
+    {
+        $v = $this->rnd(4, 12) * 10;
+        $t = $this->rnd(2, 5);
+        $s = $v * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Пройденный путь:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "s = v \\cdot t",
+                "$s = $v \\cdot $t = $s",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$s \\text{ км}");
+
+        return new MathProblem(
+            question: "Автомобиль движется со скоростью \\($v\\) км/ч и был в пути \\($t\\) часов. "
+                . "Сколько километров он проехал?",
+            solution: $solution,
+            answer: (string) $s,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function findTime(float $difficulty): MathProblem
+    {
+        $v = $this->rnd(4, 12) * 10;
+        $t = $this->rnd(2, 6);
+        $s = $v * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Время равно пути, делённому на скорость:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "t = \\dfrac{s}{v}",
+                "$t = \\dfrac{$s}{$v} = $t",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$t \\text{ ч}");
+
+        return new MathProblem(
+            question: "Поезд прошёл \\($s\\) км со скоростью \\($v\\) км/ч. "
+                . "Сколько часов он был в пути?",
+            solution: $solution,
+            answer: (string) $t,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function findTimeTrain(float $difficulty): MathProblem
+    {
+        $v = $this->rnd(4, 12) * 10;
+        $t = $this->rnd(2, 6);
+        $s = $v * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Найдём время по формуле \\(t = \\dfrac{s}{v}\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "t = \\dfrac{$s}{$v}",
+                (string) $t,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$t \\text{ ч}");
+
+        return new MathProblem(
+            question: "Расстояние \\($s\\) км машина проехала со скоростью \\($v\\) км/ч. "
+                . "За сколько часов?",
+            solution: $solution,
+            answer: (string) $t,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function findSpeed(float $difficulty): MathProblem
+    {
+        $t = $this->rnd(2, 6);
+        $v = $this->rnd(3, 12) * 10;
+        $s = $v * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Скорость равна пути, делённому на время:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "v = \\dfrac{s}{t}",
+                "$v = \\dfrac{$s}{$t} = $v",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$v \\text{ км/ч}");
+
+        return new MathProblem(
+            question: "За \\($t\\) часов турист прошёл \\($s\\) км. "
+                . "С какой скоростью он шёл?",
+            solution: $solution,
+            answer: (string) $v,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function findSpeedSwimmer(float $difficulty): MathProblem
+    {
+        $t = $this->rnd(2, 6);
+        $v = $this->rnd(2, 9) * 10;
+        $s = $v * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Скорость: \\(v = \\dfrac{s}{t}\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "v = \\dfrac{$s}{$t}",
+                (string) $v,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$v \\text{ км/ч}");
+
+        return new MathProblem(
+            question: "Пловец проплыл \\($s\\) км за \\($t\\) часов. "
+                . "Какова его скорость?",
+            solution: $solution,
+            answer: (string) $v,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function combinedPath(float $difficulty): MathProblem
+    {
+        $v = $this->rnd(3, 10) * 10;
+        $t1 = $this->rnd(1, 3);
+        $t2 = $this->rnd(1, 3);
+        $s = $v * ($t1 + $t2);
+
+        $solution = "**Решение:**\n\n"
+            . "Найдём суммарное время и умножим на скорость:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "t = $t1 + $t2 = " . ($t1 + $t2) . " \\text{ ч}",
+                "s = $v \\cdot " . ($t1 + $t2) . " = $s",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$s \\text{ км}");
+
+        return new MathProblem(
+            question: "Велосипедист ехал \\($t1\\) ч, затем отдохнул и ехал ещё \\($t2\\) ч "
+                . "с той же скоростью \\($v\\) км/ч. Какой путь он проехал всего?",
+            solution: $solution,
+            answer: (string) $s,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function meetingTime(float $difficulty): MathProblem
+    {
+        $v1 = $this->rnd(2, 6) * 10;
+        $v2 = $this->rnd(2, 6) * 10;
+        $t = $this->rnd(2, 5);
+        $s = ($v1 + $v2) * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Скорость сближения равна сумме скоростей. Время до встречи:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "t = \\dfrac{s}{v_1 + v_2}",
+                "$t = \\dfrac{$s}{" . ($v1 + $v2) . "} = $t",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$t \\text{ ч}");
+
+        return new MathProblem(
+            question: "Рз двух городов, расстояние между которыми \\($s\\) км, одновременно навстречу "
+                . "друг другу выехали два автомобиля со скоростями \\($v1\\) и \\($v2\\) км/ч. "
+                . "Через сколько часов они встретятся?",
+            solution: $solution,
+            answer: (string) $t,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function relativeSpeed(float $difficulty): MathProblem
+    {
+        $v1 = $this->rnd(3, 8) * 10;
+        $v2 = $this->rnd(2, 5) * 10;
+        $t = $this->rnd(2, 5);
+        $s = ($v1 - $v2) * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Число километров, на которое грузовик обгонит автомобиль, "
+            . "\\(s = (v_1 - v_2) \\cdot t\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "s = ($v1 - $v2) \\cdot $t",
+                "$s = $s",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$s \\text{ км}");
+
+        return new MathProblem(
+            question: "Грузовик едет со скоростью \\($v1\\) км/ч, а легковой автомобиль — \\($v2\\) км/ч. "
+                . "На сколько километров грузовик обгонит автомобиль за \\($t\\) часов?",
+            solution: $solution,
+            answer: (string) $s,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function overtake(float $difficulty): MathProblem
+    {
+        $vBig = $this->rnd(5, 9) * 10;
+        $vDiff = $this->rnd(1, 3) * 10;
+        $vSmall = $vBig - $vDiff;
+        $t = $this->rnd(2, 5);
+        $s = $vDiff * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Скорость сближения — разность скоростей \\($vDiff\\) км/ч. Расстояние между ними:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "s = ($vBig - $vSmall) \\cdot $t",
+                "$s = $vDiff \\cdot $t = $s",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$s \\text{ км}");
+
+        return new MathProblem(
+            question: "Мотоциклист едет со скоростью \\($vBig\\) км/ч, автомобиль — "
+                . "\\($vSmall\\) км/ч. Какое расстояние будет между ними через \\($t\\) часов, "
+                . "если они стартовали из одной точки?",
+            solution: $solution,
+            answer: (string) $s,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

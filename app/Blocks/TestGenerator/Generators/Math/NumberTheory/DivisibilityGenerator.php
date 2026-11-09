@@ -9,180 +9,242 @@ use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
 
 /**
- * Признаки делимости.
+ * Признаки делимости. Ответ — «да» или «нет».
  *
- * difficulty:
- *   0.0–0.3  — делимость на 2, 5, 10 (последняя цифра)
- *   0.3–0.6  — делимость на 3, 9 (сумма цифр)
- *   0.6–0.85 — делимость на 4 (последние две цифры)
- *   0.85–1.0 — делимость на 11 (знакочередующаяся сумма)
+ * Пять уровней сложности, на каждом — по две формулировки:
+ *   [0.0–0.2) — делимость на 2 и на 5
+ *   [0.2–0.4) — делимость на 10 и на 3
+ *   [0.4–0.6) — делимость на 9 и на 4
+ *   [0.6–0.8) — делимость на 6 и на 3 (большие числа)
+ *   [0.8–1.0] — делимость на 9 и на 4 (большие числа)
  */
 final class DivisibilityGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.number_theory.divisibility.divisibility';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
-            $difficulty < 0.30 => $this->bySimple($difficulty),
-            $difficulty < 0.60 => $this->byThreeOrNine($difficulty),
-            $difficulty < 0.85 => $this->byFour($difficulty),
-            default            => $this->byEleven($difficulty),
+            $difficulty < 0.2 => $this->pick([
+                fn () => $this->ruleByTwo($difficulty),
+                fn () => $this->ruleByFive($difficulty),
+            ])(),
+            $difficulty < 0.4 => $this->pick([
+                fn () => $this->ruleByTen($difficulty),
+                fn () => $this->ruleByThree($difficulty),
+            ])(),
+            $difficulty < 0.6 => $this->pick([
+                fn () => $this->ruleByNine($difficulty),
+                fn () => $this->ruleByFour($difficulty),
+            ])(),
+            $difficulty < 0.8 => $this->pick([
+                fn () => $this->ruleBySix($difficulty),
+                fn () => $this->ruleByThreeBig($difficulty),
+            ])(),
+            default => $this->pick([
+                fn () => $this->ruleByNineBig($difficulty),
+                fn () => $this->ruleByFourBig($difficulty),
+            ])(),
         };
     }
 
-    private function bySimple(float $difficulty): MathProblem
+    private function verdict(bool $ok): string
     {
-        $divisor = $this->pick([2, 5, 10]);
-        $makeMultiple = random_int(0, 1) === 1;
+        return $ok ? 'да' : 'нет';
+    }
 
-        if ($makeMultiple) {
-            $k = $this->rnd(10, 99);
-            $n = $k * $divisor;
-        } else {
-            do {
-                $n = $this->rnd(100, 999);
-            } while ($n % $divisor === 0);
-        }
+    private function yesNo(bool $ok): string
+    {
+        return $ok ? '\\text{да}' : '\\text{нет}';
+    }
 
-        $lastDigit = $n % 10;
-        $isMultiple = $n % $divisor === 0;
-        $verdict = $isMultiple ? 'делится' : 'не делится';
+    /**
+     * @param list<string> $detailLines
+     */
+    private function makeProblem(
+        int $number,
+        int $divisor,
+        string $ruleText,
+        string $question,
+        array $detailLines,
+        float $difficulty,
+    ): MathProblem {
+        $ok = $number % $divisor === 0;
+        $verdict = $this->verdict($ok);
+
+        $detailLines[] = "\\text{вывод: } $verdict";
 
         $solution = "**Решение:**\n\n"
-            . "Проверим по признаку делимости на \\($divisor\\) — "
-            . ($divisor === 10
-                ? "смотрим последнюю цифру (должна быть 0)."
-                : "смотрим последнюю цифру.")
-            . "\n\n"
-            . KaTeX::display(KaTeX::alignedRaw([
-                "\\text{число: } & $n \\\\",
-                "\\text{последняя цифра: } & $lastDigit",
-            ]))
+            . $ruleText . "\n\n"
+            . KaTeX::display(KaTeX::alignedRaw($detailLines))
             . "\n\n**Ответ:** " . KaTeX::inline($verdict);
 
         return new MathProblem(
-            question: "Делится ли число \\($n\\) на \\($divisor\\) без остатка? Ответьте «да» или «нет».",
+            question: $question,
             solution: $solution,
-            answer: $isMultiple ? 'да' : 'нет',
-            topic: self::topic(),
+            answer: $verdict,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function byThreeOrNine(float $difficulty): MathProblem
+    private function ruleByTwo(float $difficulty): MathProblem
     {
-        $divisor = $this->pick([3, 9]);
-        $makeMultiple = random_int(0, 1) === 1;
-
-        if ($makeMultiple) {
-            $k = $this->rnd(20, 200);
-            $n = $k * $divisor;
-        } else {
-            do {
-                $n = $this->rnd(100, 999);
-            } while ($n % $divisor === 0);
-        }
-
-        $digits = str_split((string) $n);
-        $sum = array_sum(array_map('intval', $digits));
-        $digitsStr = implode(' + ', $digits);
-
-        $isMultiple = $n % $divisor === 0;
-        $verdict = $isMultiple ? 'делится' : 'не делится';
-
-        $solution = "**Решение:**\n\n"
-            . "Признак делимости на \\($divisor\\): сумма цифр должна делиться на \\($divisor\\).\n\n"
-            . KaTeX::display(KaTeX::alignedRaw([
-                "\\text{сумма цифр: } & $digitsStr = $sum \\\\",
-                "\\text{$sum} \\bmod $divisor = " . ($sum % $divisor),
-            ]))
-            . "\n\n**Ответ:** " . KaTeX::inline($verdict);
-
-        return new MathProblem(
-            question: "Делится ли число \\($n\\) на \\($divisor\\) без остатка? Ответьте «да» или «нет».",
-            solution: $solution,
-            answer: $isMultiple ? 'да' : 'нет',
-            topic: self::topic(),
-            difficulty: $difficulty,
+        $n = $this->rnd(10, 999);
+        $last = $n % 10;
+        return $this->makeProblem(
+            $n, 2,
+            "Число делится на \\(2\\), если его последняя цифра чётная.",
+            "Делится ли число \\($n\\) на \\(2\\)?",
+            [
+                "\\text{последняя цифра: } $last",
+                "\\text{чётная? } " . $this->yesNo($last % 2 === 0),
+            ],
+            $difficulty,
         );
     }
 
-    private function byFour(float $difficulty): MathProblem
+    private function ruleByFive(float $difficulty): MathProblem
     {
-        $makeMultiple = random_int(0, 1) === 1;
+        $n = $this->rnd(10, 999);
+        $last = $n % 10;
+        return $this->makeProblem(
+            $n, 5,
+            "Число делится на \\(5\\), если оканчивается на \\(0\\) или \\(5\\).",
+            "Делится ли число \\($n\\) на \\(5\\)?",
+            [
+                "\\text{последняя цифра: } $last",
+                "\\text{оканчивается на 0 или 5? } " . $this->yesNo($last === 0 || $last === 5),
+            ],
+            $difficulty,
+        );
+    }
 
-        if ($makeMultiple) {
-            $k = $this->rnd(30, 300);
-            $n = $k * 4;
-        } else {
-            do {
-                $n = $this->rnd(100, 9999);
-            } while ($n % 4 === 0);
-        }
+    private function ruleByTen(float $difficulty): MathProblem
+    {
+        $n = $this->rnd(10, 999);
+        $last = $n % 10;
+        return $this->makeProblem(
+            $n, 10,
+            "Число делится на \\(10\\), если оканчивается на \\(0\\).",
+            "Делится ли число \\($n\\) на \\(10\\)?",
+            [
+                "\\text{последняя цифра: } $last",
+                "\\text{оканчивается на 0? } " . $this->yesNo($last === 0),
+            ],
+            $difficulty,
+        );
+    }
 
+    private function ruleByThree(float $difficulty): MathProblem
+    {
+        $n = $this->rnd(10, 999);
+        $sum = array_sum(array_map('intval', str_split((string) $n)));
+        return $this->makeProblem(
+            $n, 3,
+            "Число делится на \\(3\\), если сумма его цифр делится на \\(3\\).",
+            "Делится ли число \\($n\\) на \\(3\\)?",
+            [
+                "\\text{сумма цифр: } $sum",
+                "\\text{сумма кратна 3? } " . $this->yesNo($sum % 3 === 0),
+            ],
+            $difficulty,
+        );
+    }
+
+    private function ruleByNine(float $difficulty): MathProblem
+    {
+        $n = $this->rnd(100, 999);
+        $sum = array_sum(array_map('intval', str_split((string) $n)));
+        return $this->makeProblem(
+            $n, 9,
+            "Число делится на \\(9\\), если сумма его цифр делится на \\(9\\).",
+            "Делится ли число \\($n\\) на \\(9\\)?",
+            [
+                "\\text{сумма цифр: } $sum",
+                "\\text{сумма кратна 9? } " . $this->yesNo($sum % 9 === 0),
+            ],
+            $difficulty,
+        );
+    }
+
+    private function ruleByFour(float $difficulty): MathProblem
+    {
+        $n = $this->rnd(100, 9999);
         $lastTwo = $n % 100;
-        $isMultiple = $n % 4 === 0;
-        $verdict = $isMultiple ? 'делится' : 'не делится';
-
-        $solution = "**Решение:**\n\n"
-            . "Признак делимости на \\(4\\): две последние цифры образуют число, кратное \\(4\\).\n\n"
-            . KaTeX::display(KaTeX::alignedRaw([
-                "\\text{число: } & $n \\\\",
-                "\\text{две последние цифры: } & " . str_pad((string) $lastTwo, 2, '0', STR_PAD_LEFT) . " \\\\",
-                "$lastTwo \\bmod 4 = " . ($lastTwo % 4),
-            ]))
-            . "\n\n**Ответ:** " . KaTeX::inline($verdict);
-
-        return new MathProblem(
-            question: "Делится ли число \\($n\\) на \\(4\\) без остатка? Ответьте «да» или «нет».",
-            solution: $solution,
-            answer: $isMultiple ? 'да' : 'нет',
-            topic: self::topic(),
-            difficulty: $difficulty,
+        return $this->makeProblem(
+            $n, 4,
+            "Число делится на \\(4\\), если две последние цифры образуют число, кратное \\(4\\).",
+            "Делится ли число \\($n\\) на \\(4\\)?",
+            [
+                "\\text{две последние цифры: } $lastTwo",
+                "\\text{кратно 4? } " . $this->yesNo($lastTwo % 4 === 0),
+            ],
+            $difficulty,
         );
     }
 
-    private function byEleven(float $difficulty): MathProblem
+    private function ruleBySix(float $difficulty): MathProblem
     {
-        $makeMultiple = random_int(0, 1) === 1;
+        $n = $this->rnd(100, 9999);
+        $sum = array_sum(array_map('intval', str_split((string) $n)));
+        $even = $n % 2 === 0;
+        return $this->makeProblem(
+            $n, 6,
+            "Число делится на \\(6\\), если оно делится и на \\(2\\), и на \\(3\\).",
+            "Делится ли число \\($n\\) на \\(6\\)?",
+            [
+                "\\text{сумма цифр: } $sum",
+                "\\text{кратно 3? } " . $this->yesNo($sum % 3 === 0),
+                "\\text{чётное? } " . $this->yesNo($even),
+            ],
+            $difficulty,
+        );
+    }
 
-        if ($makeMultiple) {
-            $k = $this->rnd(20, 200);
-            $n = $k * 11;
-        } else {
-            do {
-                $n = $this->rnd(1000, 99999);
-            } while ($n % 11 === 0);
-        }
+    private function ruleByThreeBig(float $difficulty): MathProblem
+    {
+        $n = $this->rnd(1000, 99999);
+        $sum = array_sum(array_map('intval', str_split((string) $n)));
+        return $this->makeProblem(
+            $n, 3,
+            "Число делится на \\(3\\), если сумма его цифр делится на \\(3\\).",
+            "Делится ли число \\($n\\) на \\(3\\)?",
+            [
+                "\\text{сумма цифр: } $sum",
+                "\\text{сумма кратна 3? } " . $this->yesNo($sum % 3 === 0),
+            ],
+            $difficulty,
+        );
+    }
 
-        $digits = array_map('intval', str_split((string) $n));
-        $altSum = 0;
-        for ($i = 0; $i < count($digits); $i++) {
-            $altSum += ($i % 2 === 0) ? $digits[$i] : -$digits[$i];
-        }
+    private function ruleByNineBig(float $difficulty): MathProblem
+    {
+        $n = $this->rnd(1000, 99999);
+        $sum = array_sum(array_map('intval', str_split((string) $n)));
+        return $this->makeProblem(
+            $n, 9,
+            "Число делится на \\(9\\), если сумма его цифр делится на \\(9\\).",
+            "Делится ли число \\($n\\) на \\(9\\)?",
+            [
+                "\\text{сумма цифр: } $sum",
+                "\\text{сумма кратна 9? } " . $this->yesNo($sum % 9 === 0),
+            ],
+            $difficulty,
+        );
+    }
 
-        $isMultiple = $n % 11 === 0;
-        $verdict = $isMultiple ? 'делится' : 'не делится';
-
-        $solution = "**Решение:**\n\n"
-            . "Признак делимости на \\(11\\): знакочередующаяся сумма цифр кратна \\(11\\).\n\n"
-            . KaTeX::display(KaTeX::alignedRaw([
-                "\\text{число: } & $n \\\\",
-                "\\text{знакочередующаяся сумма: } & $altSum \\\\",
-                "$altSum \\bmod 11 = " . (($altSum % 11 + 11) % 11),
-            ]))
-            . "\n\n**Ответ:** " . KaTeX::inline($verdict);
-
-        return new MathProblem(
-            question: "Делится ли число \\($n\\) на \\(11\\) без остатка? Ответьте «да» или «нет».",
-            solution: $solution,
-            answer: $isMultiple ? 'да' : 'нет',
-            topic: self::topic(),
-            difficulty: $difficulty,
+    private function ruleByFourBig(float $difficulty): MathProblem
+    {
+        $n = $this->rnd(10000, 99999);
+        $lastTwo = $n % 100;
+        return $this->makeProblem(
+            $n, 4,
+            "Число делится на \\(4\\), если две последние цифры образуют число, кратное \\(4\\).",
+            "Делится ли число \\($n\\) на \\(4\\)?",
+            [
+                "\\text{две последние цифры: } $lastTwo",
+                "\\text{кратно 4? } " . $this->yesNo($lastTwo % 4 === 0),
+            ],
+            $difficulty,
         );
     }
 }

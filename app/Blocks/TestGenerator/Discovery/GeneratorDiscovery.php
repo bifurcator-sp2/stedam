@@ -14,13 +14,13 @@ use RuntimeException;
 /**
  * Автоматическое обнаружение генераторов в папке Generators.
  *
- * Имя резолвера вычисляется из namespace и имени класса:
+ * Рмя резолвера вычисляется из namespace и имени класса:
  *   App\Blocks\TestGenerator\Generators\Math\Algebra\EqualsGenerator
- *   → math.algebra.equals
+ *   в†’ math.algebra.equals
  *
  * Правила:
- *   - namespace после baseNamespace → сегменты через Str::snake()
- *   - имя класса без суффикса "Generator" → Str::snake() → последний сегмент
+ *   - namespace после baseNamespace → сегменты через Str::camel()
+ *   - имя класса без суффикса "Generator" → Str::camel() → последний сегмент
  *   - классы, реализующие MathProblemGeneratorInterface и не абстрактные,
  *     попадают в карту
  *   - дубли путей (два класса на один адрес) → RuntimeException на этапе
@@ -153,7 +153,7 @@ private function pathFromFqcn(string $fqcn): ?string
     }
 
     $folders = array_map(
-        static fn (string $f): string => Str::snake($f),
+        static fn (string $f): string => Str::camel($f),
         $parts,
     );
     $folders[] = $leaf;
@@ -167,6 +167,6 @@ private function classNameToSegment(string $className): string
         $className = substr($className, 0, -strlen('Generator'));
     }
 
-    return Str::snake($className);
+    return Str::camel($className);
 }
 }

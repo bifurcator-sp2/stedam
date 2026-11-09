@@ -20,11 +20,6 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class StatisticsGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.probability.statistics.statistics';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         $series = $this->randomSeries();
@@ -57,7 +52,7 @@ final class StatisticsGenerator extends GeneratorBase
             question: "Дан ряд чисел: " . implode(', ', $series) . ". Найдите среднее арифметическое.",
             solution: $solution,
             answer: $answer,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -90,7 +85,7 @@ final class StatisticsGenerator extends GeneratorBase
             $b = $sorted[intdiv($n, 2)];
             $mid = ($a + $b) / 2;
             $answer = $this->num($mid, 2);
-            // ФИКС: было "\\dfrac{$a + $b}{2}" — невалидный PHP.
+            // ФРКС: было "\\dfrac{$a + $b}{2}" — невалидный PHP.
             // Стало — раздельные complex-блоки {{$a} + {$b}}.
             $steps = [
                 "\\text{отсортированный ряд: } & " . implode(', ', $sorted) . " \\\\",
@@ -108,7 +103,7 @@ final class StatisticsGenerator extends GeneratorBase
             question: "Дан ряд чисел: " . implode(', ', $series) . ". Найдите медиану.",
             solution: $solution,
             answer: $answer,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -149,7 +144,7 @@ final class StatisticsGenerator extends GeneratorBase
             question: "Дан ряд чисел: " . implode(', ', $series) . ". Найдите моду.",
             solution: $solution,
             answer: $answer,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -172,7 +167,7 @@ final class StatisticsGenerator extends GeneratorBase
             question: "Дан ряд чисел: " . implode(', ', $series) . ". Найдите размах.",
             solution: $solution,
             answer: (string) $range,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -235,7 +230,7 @@ final class StatisticsGenerator extends GeneratorBase
             . ". Найдите среднее, медиану, моду и размах.",
             solution: $solution,
             answer: $answer,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

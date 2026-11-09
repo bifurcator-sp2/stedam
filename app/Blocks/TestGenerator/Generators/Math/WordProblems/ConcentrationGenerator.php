@@ -9,100 +9,287 @@ use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
 
 /**
- * Задачи на концентрацию / растворы.
+ * Задачи на концентрацию и проценты в растворах.
  *
- * difficulty:
- *   0.0–0.5  — масса вещества: m_в = m_р · c / 100
- *   0.5–1.0  — смешивание двух растворов одной концентрации
- *
- * Везде подбираем числа так, чтобы ответ был целым.
+ * Пять уровней сложности, на каждом — по две формулировки:
+ *   [0.0–0.2) — найти массу вещества в растворе
+ *   [0.2–0.4) — найти концентрацию (в процентах)
+ *   [0.4–0.6) — найти массу раствора по массе вещества
+ *   [0.6–0.8) — простые проценты (сахар в сиропе)
+ *   [0.8–1.0] — концентрация после разбавления
  */
 final class ConcentrationGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.word_problems.concentration.concentration';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
-        return $difficulty < 0.5
-            ? $this->massOfSolute($difficulty)
-            : $this->mixTwo($difficulty);
+        return match (true) {
+            $difficulty < 0.2 => $this->pick([
+                fn () => $this->findMass($difficulty),
+                fn () => $this->findSalt($difficulty),
+            ])(),
+            $difficulty < 0.4 => $this->pick([
+                fn () => $this->findPercent($difficulty),
+                fn () => $this->findPercentJuice($difficulty),
+            ])(),
+            $difficulty < 0.6 => $this->pick([
+                fn () => $this->findSolution($difficulty),
+                fn () => $this->findSolutionSugar($difficulty),
+            ])(),
+            $difficulty < 0.8 => $this->pick([
+                fn () => $this->sugarInSyrup($difficulty),
+                fn () => $this->acidInSolution($difficulty),
+            ])(),
+            default => $this->pick([
+                fn () => $this->dilution($difficulty),
+                fn () => $this->addWater($difficulty),
+            ])(),
+        };
     }
 
-    private function massOfSolute(float $difficulty): MathProblem
+    private function findMass(float $difficulty): MathProblem
     {
-        // Концентрация кратна 5, чтобы произведение было целым.
-        $c = $this->pick([5, 10, 15, 20, 25, 40, 50]);
-        $denominator = 100 / self::gcd($c, 100);       // чтобы m_р · c/100 было целым
-        $mSolution = $this->rnd(2, 20) * $denominator;
-
-        $mSolute = intdiv($mSolution * $c, 100);
+        $mass = $this->rnd(2, 10) * 100;
+        $p = $this->pick([5, 10, 20, 25, 40]);
+        $substance = $mass * $p / 100;
 
         $solution = "**Решение:**\n\n"
-            . "Масса раствора \\(m_{\\text{р}} = $mSolution\\) г, "
-            . "концентрация \\(c = $c\\%\\).\n\n"
-            . "Масса растворённого вещества:\n\n"
-            . KaTeX::display('m_{\text{в}} = m_{\text{р}} \cdot \dfrac{c}{100}')
-            . "\n\nПодставим:\n\n"
+            . "Масса вещества = масса раствора · концентрация:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "m_{\\text{в}} = $mSolution \\cdot \\dfrac{$c}{100}",
-                "m_{\\text{в}} = $mSolute \\text{ г}",
+                "m = $mass \\cdot \\dfrac{$p}{100}",
+                $this->num($substance),
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline("$mSolute \\text{ г}");
+            . "\n\n**Ответ:** " . KaTeX::inline($this->num($substance) . " \\text{ г}");
 
         return new MathProblem(
-            question: "Имеется \\($mSolution\\) г раствора с концентрацией \\($c\\%\\). "
-                . "Сколько граммов вещества в нём растворено?",
+            question: "Есть \\($mass\\) г раствора с концентрацией соли \\($p\\%\\). "
+                . "Сколько граммов соли в растворе?",
             solution: $solution,
-            answer: (string) $mSolute,
-            topic: self::topic(),
+            answer: $this->num($substance),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function mixTwo(float $difficulty): MathProblem
+    private function findSalt(float $difficulty): MathProblem
     {
-        // Смешиваем два раствора одинаковой концентрации c.
-        // Считаем массу вещества в смеси.
-        $c = $this->pick([5, 10, 15, 20, 25, 40, 50]);
-        $denominator = 100 / self::gcd($c, 100);
-
-        $m1 = $this->rnd(2, 15) * $denominator;
-        $m2 = $this->rnd(2, 15) * $denominator;
-
-        $mTotal = $m1 + $m2;
-        $mSolute = intdiv($mTotal * $c, 100);
+        $mass = $this->rnd(2, 10) * 100;
+        $p = $this->pick([5, 10, 20, 25]);
+        $substance = $mass * $p / 100;
 
         $solution = "**Решение:**\n\n"
-            . "Смешали два раствора одинаковой концентрации \\($c\\%\\):\n\n"
-            . KaTeX::display(KaTeX::alignedRaw([
-                "m_1 = $m1 \\text{ г}, & \\quad m_2 = $m2 \\text{ г} \\\\",
-                "m_{\\text{смеси}} = m_1 + m_2 = $mTotal \\text{ г}",
-            ]))
-            . "\n\nМасса вещества в смеси:\n\n"
+            . "Содержание соли:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "m_{\\text{в}} = $mTotal \\cdot \\dfrac{$c}{100}",
-                "m_{\\text{в}} = $mSolute \\text{ г}",
+                "$mass \\cdot \\dfrac{$p}{100}",
+                $this->num($substance),
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline("$mSolute \\text{ г}");
+            . "\n\n**Ответ:** " . KaTeX::inline($this->num($substance) . " \\text{ г}");
 
         return new MathProblem(
-            question: "Смешали \\($m1\\) г и \\($m2\\) г растворов с концентрацией \\($c\\%\\). "
-                . "Сколько граммов вещества окажется в смеси?",
+            question: "\\($mass\\) г морской воды содержат \\($p\\%\\) соли. "
+                . "Сколько соли в этой воде?",
             solution: $solution,
-            answer: (string) $mSolute,
-            topic: self::topic(),
+            answer: $this->num($substance),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private static function gcd(int $a, int $b): int
+    private function findPercent(float $difficulty): MathProblem
     {
-        while ($b !== 0) {
-            [$a, $b] = [$b, $a % $b];
-        }
-        return $a === 0 ? 1 : $a;
+        $mass = $this->rnd(2, 10) * 100;
+        $p = $this->pick([5, 10, 20, 25, 50]);
+        $substance = $mass * $p / 100;
+
+        $solution = "**Решение:**\n\n"
+            . "Концентрация = масса вещества : масса раствора · 100\\%:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\dfrac{" . $this->num($substance) . "}{$mass} \\cdot 100\\%",
+                $p . "\\%",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline($p . "\\%");
+
+        return new MathProblem(
+            question: "В \\($mass\\) г раствора содержится " . $this->num($substance) . " г вещества. "
+                . "Какова концентрация раствора (в процентах)?",
+            solution: $solution,
+            answer: $p . '%',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function findPercentJuice(float $difficulty): MathProblem
+    {
+        $mass = $this->rnd(2, 10) * 100;
+        $p = $this->pick([10, 20, 25, 50]);
+        $substance = $mass * $p / 100;
+
+        $solution = "**Решение:**\n\n"
+            . "Доля сока в напитке:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\dfrac{" . $this->num($substance) . "}{$mass} \\cdot 100\\%",
+                $p . "\\%",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline($p . "\\%");
+
+        return new MathProblem(
+            question: "В \\($mass\\) г напитка содержится " . $this->num($substance) . " г сока. "
+                . "Сколько процентов сока в напитке?",
+            solution: $solution,
+            answer: $p . '%',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function findSolution(float $difficulty): MathProblem
+    {
+        $p = $this->pick([10, 20, 25, 50]);
+        $mass = $this->rnd(2, 10) * 100;
+        $substance = $mass * $p / 100;
+
+        $solution = "**Решение:**\n\n"
+            . "Если \\($p\\%\\) — это " . $this->num($substance) . " г, то масса раствора:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\dfrac{" . $this->num($substance) . "}{$p} \\cdot 100",
+                (string) $mass,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$mass \\text{ г}");
+
+        return new MathProblem(
+            question: "Раствор содержит " . $this->num($substance) . " г вещества, что составляет \\($p\\%\\) "
+                . "от всей массы. Какова масса раствора?",
+            solution: $solution,
+            answer: (string) $mass,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function findSolutionSugar(float $difficulty): MathProblem
+    {
+        $p = $this->pick([10, 20, 25]);
+        $mass = $this->rnd(2, 10) * 100;
+        $substance = $mass * $p / 100;
+
+        $solution = "**Решение:**\n\n"
+            . "Масса сиропа:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\dfrac{" . $this->num($substance) . "}{$p} \\cdot 100",
+                (string) $mass,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$mass \\text{ г}");
+
+        return new MathProblem(
+            question: "В сиропе " . $this->num($substance) . " г сахара — это \\($p\\%\\) от массы сиропа. "
+                . "Какова масса сиропа?",
+            solution: $solution,
+            answer: (string) $mass,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function sugarInSyrup(float $difficulty): MathProblem
+    {
+        $mass = $this->pick([200, 300, 400, 500]);
+        $p = $this->pick([5, 10, 15, 20]);
+        $substance = $mass * $p / 100;
+
+        $solution = "**Решение:**\n\n"
+            . "Количество сахара в сиропе:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "m = $mass \\cdot \\dfrac{$p}{100}",
+                $this->num($substance),
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline($this->num($substance) . " \\text{ г}");
+
+        return new MathProblem(
+            question: "Приготовили \\($mass\\) г сиропа с содержанием сахара \\($p\\%\\). "
+                . "Сколько сахара в сиропе?",
+            solution: $solution,
+            answer: $this->num($substance),
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function acidInSolution(float $difficulty): MathProblem
+    {
+        $mass = $this->pick([200, 400, 500, 1000]);
+        $p = $this->pick([5, 10, 12, 15]);
+        $substance = $mass * $p / 100;
+
+        $solution = "**Решение:**\n\n"
+            . "Масса кислоты:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$mass \\cdot \\dfrac{$p}{100}",
+                $this->num($substance),
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline($this->num($substance) . " \\text{ г}");
+
+        return new MathProblem(
+            question: "Раствор массой \\($mass\\) г содержит \\($p\\%\\) кислоты. "
+                . "Сколько граммов кислоты?",
+            solution: $solution,
+            answer: $this->num($substance),
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function dilution(float $difficulty): MathProblem
+    {
+        $mass = $this->pick([200, 300, 400]);
+        $p = $this->pick([10, 20, 25]);
+        $substance = $mass * $p / 100;
+        $newMass = $mass + $this->pick([200, 300]);
+        $newP = $substance / $newMass * 100;
+
+        $solution = "**Решение:**\n\n"
+            . "Вещество остаётся " . $this->num($substance) . " г, а раствор стал \\($newMass\\) г. "
+            . "Новая концентрация:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\dfrac{" . $this->num($substance) . "}{$newMass} \\cdot 100\\%",
+                $this->num($newP) . "\\%",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline($this->num($newP) . "\\%");
+
+        return new MathProblem(
+            question: "К \\($mass\\) г раствора с концентрацией \\($p\\%\\) долили воды до "
+                . "\\($newMass\\) г. Какой стала концентрация вещества?",
+            solution: $solution,
+            answer: $this->num($newP) . '%',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function addWater(float $difficulty): MathProblem
+    {
+        $mass = $this->pick([200, 400]);
+        $p = $this->pick([10, 20, 25]);
+        $substance = $mass * $p / 100;
+        $added = $this->pick([100, 200, 300]);
+        $newMass = $mass + $added;
+        $newP = $substance / $newMass * 100;
+
+        $solution = "**Решение:**\n\n"
+            . "Масса вещества не меняется: " . $this->num($substance) . " г. "
+            . "Раствор стал \\($newMass\\) г. Концентрация:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\dfrac{" . $this->num($substance) . "}{$newMass} \\cdot 100\\%",
+                $this->num($newP) . "\\%",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline($this->num($newP) . "\\%");
+
+        return new MathProblem(
+            question: "Рмеется \\($mass\\) г раствора с содержанием вещества \\($p\\%\\). "
+                . "Добавили \\($added\\) г воды. Найдите новую концентрацию.",
+            solution: $solution,
+            answer: $this->num($newP) . '%',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
     }
 }

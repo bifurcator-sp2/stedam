@@ -18,11 +18,6 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class ExpressionsGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.algebra.expressions.expressions';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
@@ -56,7 +51,7 @@ final class ExpressionsGenerator extends GeneratorBase
             . " при \\(x = $x\\).",
             solution: $solution,
             answer: (string) $value,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -81,7 +76,7 @@ final class ExpressionsGenerator extends GeneratorBase
             question: "Упростите выражение: " . KaTeX::inline("{$a}x + {$b}x"),
             solution: $solution,
             answer: "{$sum}x",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -105,7 +100,7 @@ final class ExpressionsGenerator extends GeneratorBase
             question: "Раскройте скобки: " . KaTeX::inline("{$a}(x + {$b})"),
             solution: $solution,
             answer: "{$a}x + {$product}",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

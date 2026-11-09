@@ -9,143 +9,283 @@ use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
 
 /**
- * Задачи на работу.
+ * Задачи на работу: A = p · t (работа = производительность · время).
  *
- * difficulty:
- *   0.0–0.35  — объём: A = p · t
- *   0.35–0.55 — производительность: p = A / t
- *   0.55–0.75 — время: t = A / p
- *   0.75–1.00 — совместная работа: A = (p₁ + p₂) · t
- *
- * Производительности и времена целые; A получается целым.
+ * Пять уровней сложности, на каждом — по две формулировки:
+ *   [0.0–0.2) — найти объём работы
+ *   [0.2–0.4) — найти время по работе и производительности
+ *   [0.4–0.6) — найти производительность
+ *   [0.6–0.8) — совместная работа (складываем производительности)
+ *   [0.8–1.0] — работа вместе, время
  */
 final class WorkGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.word_problems.work.work';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
-            $difficulty < 0.35 => $this->volume($difficulty),
-            $difficulty < 0.55 => $this->rate($difficulty),
-            $difficulty < 0.75 => $this->time($difficulty),
-            default            => $this->joint($difficulty),
+            $difficulty < 0.2 => $this->pick([
+                fn () => $this->findWork($difficulty),
+                fn () => $this->findDetali($difficulty),
+            ])(),
+            $difficulty < 0.4 => $this->pick([
+                fn () => $this->findTime($difficulty),
+                fn () => $this->findDays($difficulty),
+            ])(),
+            $difficulty < 0.6 => $this->pick([
+                fn () => $this->findRate($difficulty),
+                fn () => $this->findRateMachine($difficulty),
+            ])(),
+            $difficulty < 0.8 => $this->pick([
+                fn () => $this->togetherVolume($difficulty),
+                fn () => $this->togetherPipes($difficulty),
+            ])(),
+            default => $this->pick([
+                fn () => $this->togetherTime($difficulty),
+                fn () => $this->togetherFinish($difficulty),
+            ])(),
         };
     }
 
-    private function volume(float $difficulty): MathProblem
+    private function findWork(float $difficulty): MathProblem
     {
-        $p = $this->rnd(2, 20);
+        $rate = $this->rnd(5, 30);
         $t = $this->rnd(2, 8);
-        $a = $p * $t;
+        $work = $rate * $t;
 
         $solution = "**Решение:**\n\n"
-            . "Производительность \\(p = $p\\) деталей в час, время \\(t = $t\\) ч.\n\n"
-            . "Объём работы:\n\n"
-            . KaTeX::display('A = p \cdot t')
-            . "\n\nПодставим:\n\n"
+            . "Объём работы = производительность · время:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "A = $p \\cdot $t",
-                "A = $a",
+                "A = p \\cdot t",
+                "$work = $rate \\cdot $t",
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline((string) $a);
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $work);
 
         return new MathProblem(
-            question: "Рабочий делает \\($p\\) деталей в час. Сколько деталей он изготовит за \\($t\\) ч?",
+            question: "Рабочий делает \\($rate\\) деталей в час. Сколько деталей он сделает за \\($t\\) часов?",
             solution: $solution,
-            answer: (string) $a,
-            topic: self::topic(),
+            answer: (string) $work,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function rate(float $difficulty): MathProblem
+    private function findDetali(float $difficulty): MathProblem
     {
-        $p = $this->rnd(3, 25);
-        $t = $this->rnd(2, 7);
-        $a = $p * $t;
+        $rate = $this->rnd(10, 50);
+        $t = $this->rnd(2, 8);
+        $work = $rate * $t;
 
         $solution = "**Решение:**\n\n"
-            . "Объём работы \\(A = $a\\), время \\(t = $t\\) ч.\n\n"
-            . "Производительность:\n\n"
-            . KaTeX::display('p = \dfrac{A}{t}')
-            . "\n\nПодставим:\n\n"
+            . "Всего изготовлено:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "p = \\dfrac{$a}{$t}",
-                "p = $p \\text{ дет./ч}",
+                "$rate \\cdot $t",
+                (string) $work,
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline("$p \\text{ дет./ч}");
+            . "\n\n**Ответ:** " . KaTeX::inline("$work \\text{ дет.}");
 
         return new MathProblem(
-            question: "Мастер изготовил \\($a\\) деталей за \\($t\\) ч. "
-                . "Какова его производительность?",
+            question: "Станок выпускает \\($rate\\) деталей в час. Сколько деталей он выпустит за \\($t\\) часов?",
             solution: $solution,
-            answer: (string) $p,
-            topic: self::topic(),
+            answer: (string) $work,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function time(float $difficulty): MathProblem
+    private function findTime(float $difficulty): MathProblem
     {
-        $p = $this->rnd(3, 20);
+        $rate = $this->rnd(5, 25);
         $t = $this->rnd(2, 8);
-        $a = $p * $t;
+        $work = $rate * $t;
 
         $solution = "**Решение:**\n\n"
-            . "Объём работы \\(A = $a\\), производительность \\(p = $p\\) дет./ч.\n\n"
-            . "Время:\n\n"
-            . KaTeX::display('t = \dfrac{A}{p}')
-            . "\n\nПодставим:\n\n"
+            . "Время = работа : производительность:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "t = \\dfrac{$a}{$p}",
-                "t = $t \\text{ ч}",
+                "t = \\dfrac{A}{p}",
+                "t = \\dfrac{$work}{$rate} = $t",
             ]))
             . "\n\n**Ответ:** " . KaTeX::inline("$t \\text{ ч}");
 
         return new MathProblem(
-            question: "Рабочему нужно изготовить \\($a\\) деталей. "
-                . "Он делает \\($p\\) деталей в час. За сколько часов он справится?",
+            question: "Нужно изготовить \\($work\\) деталей, а рабочий делает \\($rate\\) деталей в час. "
+                . "За сколько часов он справится?",
             solution: $solution,
             answer: (string) $t,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function joint(float $difficulty): MathProblem
+    private function findDays(float $difficulty): MathProblem
     {
-        $p1 = $this->rnd(3, 15);
-        $p2 = $this->rnd(3, 15);
-        while ($p1 === $p2) {
-            $p2 = $this->rnd(3, 15);
-        }
-        $t = $this->rnd(2, 6);
-        $a = ($p1 + $p2) * $t;
+        $rate = $this->rnd(3, 15);
+        $t = $this->rnd(2, 10);
+        $work = $rate * $t;
 
         $solution = "**Решение:**\n\n"
-            . "Совместная производительность:\n\n"
+            . "Количество дней:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "p = p_1 + p_2",
-                "p = $p1 + $p2 = " . ($p1 + $p2) . " \\text{ дет./ч}",
+                "t = \\dfrac{$work}{$rate}",
+                (string) $t,
             ]))
-            . "\n\nОбъём работы:\n\n"
-            . KaTeX::display(KaTeX::aligned([
-                "A = p \\cdot t",
-                "A = " . ($p1 + $p2) . " \\cdot $t",
-                "A = $a",
-            ]))
-            . "\n\n**Ответ:** " . KaTeX::inline((string) $a);
+            . "\n\n**Ответ:** " . KaTeX::inline("$t \\text{ дн.}");
 
         return new MathProblem(
-            question: "Два рабочих вместе делают детали: первый — \\($p1\\) дет./ч, "
-                . "второй — \\($p2\\) дет./ч. Сколько деталей они изготовят вместе за \\($t\\) ч?",
+            question: "Бригада должна уложить \\($work\\) метров дороги, укладывая по \\($rate\\) м в день. "
+                . "За сколько дней она справится?",
             solution: $solution,
-            answer: (string) $a,
-            topic: self::topic(),
+            answer: (string) $t,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function findRate(float $difficulty): MathProblem
+    {
+        $rate = $this->rnd(5, 30);
+        $t = $this->rnd(2, 8);
+        $work = $rate * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Производительность = работа : время:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "p = \\dfrac{A}{t}",
+                "p = \\dfrac{$work}{$t} = $rate",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$rate \\text{ дет./ч}");
+
+        return new MathProblem(
+            question: "За \\($t\\) часов рабочий сделал \\($work\\) деталей. "
+                . "Какова его производительность (деталей в час)?",
+            solution: $solution,
+            answer: (string) $rate,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function findRateMachine(float $difficulty): MathProblem
+    {
+        $t = $this->rnd(2, 8);
+        $rate = $this->rnd(5, 30);
+        $work = $rate * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Производительность:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "p = \\dfrac{$work}{$t}",
+                (string) $rate,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$rate \\text{ дет./ч}");
+
+        return new MathProblem(
+            question: "Станок за \\($t\\) часов выпустил \\($work\\) деталей. "
+                . "Сколько деталей он делает в час?",
+            solution: $solution,
+            answer: (string) $rate,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function togetherVolume(float $difficulty): MathProblem
+    {
+        $r1 = $this->rnd(3, 12);
+        $r2 = $this->rnd(3, 12);
+        $t = $this->rnd(2, 6);
+        $work = ($r1 + $r2) * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "При совместной работе производительности складываются:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "A = (p_1 + p_2) \\cdot t",
+                "$work = ($r1 + $r2) \\cdot $t",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $work);
+
+        return new MathProblem(
+            question: "Первый рабочий делает \\($r1\\) деталей в час, второй — \\($r2\\). "
+                . "Сколько деталей они сделают вместе за \\($t\\) часов?",
+            solution: $solution,
+            answer: (string) $work,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function togetherPipes(float $difficulty): MathProblem
+    {
+        $r1 = $this->rnd(3, 15);
+        $r2 = $this->rnd(3, 15);
+        $t = $this->rnd(2, 6);
+        $work = ($r1 + $r2) * $t;
+
+        $solution = "**Решение:**\n\n"
+            . "Две трубы вместе наливают \\((p_1 + p_2)\\) литров в час:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$work = ($r1 + $r2) \\cdot $t",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$work \\text{ л}");
+
+        return new MathProblem(
+            question: "Одна труба наливает \\($r1\\) л в час, другая — \\($r2\\) л в час. "
+                . "Сколько литров они нальют вместе за \\($t\\) часов?",
+            solution: $solution,
+            answer: (string) $work,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function togetherTime(float $difficulty): MathProblem
+    {
+        $r1 = $this->rnd(2, 10);
+        $r2 = $this->rnd(2, 10);
+        $total = $r1 + $r2;
+        $work = $total * $this->rnd(2, 6);
+        $t = intdiv($work, $total);
+
+        $solution = "**Решение:**\n\n"
+            . "Совместная производительность: \\($r1 + $r2 = $total\\). "
+            . "Время на объём \\($work\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "t = \\dfrac{A}{p_1 + p_2}",
+                "t = \\dfrac{$work}{$total} = $t",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$t \\text{ ч}");
+
+        return new MathProblem(
+            question: "Первый рабочий делает \\($r1\\) деталей в час, второй — \\($r2\\). "
+                . "За сколько часов вместе они сделают \\($work\\) деталей?",
+            solution: $solution,
+            answer: (string) $t,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function togetherFinish(float $difficulty): MathProblem
+    {
+        $r1 = $this->rnd(2, 10);
+        $r2 = $this->rnd(2, 10);
+        $total = $r1 + $r2;
+        $work = $total * $this->rnd(2, 6);
+        $t = intdiv($work, $total);
+
+        $solution = "**Решение:**\n\n"
+            . "Суммарная производительность \\($total\\). Время:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "t = \\dfrac{$work}{" . $total . "}",
+                "t = \\dfrac{$work}{$total} = $t",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$t \\text{ ч}");
+
+        return new MathProblem(
+            question: "Две бригады вместе за час выполняют \\($total\\) единиц работы. "
+                . "За сколько часов они вместе выполнят объём \\($work\\)?",
+            solution: $solution,
+            answer: (string) $t,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

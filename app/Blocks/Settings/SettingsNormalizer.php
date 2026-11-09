@@ -191,7 +191,7 @@ class SettingsNormalizer
 
         $newChildren = [];
 
-        // Идем по схеме — это эталон структуры и порядка
+        // Рдем по схеме — это эталон структуры и порядка
         foreach ($schemaChildren as $schemaChild) {
             if (!is_array($schemaChild) || !isset($schemaChild['key'])) {
                 continue;
@@ -838,7 +838,7 @@ class SettingsNormalizer
      * Быстро, без анализа и исключений — при несовпадении shape узел
      * просто пропускается, схема возвращается частично заполненной.
      *
-     * Идемпотентна: повторный вызов с тем же результатом не меняет его.
+     * Рдемпотентна: повторный вызов с тем же результатом не меняет его.
      */
     public static function fillPublicDefaults(?array $settings, ?array $schema): array
     {
@@ -973,7 +973,7 @@ class SettingsNormalizer
      *   normalizeUrls()      — URL → /storage/...   (перед сохранением в БД)
      *   settingsToS3urls()   — /storage/... → URL   (при отдаче наружу)
      *
-     * Идемпотентна: значения, которые уже не начинаются с `/storage/`
+     * Рдемпотентна: значения, которые уже не начинаются с `/storage/`
      * (включая S3-URL), не трогаются. Структура массива сохраняется.
      *
      * При LocalUrlResolver — no-op (возвращает те же `/storage/...`).
@@ -1072,7 +1072,7 @@ class SettingsNormalizer
 
         // 1. Пытаемся получить topic из таксономии урока (с кэшированием по lesson_id)
         if (!array_key_exists($lessonId, self::$resolvedTopics)) {
-            // ИСПРАВЛЕНИЕ: Всегда ищем Lesson по ID. Для глобальных блоков (lesson_id = null)
+            // РСПРАВЛЕНРЕ: Всегда ищем Lesson по ID. Для глобальных блоков (lesson_id = null)
             // связь $lessonBlock->lesson всегда вернет null, даже если она загружена.
             $lesson = \App\Models\Lesson::find($lessonId);
             $topicFromTaxonomy = null;
@@ -1087,12 +1087,12 @@ class SettingsNormalizer
                     $node = \App\Models\Taxonomy::query()->find($taxonomyId);
                     $guard = 0;
 
-                    // Идем вверх по дереву таксономии, ищем test_resolver
+                    // Рдем вверх по дереву таксономии, ищем test_resolver
                     while ($node !== null && $guard++ < 64) {
                         $resolver = is_string($node->test_resolver) ? trim($node->test_resolver) : '';
 
                         if ($resolver !== '') {
-                            $topicFromTaxonomy = $resolverMap->topicFor($resolver);
+                            $topicFromTaxonomy = $resolverMap->matchedPath($resolver);
                             if ($topicFromTaxonomy !== null) {
                                 break;
                             }
@@ -1153,7 +1153,7 @@ class SettingsNormalizer
                     // Записываем ТОЛЬКО условие в default
                     $nodes['default'] = $problem->question;
                 } catch (\Throwable $e) {
-                    // ИСПРАВЛЕНИЕ: Обязательно логируем, чтобы понимать, почему задача не пришла
+                    // РСПРАВЛЕНРЕ: Обязательно логируем, чтобы понимать, почему задача не пришла
                     \Illuminate\Support\Facades\Log::error('fillProcNodes generation error: ' . $e->getMessage(), [
                         'topic' => $topic,
                         'difficulty' => $difficulty,

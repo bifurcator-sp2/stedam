@@ -9,28 +9,100 @@ use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
 
 /**
- * Сложение: от чисел в пределах 10 до многозначных.
+ * Сложение.
+ *
+ * Пять уровней сложности, на каждом — по две формулировки:
+ *   [0.0–0.2) — однозначные числа
+ *   [0.2–0.4) — двузначные
+ *   [0.4–0.6) — трёхзначные
+ *   [0.6–0.8) — четырёхзначные
+ *   [0.8–1.0] — многозначные и комбинированные
  */
 final class AdditionGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.arithmetic.operations.addition';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
-        [$a, $b] = match (true) {
-            $difficulty < 0.25 => [$this->rnd(1, 9),     $this->rnd(1, 9)],
-            $difficulty < 0.5  => [$this->rnd(10, 99),   $this->rnd(10, 99)],
-            $difficulty < 0.75 => [$this->rnd(100, 999), $this->rnd(10, 999)],
-            default            => [$this->rnd(1000, 9999), $this->rnd(100, 9999)],
+        return match (true) {
+            $difficulty < 0.2 => $this->pick([
+                fn () => $this->chainSum($difficulty),
+                fn () => $this->dailySum($difficulty),
+            ])(),
+            $difficulty < 0.4 => $this->pick([
+                fn () => $this->columnSum($difficulty),
+                fn () => $this->shopsSum($difficulty),
+            ])(),
+            $difficulty < 0.6 => $this->pick([
+                fn () => $this->threeTerms($difficulty),
+                fn () => $this->librarySum($difficulty),
+            ])(),
+            $difficulty < 0.8 => $this->pick([
+                fn () => $this->bigColumn($difficulty),
+                fn () => $this->fourNumbers($difficulty),
+            ])(),
+            default => $this->pick([
+                fn () => $this->manyTerms($difficulty),
+                fn () => $this->roundTens($difficulty),
+            ])(),
         };
+    }
 
+    private function chainSum(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(1, 9);
+        $b = $this->rnd(1, 9);
+        $c = $this->rnd(1, 9);
+        $sum = $a + $b + $c;
+
+        $solution = "**Решение:**\n\n"
+            . "Складываем по порядку:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$a + $b + $c",
+                (string) ($a + $b) . " + $c",
+                (string) $sum,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $sum);
+
+        return new MathProblem(
+            question: "Вычислите сумму: " . KaTeX::inline("$a + $b + $c"),
+            solution: $solution,
+            answer: (string) $sum,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function dailySum(float $difficulty): MathProblem
+    {
+        $morning = $this->rnd(1, 9);
+        $evening = $this->rnd(1, 9);
+        $sum = $morning + $evening;
+
+        $solution = "**Решение:**\n\n"
+            . "За день всего пройдено:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$morning + $evening",
+                (string) $sum,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $sum . " \\text{ км}");
+
+        return new MathProblem(
+            question: "Утром турист прошёл \\($morning\\) км, а вечером — \\($evening\\) км. "
+                . "Сколько километров он прошёл за день?",
+            solution: $solution,
+            answer: (string) $sum,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function columnSum(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(10, 99);
+        $b = $this->rnd(10, 99);
         $sum = $a + $b;
 
         $solution = "**Решение:**\n\n"
-            . "Складываем по разрядам, начиная с единиц.\n\n"
+            . "Сложим в столбик (единицы под единицами, десятки под десятками):\n\n"
             . KaTeX::display(KaTeX::aligned([
                 "$a + $b",
                 (string) $sum,
@@ -38,10 +110,182 @@ final class AdditionGenerator extends GeneratorBase
             . "\n\n**Ответ:** " . KaTeX::inline((string) $sum);
 
         return new MathProblem(
-            question: "Вычислите: " . KaTeX::inline("$a + $b"),
+            question: "Найдите сумму чисел \\($a\\) и \\($b\\).",
             solution: $solution,
             answer: (string) $sum,
-            topic: self::topic(),
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function shopsSum(float $difficulty): MathProblem
+    {
+        $first = $this->rnd(10, 99);
+        $second = $this->rnd(10, 99);
+        $sum = $first + $second;
+
+        $solution = "**Решение:**\n\n"
+            . "Всего посетителей:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$first + $second",
+                (string) $sum,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $sum . " \\text{ чел.}");
+
+        return new MathProblem(
+            question: "В первый магазин за день пришло \\($first\\) покупателей, "
+                . "а во второй — \\($second\\). Сколько покупателей пришло в оба магазина вместе?",
+            solution: $solution,
+            answer: (string) $sum,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function threeTerms(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(100, 999);
+        $b = $this->rnd(100, 999);
+        $c = $this->rnd(10, 99);
+        $sum = $a + $b + $c;
+
+        $solution = "**Решение:**\n\n"
+            . "Сначала сложим первые два числа, затем прибавим третье:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$a + $b + $c",
+                (string) ($a + $b) . " + $c",
+                (string) $sum,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $sum);
+
+        return new MathProblem(
+            question: "Вычислите: " . KaTeX::inline("$a + $b + $c"),
+            solution: $solution,
+            answer: (string) $sum,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function librarySum(float $difficulty): MathProblem
+    {
+        $novels = $this->rnd(100, 999);
+        $poems = $this->rnd(100, 999);
+        $sum = $novels + $poems;
+
+        $solution = "**Решение:**\n\n"
+            . "Всего книг в библиотеке:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$novels + $poems",
+                (string) $sum,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $sum . " \\text{ книг}");
+
+        return new MathProblem(
+            question: "В библиотеке \\($novels\\) художественных книг и \\($poems\\) книг поэзии. "
+                . "Сколько всего книг в библиотеке?",
+            solution: $solution,
+            answer: (string) $sum,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function bigColumn(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(1000, 9999);
+        $b = $this->rnd(1000, 9999);
+        $sum = $a + $b;
+
+        $solution = "**Решение:**\n\n"
+            . "Сложим столбиком:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$a + $b",
+                (string) $sum,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $sum);
+
+        return new MathProblem(
+            question: "Чему равна сумма " . KaTeX::inline("$a + $b") . "?",
+            solution: $solution,
+            answer: (string) $sum,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function fourNumbers(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(1000, 9999);
+        $b = $this->rnd(1000, 9999);
+        $c = $this->rnd(100, 999);
+        $d = $this->rnd(10, 99);
+        $sum = $a + $b + $c + $d;
+
+        $solution = "**Решение:**\n\n"
+            . "Группируем слагаемые и складываем:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$a + $b + $c + $d",
+                (string) ($a + $b) . " + " . ($c + $d),
+                (string) $sum,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $sum);
+
+        return new MathProblem(
+            question: "Найдите сумму четырёх чисел: " . KaTeX::inline("$a + $b + $c + $d"),
+            solution: $solution,
+            answer: (string) $sum,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function manyTerms(float $difficulty): MathProblem
+    {
+        $terms = [];
+        for ($i = 0; $i < 5; $i++) {
+            $terms[] = $this->rnd(1000, 9999);
+        }
+        $sum = array_sum($terms);
+        $expr = implode(' + ', $terms);
+
+        $solution = "**Решение:**\n\n"
+            . "Последовательно складываем все слагаемые:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                $expr,
+                (string) $sum,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $sum);
+
+        return new MathProblem(
+            question: "Вычислите сумму пяти чисел: " . KaTeX::inline($expr),
+            solution: $solution,
+            answer: (string) $sum,
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function roundTens(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(10, 90) * 100;
+        $b = $this->rnd(10, 90) * 1000;
+        $c = $this->rnd(10, 90) * 10;
+        $sum = $a + $b + $c;
+
+        $solution = "**Решение:**\n\n"
+            . "Складываем круглые числа:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "$a + $b + $c",
+                (string) $sum,
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline((string) $sum);
+
+        return new MathProblem(
+            question: "Вычислите: " . KaTeX::inline("$a + $b + $c"),
+            solution: $solution,
+            answer: (string) $sum,
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

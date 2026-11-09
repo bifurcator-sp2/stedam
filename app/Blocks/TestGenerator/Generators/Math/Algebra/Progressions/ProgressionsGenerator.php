@@ -18,11 +18,6 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class ProgressionsGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.algebra.progressions.progressions';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
@@ -57,7 +52,7 @@ final class ProgressionsGenerator extends GeneratorBase
             . "Найдите \\(a_{$n}\\).",
             solution: $solution,
             answer: (string) $an,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -92,7 +87,7 @@ final class ProgressionsGenerator extends GeneratorBase
             . "Найдите сумму первых $n членов.",
             solution: $solution,
             answer: (string) $sn,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -120,7 +115,7 @@ final class ProgressionsGenerator extends GeneratorBase
             . "Найдите \\(b_{$n}\\).",
             solution: $solution,
             answer: (string) $bn,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

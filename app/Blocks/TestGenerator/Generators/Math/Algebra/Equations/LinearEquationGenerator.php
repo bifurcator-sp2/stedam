@@ -13,11 +13,6 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class LinearEquationGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.algebra.equations.linear';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
@@ -45,7 +40,7 @@ final class LinearEquationGenerator extends GeneratorBase
             question: "Решите уравнение: " . KaTeX::inline("{$a}x = {$c}"),
             solution: $solution,
             answer: "x = {$x}",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -70,7 +65,7 @@ final class LinearEquationGenerator extends GeneratorBase
             question: "Решите уравнение: " . KaTeX::inline("{$a}x + {$b} = {$c}"),
             solution: $solution,
             answer: "x = {$x}",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -94,7 +89,7 @@ final class LinearEquationGenerator extends GeneratorBase
             question: "Решите уравнение: " . KaTeX::inline("{$a}\\left(x + {$b}\\right) = {$c}"),
             solution: $solution,
             answer: "x = {$x}",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

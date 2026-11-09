@@ -6,22 +6,16 @@ namespace App\Blocks\TestGenerator;
 
 use App\Blocks\TestGenerator\Contracts\MathProblemGeneratorInterface;
 use App\Blocks\TestGenerator\DTO\MathProblem;
+use App\Blocks\TestGenerator\Support\PathResolver;
 use InvalidArgumentException;
 
 /**
- * Оркестратор генерации математических заданий.
+ * Реестр генераторов: индекс по resolver-пути ('math.algebra.equations.linearEquation').
  *
- * Хранит реестр стратегий (MathProblemGeneratorInterface), индексированный
- * по topic(), и делегирует генерацию нужной стратегии.
+ * Путь генератора определяется его расположением в Generators/ (см. GeneratorDiscovery),
+ * поэтому новые генераторы подхватываются автоматически, без ручной регистрации.
  *
- * Источник экземпляров — TestGeneratorServiceProvider, который собирает
- * их через GeneratorDiscovery (скан папки Generators/...). Если провайдер
- * не зарегистрирован, контейнер выбросит BindingResolutionException на
- * iterable $generators — это правильно: провайдер обязателен.
- *
- * Чтобы добавить новый генератор, достаточно положить класс, реализующий
- * MathProblemGeneratorInterface, в app/Blocks/TestGenerator/Generators/...
- * (путь = resolver-сегменты через точку) и сбросить кеш discovery.
+ * Зарегистрирован как синглтон в TestGeneratorServiceProvider.
  */
 final class TestGenerator
 {
@@ -30,33 +24,42 @@ final class TestGenerator
 
     /**
      * @param iterable<MathProblemGeneratorInterface> $generators
+     * @param PathResolver                            $pathResolver
      *
-     * @throws InvalidArgumentException Если два генератора объявили одинаковый topic().
+     * @throws InvalidArgumentException если два генератора дают одинаковый путь.
      */
-    public function __construct(iterable $generators)
-    {
+    public function __construct(
+        iterable $generators,
+        PathResolver $pathResolver,
+    ) {
         foreach ($generators as $generator) {
-            $topic = self::normalizeTopic($generator::topic());
+            $path = $pathResolver->pathFor($generator::class);
 
-            if (isset($this->generators[$topic])) {
+            if ($path === null) {
                 throw new InvalidArgumentException(
-                    sprintf('Duplicate generator for topic "%s".', $topic)
+                    sprintf('No resolver path for generator class "%s".', $generator::class)
                 );
             }
 
-            $this->generators[$topic] = $generator;
+            if (isset($this->generators[$path])) {
+                throw new InvalidArgumentException(
+                    sprintf('Duplicate generator for resolver path "%s".', $path)
+                );
+            }
+
+            $this->generators[$path] = $generator;
         }
     }
 
     /**
-     * Сгенерировать задание по теме и сложности.
+     * Генерирует задание по resolver-пути.
      *
-     * @param string $topic      Ключ темы (регистронезависимый, обрезается по краям).
-     * @param float  $difficulty Сложность от 0.0 (простое) до 1.0 (олимпиадное).
+     * @param string $path       resolver-путь генератора, например 'math.algebra.equations.linearEquation'.
+     * @param float  $difficulty от 0.0 (просто) до 1.0 (сложно).
      *
-     * @throws InvalidArgumentException Если сложность вне [0.0, 1.0] или тема не поддерживается.
+     * @throws InvalidArgumentException если difficulty вне [0.0, 1.0] или путь не найден.
      */
-    public function generate(string $topic, float $difficulty): MathProblem
+    public function generate(string $path, float $difficulty): MathProblem
     {
         if ($difficulty < 0.0 || $difficulty > 1.0) {
             throw new InvalidArgumentException(
@@ -64,43 +67,43 @@ final class TestGenerator
             );
         }
 
-        $topic = self::normalizeTopic($topic);
+        $path = self::normalize($path);
 
-        if (! isset($this->generators[$topic])) {
+        if (! isset($this->generators[$path])) {
             throw new InvalidArgumentException(
                 sprintf(
-                    'No generator registered for topic "%s". Available: %s.',
-                    $topic,
-                    $this->availableTopics() === []
+                    'No generator registered for resolver path "%s". Available: %s.',
+                    $path,
+                    $this->availablePaths() === []
                         ? '<none>'
-                        : implode(', ', $this->availableTopics()),
+                        : implode(', ', $this->availablePaths()),
                 )
             );
         }
 
-        return $this->generators[$topic]->generate($difficulty);
+        return $this->generators[$path]->generate($difficulty);
     }
 
     /**
-     * Поддерживается ли тема.
+     * Есть ли генератор по данному пути.
      */
-    public function supports(string $topic): bool
+    public function supports(string $path): bool
     {
-        return isset($this->generators[self::normalizeTopic($topic)]);
+        return isset($this->generators[self::normalize($path)]);
     }
 
     /**
-     * Список зарегистрированных тем.
+     * Список зарегистрированных resolver-путей.
      *
      * @return string[]
      */
-    public function availableTopics(): array
+    public function availablePaths(): array
     {
         return array_keys($this->generators);
     }
 
-    private static function normalizeTopic(string $topic): string
+    private static function normalize(string $path): string
     {
-        return strtolower(trim($topic));
+        return trim($path, '. ');
     }
 }

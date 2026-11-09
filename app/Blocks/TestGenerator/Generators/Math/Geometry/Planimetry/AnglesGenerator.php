@@ -9,26 +9,40 @@ use App\Blocks\TestGenerator\Generators\GeneratorBase;
 use App\Blocks\TestGenerator\Support\KaTeX;
 
 /**
- * Углы.
+ * Углы: смежные, вертикальные, сумма углов треугольника, биссектриса.
  *
- * difficulty:
- *   0.0–0.4  — смежные (α + β = 180°)
- *   0.4–0.7  — вертикальные (равны)
- *   0.7–1.0  — сумма углов треугольника (α + β + γ = 180°)
+ * Пять уровней сложности, на каждом — по две формулировки:
+ *   [0.0–0.2) — смежные углы
+ *   [0.2–0.4) — вертикальные углы
+ *   [0.4–0.6) — сумма углов треугольника
+ *   [0.6–0.8) — равнобедренный треугольник
+ *   [0.8–1.0] — биссектриса / углы треугольника в отношениях
  */
 final class AnglesGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.geometry.planimetry.angles';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
-            $difficulty < 0.4 => $this->adjacent($difficulty),
-            $difficulty < 0.7 => $this->vertical($difficulty),
-            default           => $this->triangleSum($difficulty),
+            $difficulty < 0.2 => $this->pick([
+                fn () => $this->adjacent($difficulty),
+                fn () => $this->adjacentWord($difficulty),
+            ])(),
+            $difficulty < 0.4 => $this->pick([
+                fn () => $this->vertical($difficulty),
+                fn () => $this->verticalWord($difficulty),
+            ])(),
+            $difficulty < 0.6 => $this->pick([
+                fn () => $this->thirdAngle($difficulty),
+                fn () => $this->thirdAngleWord($difficulty),
+            ])(),
+            $difficulty < 0.8 => $this->pick([
+                fn () => $this->isosceles($difficulty),
+                fn () => $this->isoscelesBase($difficulty),
+            ])(),
+            default => $this->pick([
+                fn () => $this->bisector($difficulty),
+                fn () => $this->rightTriangleAngle($difficulty),
+            ])(),
         };
     }
 
@@ -38,67 +52,226 @@ final class AnglesGenerator extends GeneratorBase
         $b = 180 - $a;
 
         $solution = "**Решение:**\n\n"
-            . "Смежные углы в сумме дают \\(180^{\\circ}\\):\n\n"
+            . "Сумма смежных углов равна \\(180^\\circ\\):\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "\\alpha + \\beta = 180^{\\circ}",
-                "$a^{\\circ} + \\beta = 180^{\\circ}",
-                "\\beta = $b^{\\circ}",
+                "b = 180^\\circ - $a^\\circ",
+                "b = $b^\\circ",
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline("$b^{\\circ}");
+            . "\n\n**Ответ:** " . KaTeX::inline("$b^\\circ");
 
         return new MathProblem(
-            question: "Один из смежных углов равен \\($a^{\\circ}\\). Найдите второй угол.",
+            question: "Один из смежных углов равен \\($a^\\circ\\). Найдите второй угол.",
             solution: $solution,
-            answer: "$b°",
-            topic: self::topic(),
+            answer: $b . 'В°',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function adjacentWord(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(20, 160);
+        $b = 180 - $a;
+
+        $solution = "**Решение:**\n\n"
+            . "Смежные углы в сумме дают развёрнутый угол \\(180^\\circ\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "180^\\circ - $a^\\circ = $b^\\circ",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$b^\\circ");
+
+        return new MathProblem(
+            question: "Луч делит развёрнутый угол на два смежных. Один из них \\($a^\\circ\\). "
+                . "Чему равен другой?",
+            solution: $solution,
+            answer: $b . 'В°',
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
     private function vertical(float $difficulty): MathProblem
     {
-        $a = $this->rnd(15, 165);
+        $a = $this->rnd(20, 160);
 
         $solution = "**Решение:**\n\n"
-            . "Вертикальные углы равны, поэтому второй угол — тоже \\($a^{\\circ}\\).\n\n"
+            . "Вертикальные углы равны:\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "\\angle 1 = \\angle 2",
-                "\\angle 2 = $a^{\\circ}",
+                "\\angle 1 = \\angle 3 = $a^\\circ",
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline("$a^{\\circ}");
+            . "\n\n**Ответ:** " . KaTeX::inline("$a^\\circ");
 
         return new MathProblem(
-            question: "Две прямые пересекаются. Один из вертикальных углов равен \\($a^{\\circ}\\). Чему равен второй?",
+            question: "При пересечении двух прямых один из углов равен \\($a^\\circ\\). "
+                . "Найдите вертикальный ему угол.",
             solution: $solution,
-            answer: "$a°",
-            topic: self::topic(),
+            answer: $a . 'В°',
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
 
-    private function triangleSum(float $difficulty): MathProblem
+    private function verticalWord(float $difficulty): MathProblem
     {
-        $a = $this->rnd(30, 80);
-        $b = $this->rnd(30, 80);
-        while ($a + $b >= 170) {
-            $b = $this->rnd(30, 80);
-        }
+        $a = $this->rnd(20, 160);
+
+        $solution = "**Решение:**\n\n"
+            . "Вертикальные углы равны, поэтому равный угол тоже \\($a^\\circ\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\angle = $a^\\circ",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$a^\\circ");
+
+        return new MathProblem(
+            question: "Два угла образованы пересечением двух прямых и не являются смежными. "
+                . "Один из них \\($a^\\circ\\). Чему равен второй?",
+            solution: $solution,
+            answer: $a . 'В°',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function thirdAngle(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(20, 100);
+        $b = $this->rnd(20, 180 - $a - 1);
         $c = 180 - $a - $b;
 
         $solution = "**Решение:**\n\n"
-            . "Сумма углов треугольника равна \\(180^{\\circ}\\):\n\n"
+            . "Сумма углов треугольника равна \\(180^\\circ\\):\n\n"
             . KaTeX::display(KaTeX::aligned([
-                "\\alpha + \\beta + \\gamma = 180^{\\circ}",
-                "$a^{\\circ} + $b^{\\circ} + \\gamma = 180^{\\circ}",
-                "\\gamma = $c^{\\circ}",
+                "c = 180^\\circ - $a^\\circ - $b^\\circ",
+                "c = $c^\\circ",
             ]))
-            . "\n\n**Ответ:** " . KaTeX::inline("$c^{\\circ}");
+            . "\n\n**Ответ:** " . KaTeX::inline("$c^\\circ");
 
         return new MathProblem(
-            question: "Два угла треугольника равны \\($a^{\\circ}\\) и \\($b^{\\circ}\\). Найдите третий угол.",
+            question: "Два угла треугольника равны \\($a^\\circ\\) и \\($b^\\circ\\). "
+                . "Найдите третий угол.",
             solution: $solution,
-            answer: "$c°",
-            topic: self::topic(),
+            answer: $c . 'В°',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function thirdAngleWord(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(20, 90);
+        $b = $this->rnd(20, 180 - $a - 1);
+        $c = 180 - $a - $b;
+
+        $solution = "**Решение:**\n\n"
+            . "Сумма углов треугольника \\(180^\\circ\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "180^\\circ - $a^\\circ - $b^\\circ = $c^\\circ",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$c^\\circ");
+
+        return new MathProblem(
+            question: "В треугольнике известны углы \\($a^\\circ\\) и \\($b^\\circ\\). "
+                . "Чему равен оставшийся угол?",
+            solution: $solution,
+            answer: $c . 'В°',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function isosceles(float $difficulty): MathProblem
+    {
+        $apex = $this->rnd(20, 140);
+        $c = 180 - $apex;
+        if ($c % 2 !== 0) {
+            $apex += 1;
+            $c = 180 - $apex;
+        }
+        $base = intdiv($c, 2);
+
+        $solution = "**Решение:**\n\n"
+            . "Углы при основании равны. Сумма углов \\(180^\\circ\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\angle A = \\angle B = \\dfrac{180^\\circ - $apex^\\circ}{2}",
+                "\\angle A = $base^\\circ",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$base^\\circ");
+
+        return new MathProblem(
+            question: "В равнобедренном треугольнике угол при вершине равен \\($apex^\\circ\\). "
+                . "Найдите угол при основании.",
+            solution: $solution,
+            answer: $base . 'В°',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function isoscelesBase(float $difficulty): MathProblem
+    {
+        $base = $this->rnd(20, 80);
+        $apex = 180 - 2 * $base;
+
+        $solution = "**Решение:**\n\n"
+            . "Углы при основании равны, значит сумма при основании \\(2 \\cdot $base^\\circ\\). "
+            . "Угол при вершине:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "180^\\circ - 2 \\cdot $base^\\circ",
+                "= $apex^\\circ",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$apex^\\circ");
+
+        return new MathProblem(
+            question: "В равнобедренном треугольнике угол при основании равен \\($base^\\circ\\). "
+                . "Найдите угол при вершине.",
+            solution: $solution,
+            answer: $apex . 'В°',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function bisector(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(20, 80) * 2;
+        $half = $a / 2;
+
+        $solution = "**Решение:**\n\n"
+            . "Биссектриса делит угол пополам:\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "\\dfrac{" . $a . "^\\circ}{2} = $half^\\circ",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$half^\\circ");
+
+        return new MathProblem(
+            question: "Угол равен \\($a^\\circ\\). Чему равен каждый из углов, "
+                . "на которые его делит биссектриса?",
+            solution: $solution,
+            answer: $half . 'В°',
+            topic: $this->path(),
+            difficulty: $difficulty,
+        );
+    }
+
+    private function rightTriangleAngle(float $difficulty): MathProblem
+    {
+        $a = $this->rnd(10, 80);
+        $b = 90 - $a;
+
+        $solution = "**Решение:**\n\n"
+            . "В прямоугольном треугольнике сумма острых углов \\(90^\\circ\\):\n\n"
+            . KaTeX::display(KaTeX::aligned([
+                "b = 90^\\circ - $a^\\circ",
+                "b = $b^\\circ",
+            ]))
+            . "\n\n**Ответ:** " . KaTeX::inline("$b^\\circ");
+
+        return new MathProblem(
+            question: "Один острый угол прямоугольного треугольника равен \\($a^\\circ\\). "
+                . "Найдите второй острый угол.",
+            solution: $solution,
+            answer: $b . 'В°',
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

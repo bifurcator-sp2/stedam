@@ -17,11 +17,6 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class SystemOfEquationsGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.algebra.equations.system';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return $difficulty < 0.5
@@ -59,7 +54,7 @@ final class SystemOfEquationsGenerator extends GeneratorBase
             ),
             solution: $solution,
             answer: "x = $x, y = $y",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -76,7 +71,7 @@ final class SystemOfEquationsGenerator extends GeneratorBase
         $b = $x - $y;
 
         $solution = "**Решение:**\n\n"
-            . "Из второго уравнения выразим \\(x\\):\n\n"
+            . "Рз второго уравнения выразим \\(x\\):\n\n"
             . KaTeX::display(KaTeX::alignedRaw([
                 "x = y + $b",
             ]))
@@ -99,7 +94,7 @@ final class SystemOfEquationsGenerator extends GeneratorBase
             ),
             solution: $solution,
             answer: "x = $x, y = $y",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

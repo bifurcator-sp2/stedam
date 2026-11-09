@@ -18,11 +18,6 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class FunctionsGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.algebra.functions.functions';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
@@ -63,7 +58,7 @@ final class FunctionsGenerator extends GeneratorBase
             . ". Найдите \\(f($x)\\).",
             solution: $solution,
             answer: (string) $value,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -101,7 +96,7 @@ final class FunctionsGenerator extends GeneratorBase
             . "\\(A($x1; $y1)\\) и \\(B($x2; $y2)\\). Найдите \\(k\\) и \\(b\\).",
             solution: $solution,
             answer: "k = $k, b = $b",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -142,7 +137,7 @@ final class FunctionsGenerator extends GeneratorBase
             ) . ". Найдите \\(f($x)\\).",
             solution: $solution,
             answer: (string) $value,
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }

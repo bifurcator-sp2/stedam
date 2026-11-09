@@ -7,35 +7,25 @@ namespace App\Blocks\TestGenerator\Contracts;
 use App\Blocks\TestGenerator\DTO\MathProblem;
 
 /**
- * Контракт стратегии-генератора математических заданий.
+ * Контракт генератора учебных заданий: генерация MathProblem.
  *
- * Каждая реализация обслуживает ровно одну тему (ключ, возвращаемый topic())
- * и умеет генерировать задания во всём диапазоне сложности 0.0 … 1.0.
+ * Идентификатор генератора — его resolver-путь, вычисляемый из расположения
+ * файла в Generators/файлах (см. GeneratorDiscovery / PathResolver).
+ * Отдельного метода topic() больше нет: путь и есть идентификатор.
  *
- * Требования к реализации:
- *  - generate() должен быть детерминированно-безопасен: не бросать исключений
- *    для difficulty в диапазоне [0.0, 1.0];
- *  - question и solution должны быть готовы к отображению через KaTeX
- *    auto-render (inline \\( ... \\), display \\[ ... \\]);
- *  - answer — простой текст (число, корень уравнения и т.п.) для машинной
- *    проверки и для пользовательского ввода.
+ * generate() обязан построить корректный объект:
+ *  - валидировать difficulty в диапазоне [0.0, 1.0];
+ *  - question и solution — в разметке KaTeX auto-render (inline \( ... \), display \[ ... \]);
+ *  - answer — строка-ответ для проверки учеником.
  */
 interface MathProblemGeneratorInterface
 {
     /**
-     * Сгенерировать задание заданной сложности.
+     * Сгенерировать экземпляр задания по сложности.
      *
-     * @param float $difficulty Сложность в диапазоне 0.0 (простое) … 1.0 (олимпиадное).
+     * @param float $difficulty от 0.0 (просто) до 1.0 (сложно).
      *
-     * @throws \InvalidArgumentException Если сложность вне диапазона [0.0, 1.0].
+     * @throws \InvalidArgumentException если difficulty вне [0.0, 1.0].
      */
     public function generate(float $difficulty): MathProblem;
-
-    /**
-     * Ключ темы, которую обслуживает генератор.
-     *
-     * Должен быть в нижнем регистре, без пробелов, стабилен во времени
-     * (используется как ключ в реестре генераторов и во внешнем API).
-     */
-    public static function topic(): string;
 }

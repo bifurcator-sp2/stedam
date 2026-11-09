@@ -20,11 +20,6 @@ use App\Blocks\TestGenerator\Support\KaTeX;
  */
 final class ProbabilityGenerator extends GeneratorBase
 {
-    public static function topic(): string
-    {
-        return 'math.probability.probability.probability';
-    }
-
     protected function build(float $difficulty): MathProblem
     {
         return match (true) {
@@ -67,7 +62,7 @@ final class ProbabilityGenerator extends GeneratorBase
             question: "Бросают игральный кубик. Найдите вероятность того, что выпадет число $targetsStr.",
             solution: $solution,
             answer: "$num/$den",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -103,7 +98,7 @@ final class ProbabilityGenerator extends GeneratorBase
             question: "Монету бросают $count раза(-). Какова вероятность, что ровно $k раз(-) выпадет орёл?",
             solution: $solution,
             answer: "$num/$den",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
@@ -136,7 +131,7 @@ final class ProbabilityGenerator extends GeneratorBase
                 . "События независимы. Найдите \\(P(A \\cap B)\\).",
             solution: $solution,
             answer: "$num/$den",
-            topic: self::topic(),
+            topic: $this->path(),
             difficulty: $difficulty,
         );
     }
