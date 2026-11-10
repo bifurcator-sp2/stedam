@@ -123,5 +123,5 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
-    'public_roles' => ['student', 'teacher', 'parent', 'methodologist'],
+    'public_roles' => ['student', 'teacher', 'parent', 'methodologist', 'headteacher'],
 ];

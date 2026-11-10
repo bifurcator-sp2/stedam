@@ -45,4 +45,19 @@ enum LearnStatus: string
     {
         return $this === self::Created || $this === self::Scheduled;
     }
+
+    /**
+     * Список допустимых значений для CHECK/ENUM в БД.
+     * Единственный источник правды о статусах — этот enum;
+     * инфраструктура (миграции) читает значения отсюда.
+     *
+     * @return list<string>
+     */
+    public static function values(): array
+    {
+        return array_map(
+            static fn (self $case): string => $case->value,
+            self::cases(),
+        );
+    }
 }

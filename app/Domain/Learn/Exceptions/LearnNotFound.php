@@ -2,6 +2,6 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Learn\Exceptions;
+namespace App\Domain\Learn\Exceptions;
 
 final class LearnNotFound extends \RuntimeException {}

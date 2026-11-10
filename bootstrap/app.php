@@ -24,5 +24,20 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Application-исключения контекста Learn → HTTP.
+        $exceptions->render(function (\App\Domain\Learn\Exceptions\LearnNotFound $e) {
+            return response()->json(['message' => $e->getMessage()], 404);
+        });
+        $exceptions->render(function (\App\Application\Learn\Exceptions\LessonNotFound $e) {
+            return response()->json(['message' => $e->getMessage()], 404);
+        });
+        $exceptions->render(function (\App\Application\Learn\Exceptions\LearnAccessDenied $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
+        });
+        $exceptions->render(function (\App\Domain\Learn\Exceptions\InvalidStatusTransition $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        });
+        $exceptions->render(function (\App\Domain\Learn\Exceptions\LearnAlreadyGraded $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        });
     })->create();

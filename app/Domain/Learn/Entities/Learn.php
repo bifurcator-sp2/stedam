@@ -6,10 +6,12 @@ namespace App\Domain\Learn\Entities;
 
 use App\Domain\Learn\Enums\LearnCategory;
 use App\Domain\Learn\Enums\LearnStatus;
+use App\Domain\Learn\Events\LearnStatusChanged;
 use App\Domain\Learn\Exceptions\InvalidStatusTransition;
 use App\Domain\Learn\Exceptions\LearnAlreadyGraded;
 use App\Domain\Learn\Exceptions\SnapshotMissing;
 use App\Domain\Learn\ValueObjects\Grade;
+use App\Domain\Learn\ValueObjects\LearnAnswers;
 use App\Domain\Learn\ValueObjects\LearnId;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\ScheduleDate;
@@ -21,9 +23,9 @@ use LogicException;
 
 final class Learn
 {
-    /**
-     * @param array<string, mixed> $answers
-     */
+    /** @var list<LearnStatusChanged> */
+    private array $events = [];
+
     private function __construct(
         private ?LearnId $id,
         private UserId $userId,
@@ -33,10 +35,11 @@ final class Learn
         private ?Grade $grade,
         private ?UserId $gradedBy,
         private ?ScheduleDate $scheduleDate,
-        private array $answers,
+        private LearnAnswers $answers,
         private DateTimeImmutable $createdAt,
         private ?DateTimeImmutable $archivedAt,
         private DateTimeImmutable $statusDate,
+        private ?DateTimeImmutable $completedAt,
     ) {
     }
 
@@ -61,10 +64,11 @@ final class Learn
             grade: null,
             gradedBy: null,
             scheduleDate: null,
-            answers: [],
+            answers: LearnAnswers::empty(),
             createdAt: $now,
             archivedAt: null,
             statusDate: $now,
+            completedAt: null,
         );
     }
 
@@ -86,10 +90,11 @@ final class Learn
             grade: null,
             gradedBy: null,
             scheduleDate: $scheduleDate,
-            answers: [],
+            answers: LearnAnswers::empty(),
             createdAt: $now,
             archivedAt: null,
             statusDate: $now,
+            completedAt: null,
         );
     }
 
@@ -110,17 +115,17 @@ final class Learn
             grade: null,
             gradedBy: null,
             scheduleDate: null,
-            answers: [],
+            answers: LearnAnswers::empty(),
             createdAt: $now,
             archivedAt: null,
             statusDate: $now,
+            completedAt: null,
         );
     }
 
     /**
      * Гидратация из БД. Проверяет согласованность полей.
-     *
-     * @param array<string, mixed> $answers
+     * События не порождает — это восстановление, а не изменение.
      */
     public static function reconstitute(
         LearnId $id,
@@ -131,10 +136,11 @@ final class Learn
         ?Grade $grade,
         ?UserId $gradedBy,
         ?ScheduleDate $scheduleDate,
-        array $answers,
+        LearnAnswers $answers,
         DateTimeImmutable $createdAt,
         ?DateTimeImmutable $archivedAt,
         DateTimeImmutable $statusDate,
+        ?DateTimeImmutable $completedAt,
     ): self {
         if ($status === LearnStatus::InProgress && $snapshot === null) {
             throw new SnapshotMissing('Learn in in_progress status must have a snapshot');
@@ -142,8 +148,8 @@ final class Learn
         if ($status === LearnStatus::Scheduled && $scheduleDate === null) {
             throw new InvalidStatusTransition('Scheduled learn must have a schedule_date');
         }
-        if ($status === LearnStatus::Graded && ($grade === null || $gradedBy === null)) {
-            throw new InvalidStatusTransition('Graded learn must have grade and graded_by');
+        if ($status === LearnStatus::Graded && $grade === null) {
+            throw new InvalidStatusTransition('Graded learn must have a grade');
         }
 
         return new self(
@@ -159,6 +165,7 @@ final class Learn
             createdAt: $createdAt,
             archivedAt: $archivedAt,
             statusDate: $statusDate,
+            completedAt: $completedAt,
         );
     }
 
@@ -170,6 +177,15 @@ final class Learn
         $this->snapshot = $snapshot;
     }
 
+    /**
+     * created → scheduled: учитель назначил дату отложенному прохождению.
+     */
+    public function scheduleAt(ScheduleDate $scheduleDate, DateTimeImmutable $now): void
+    {
+        $this->transitionTo(LearnStatus::Scheduled, $now);
+        $this->scheduleDate = $scheduleDate;
+    }
+
     public function reschedule(ScheduleDate $scheduleDate, DateTimeImmutable $now): void
     {
         if ($this->status !== LearnStatus::Scheduled) {
@@ -179,6 +195,7 @@ final class Learn
         }
         $this->scheduleDate = $scheduleDate;
         $this->statusDate = $now;
+        $this->recordStatusChange($now);
     }
 
     public function cancel(DateTimeImmutable $now): void
@@ -187,16 +204,17 @@ final class Learn
         $this->scheduleDate = null;
     }
 
-    /**
-     * @param array<string, mixed> $answers
-     */
-    public function markDone(array $answers, DateTimeImmutable $now): void
+    public function markDone(LearnAnswers $answers, DateTimeImmutable $now): void
     {
         $this->transitionTo(LearnStatus::Done, $now);
         $this->answers = $answers;
+        $this->completedAt = $now;
     }
 
-    public function markGraded(Grade $grade, UserId $gradedBy, DateTimeImmutable $now): void
+    /**
+     * $gradedBy === null означает автоматическую оценку системой.
+     */
+    public function markGraded(Grade $grade, ?UserId $gradedBy, DateTimeImmutable $now): void
     {
         if ($this->status === LearnStatus::Graded) {
             throw new LearnAlreadyGraded('Learn is already graded');
@@ -211,10 +229,8 @@ final class Learn
     /**
      * Заменяет ответы целиком. Разрешено только в in_progress —
      * по ТЗ автосохранение идёт во время прохождения урока.
-     *
-     * @param array<string, mixed> $answers
      */
-    public function updateAnswers(array $answers): void
+    public function updateAnswers(LearnAnswers $answers): void
     {
         if (!$this->status->isEditable()) {
             throw new InvalidStatusTransition(
@@ -324,6 +340,40 @@ final class Learn
         return LearnCategory::ScheduledFuture;
     }
 
+    // === Доменные события ===
+
+    /**
+     * Отдаёт и очищает накопленные события.
+     * Application-слой вызывает после сохранения агрегата,
+     * чтобы перевести их во внешние порты (StatusLoggerInterface и т.п.).
+     *
+     * @return list<LearnStatusChanged>
+     */
+    public function pullEvents(): array
+    {
+        $events = $this->events;
+        $this->events = [];
+
+        return $events;
+    }
+
+    private function recordStatusChange(DateTimeImmutable $now): void
+    {
+        // Событие осмысленно только для уже сохранённого агрегата:
+        // у нового Learn ещё нет id, и логгер некуда писать.
+        if ($this->id === null) {
+            return;
+        }
+
+        $this->events[] = new LearnStatusChanged(
+            learnId: $this->id,
+            lessonId: $this->lessonId,
+            status: $this->status,
+            statusDate: $now,
+            scheduleDate: $this->scheduleDate,
+        );
+    }
+
     // === Внутренние инварианты ===
 
     private function transitionTo(LearnStatus $target, DateTimeImmutable $now): void
@@ -335,6 +385,7 @@ final class Learn
         }
         $this->status = $target;
         $this->statusDate = $now;
+        $this->recordStatusChange($now);
     }
 
     // === Идентичность ===
@@ -346,6 +397,9 @@ final class Learn
         }
         $clone = clone $this;
         $clone->id = $id;
+        // События накапливаются только у агрегата с id; при клонировании
+        // у нового агрегата их ещё нет, но сбрасываем на случай повторного withId.
+        $clone->events = [];
 
         return $clone;
     }
@@ -392,10 +446,7 @@ final class Learn
         return $this->scheduleDate;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function answers(): array
+    public function answers(): LearnAnswers
     {
         return $this->answers;
     }
@@ -413,5 +464,10 @@ final class Learn
     public function statusDate(): DateTimeImmutable
     {
         return $this->statusDate;
+    }
+
+    public function completedAt(): ?DateTimeImmutable
+    {
+        return $this->completedAt;
     }
 }

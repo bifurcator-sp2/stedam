@@ -16,6 +16,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['name', 'email', 'password'])]
@@ -45,6 +46,11 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function learns(): HasMany
+    {
+        return $this->hasMany(Learn::class);
     }
 
     public function sendPasswordResetNotification($token): void

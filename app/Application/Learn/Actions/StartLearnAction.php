@@ -12,7 +12,6 @@ use App\Application\Learn\Ports\SnapshotResolverInterface;
 use App\Application\Learn\Ports\StatusLoggerInterface;
 use App\Application\Shared\Clock;
 use App\Domain\Learn\Entities\Learn;
-use App\Domain\Learn\Enums\LearnStatus;
 
 final readonly class StartLearnAction
 {
@@ -56,13 +55,28 @@ final readonly class StartLearnAction
         // 5. Синхронный INSERT. Возвращает Learn с присвоенным id.
         $learn = $this->learns->save($learn);
 
-        // 6. Смена статуса — в очередь (порт, не прямой вызов)
+        // 6. Начальный статус нового прохождения — в очередь через порт.
+        //    Домен порождает события только на переходах; здесь фиксируем
+        //    первичную запись статуса in_progress.
         $this->statusLogger->log(
             learnId: $learn->id(),
             lessonId: $learn->lessonId(),
-            status: LearnStatus::InProgress,
+            status: $learn->status(),
             statusDate: $learn->statusDate(),
+            scheduleDate: $learn->scheduleDate()?->value,
         );
+
+        // 7. Доменные события (если накопятся при дальнейших переходах) —
+        //    единообразно уходят во внешние порты.
+        foreach ($learn->pullEvents() as $event) {
+            $this->statusLogger->log(
+                learnId: $event->learnId,
+                lessonId: $event->lessonId,
+                status: $event->status,
+                statusDate: $event->statusDate,
+                scheduleDate: $event->scheduleDate?->value,
+            );
+        }
 
         return $learn;
     }

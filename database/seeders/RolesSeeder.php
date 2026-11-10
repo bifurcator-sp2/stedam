@@ -15,6 +15,7 @@ class RolesSeeder extends Seeder
             ['name' => 'teacher', 'ru' => 'Учитель', 'en' => 'Teacher'],
             ['name' => 'parent', 'ru' => 'Родитель', 'en' => 'Parent'],
             ['name' => 'methodologist', 'ru' => 'Методист', 'en' => 'Methodologist'],
+            ['name' => 'headteacher', 'ru' => 'Завуч', 'en' => 'Head Teacher'],
         ];
 
         foreach ($roles as $data) {

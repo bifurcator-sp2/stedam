@@ -36,6 +36,31 @@ if (!function_exists('domainSnapshot')) {
     }
 }
 
+if (!function_exists('answerImages')) {
+    /**
+     * LearnAnswers с единственным изображением-ответом по индексу.
+     */
+    function answerImages(int $index = 1): \App\Domain\Learn\ValueObjects\LearnAnswers
+    {
+        return \App\Domain\Learn\ValueObjects\LearnAnswers::fromImages([
+            new \App\Domain\Learn\ValueObjects\AnswerImage($index, "answers/{$index}.webp"),
+        ]);
+    }
+}
+
+if (!function_exists('rawAnswer')) {
+    /**
+     * Сырой ответ-картинка для action-тестов.
+     */
+    function rawAnswer(int $index = 1): \App\Application\Learn\DTOs\RawAnswer
+    {
+        return new \App\Application\Learn\DTOs\RawAnswer(
+            $index,
+            \Illuminate\Http\UploadedFile::fake()->image("answer_{$index}.png", 200, 200),
+        );
+    }
+}
+
 if (!function_exists('domainZone')) {
     function domainZone(string $name = 'Europe/Moscow'): DateTimeZone
     {

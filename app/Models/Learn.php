@@ -2,10 +2,18 @@
 
 namespace App\Models;
 
+use App\Domain\Learn\Enums\LearnStatus;
 use App\Models\Concerns\UsesTimestamptz;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Тонкая Eloquent-модель «Прохождение урока» (Infrastructure/Persistence).
+ *
+ * Доменной логики не содержит: правила жизненного цикла — в
+ * App\Domain\Learn\Entities\Learn. Эта модель только маппит БД.
+ */
 class Learn extends Model
 {
     use UsesTimestamptz;
@@ -13,20 +21,29 @@ class Learn extends Model
     protected $fillable = [
         'user_id',
         'lesson_id',
-        'lesson',
-        'complete',
+        'lesson_snapshot',
+        'status',
+        'status_date',
+        'schedule_date',
         'score',
+        'graded_by',
+        'answers',
+        'complete_date',
+        'archived_at',
     ];
 
     protected $casts = [
-        // Автоматически декодирует JSONB в массив при чтении и кодирует при записи
-        'lesson'   => 'array',
+        'status'          => LearnStatus::class,
 
-        // Приводит к объекту Carbon, чтобы можно было делать ->toISOString()
-        'complete' => 'datetime',
+        // JSONB → array при чтении / обратно при записи.
+        'answers'         => 'array',
 
-        // Приводит к float
-        'score'    => 'float',
+        'score'           => 'float',
+
+        'status_date'     => 'datetime',
+        'schedule_date'   => 'datetime',
+        'complete_date'   => 'datetime',
+        'archived_at'     => 'datetime',
     ];
 
     // ==================== Связи ====================
@@ -41,10 +58,25 @@ class Learn extends Model
 
     /**
      * Урок, который проходят.
-     * (Явно указываем внешний ключ, так как поле jsonb тоже называется 'lesson')
      */
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class, 'lesson_id');
+    }
+
+    /**
+     * Преподаватель, выставивший оценку.
+     */
+    public function gradedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'graded_by');
+    }
+
+    /**
+     * История смен статуса (аудит).
+     */
+    public function statuses(): HasMany
+    {
+        return $this->hasMany(LearnStatus::class, 'learn_id');
     }
 }

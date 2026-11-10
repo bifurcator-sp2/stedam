@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use \App\Http\Controllers\Api\UserDataController;
+use App\Http\Controllers\Api\LearnController;
 
 
 // Запрос кода на почту
@@ -148,6 +149,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/lessons/learn', [\App\Http\Controllers\Api\LearnController::class, 'list_learn']);
     Route::get('/lessons/actual', [\App\Http\Controllers\Api\LearnController::class, 'getActualLessons']);
     Route::post('/learn/begin', [LearnController::class, 'beginLearnLesson']);
+    Route::get('/learn/answers/upload-config', [LearnController::class, 'answerUploadConfig']);
+
+    // Прохождения: чтение и действия (контекстные).
+    Route::get('/teacher/learns', [LearnController::class, 'teacherLearns']);
+    Route::get('/teacher/students', [LearnController::class, 'teacherStudents']);
+    Route::get('/parent/children', [LearnController::class, 'parentChildren']);
+    Route::get('/parent/learns', [LearnController::class, 'parentLearns']);
+    Route::post('/learns/schedule', [LearnController::class, 'schedule']);
+    Route::get('/learns/{learn}', [LearnController::class, 'show'])->whereNumber('learn');
+    Route::patch('/learns/{learn}/answers', [LearnController::class, 'saveAnswers'])->whereNumber('learn');
+    Route::post('/learns/{learn}/done', [LearnController::class, 'markDone'])->whereNumber('learn');
+    Route::post('/learns/{learn}/grade', [LearnController::class, 'grade'])->whereNumber('learn');
+    Route::post('/learns/{learn}/cancel', [LearnController::class, 'cancel'])->whereNumber('learn');
 
     Route::get('/lessons/filter', [\App\Http\Controllers\Api\LessonController::class, 'listFilterable']);
 

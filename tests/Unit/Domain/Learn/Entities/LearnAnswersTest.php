@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domain\Learn\Entities\Learn;
 use App\Domain\Learn\Exceptions\InvalidStatusTransition;
 use App\Domain\Learn\ValueObjects\Grade;
+use App\Domain\Learn\ValueObjects\LearnAnswers;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\ScheduleDate;
 use App\Domain\Learn\ValueObjects\UserId;
@@ -12,34 +13,34 @@ use App\Domain\Learn\ValueObjects\UserId;
 describe('updateAnswers', function () {
     it('replaces answers in in_progress', function () {
         $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
-        $learn->updateAnswers(['q1' => 'a1']);
+        $learn->updateAnswers(answerImages(1));
 
-        expect($learn->answers())->toBe(['q1' => 'a1']);
+        expect($learn->answers()->toArray())->toBe([['index' => 1, 'file' => 'answers/1.webp']]);
 
         // полная замена, не мерж
-        $learn->updateAnswers(['q2' => 'a2']);
-        expect($learn->answers())->toBe(['q2' => 'a2']);
+        $learn->updateAnswers(answerImages(2));
+        expect($learn->answers()->toArray())->toBe([['index' => 2, 'file' => 'answers/2.webp']]);
     });
 
     it('can clear answers', function () {
         $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
-        $learn->updateAnswers(['q1' => 'a1']);
-        $learn->updateAnswers([]);
+        $learn->updateAnswers(answerImages(1));
+        $learn->updateAnswers(LearnAnswers::empty());
 
-        expect($learn->answers())->toBe([]);
+        expect($learn->answers()->isEmpty())->toBeTrue();
     });
 
     it('does not change status or statusDate', function () {
         $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
         $before = $learn->statusDate();
 
-        $learn->updateAnswers(['q1' => 'a1']);
+        $learn->updateAnswers(answerImages(1));
 
         expect($learn->statusDate())->toEqual($before);
     });
 
     it('forbids updating answers outside in_progress', function (Learn $learn) {
-        expect(fn () => $learn->updateAnswers(['q1' => 'a1']))
+        expect(fn () => $learn->updateAnswers(answerImages(1)))
             ->toThrow(InvalidStatusTransition::class);
     })->with([
         'created'   => [fn () => Learn::assign(new UserId(1), new LessonId(10), domainNow())],
@@ -51,12 +52,12 @@ describe('updateAnswers', function () {
         )],
         'done'      => [function () {
             $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
-            $l->markDone([], domainLater());
+            $l->markDone(LearnAnswers::empty(), domainLater());
             return $l;
         }],
         'graded'    => [function () {
             $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
-            $l->markDone([], domainLater());
+            $l->markDone(LearnAnswers::empty(), domainLater());
             $l->markGraded(new Grade(90), new UserId(2), domainLater());
             return $l;
         }],
@@ -78,12 +79,12 @@ describe('archive', function () {
         'in_progress' => [fn () => Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow())],
         'done'        => [function () {
             $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
-            $l->markDone([], domainLater());
+            $l->markDone(LearnAnswers::empty(), domainLater());
             return $l;
         }],
         'graded'      => [function () {
             $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
-            $l->markDone([], domainLater());
+            $l->markDone(LearnAnswers::empty(), domainLater());
             $l->markGraded(new Grade(90), new UserId(2), domainLater());
             return $l;
         }],
@@ -113,7 +114,7 @@ describe('archive', function () {
         // архивация — флаг видимости, не заморозка
         $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
         $learn->archive(domainNow());
-        $learn->markDone([], domainLater());
+        $learn->markDone(LearnAnswers::empty(), domainLater());
 
         expect($learn->status()->value)->toBe('done')
             ->and($learn->isArchived())->toBeTrue();

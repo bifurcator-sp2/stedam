@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domain\Learn\Entities\Learn;
 use App\Domain\Learn\Enums\LearnCategory;
 use App\Domain\Learn\ValueObjects\Grade;
+use App\Domain\Learn\ValueObjects\LearnAnswers;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\ScheduleDate;
 use App\Domain\Learn\ValueObjects\UserId;
@@ -38,7 +39,7 @@ it('categorises in_progress as InProgress', function () {
 
 it('categorises done as AwaitingGrade', function () {
     $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
-    $learn->markDone([], domainLater());
+    $learn->markDone(LearnAnswers::empty(), domainLater());
 
     expect($learn->isAwaitingGrade())->toBeTrue()
         ->and($learn->category(domainNow(), domainZone()))->toBe(LearnCategory::AwaitingGrade);
@@ -46,7 +47,7 @@ it('categorises done as AwaitingGrade', function () {
 
 it('categorises graded as Graded', function () {
     $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
-    $learn->markDone([], domainLater());
+    $learn->markDone(LearnAnswers::empty(), domainLater());
     $learn->markGraded(new Grade(90), new UserId(2), domainLater());
 
     expect($learn->isGraded())->toBeTrue()
