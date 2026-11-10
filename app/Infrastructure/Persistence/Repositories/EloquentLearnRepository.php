@@ -38,9 +38,17 @@ final class EloquentLearnRepository implements LearnRepositoryInterface
 
     public function save(LearnEntity $learn): LearnEntity
     {
-        $model = $learn->id() === null
-            ? new LearnModel()
-            : LearnModel::query()->findOrFail($learn->id()->value);
+        if ($learn->id() === null) {
+            $model = new LearnModel();
+        } else {
+            $model = LearnModel::query()->find($learn->id()->value);
+
+            if ($model === null) {
+                // Между загрузкой и сохранением модель могли удалить — это
+                // доменная ошибка, а не ModelNotFoundException.
+                throw new LearnNotFound("Learn {$learn->id()->value} not found for update");
+            }
+        }
 
         $model->user_id         = $learn->userId()->value;
         $model->lesson_id       = $learn->lessonId()->value;
@@ -48,6 +56,7 @@ final class EloquentLearnRepository implements LearnRepositoryInterface
         $model->status          = $learn->status();
         $model->status_date     = $learn->statusDate();
         $model->schedule_date   = $learn->scheduleDate()?->value;
+        $model->started_at      = $learn->startedAt();
         $model->score           = $learn->grade()?->value;
         $model->graded_by       = $learn->gradedBy()?->value;
         $model->answers         = $learn->answers()->toArray();
@@ -134,6 +143,9 @@ final class EloquentLearnRepository implements LearnRepositoryInterface
         $model = LearnModel::query()
             ->where('user_id', $userId->value)
             ->where('lesson_id', $lessonId->value)
+            // §14.8: архивация ортогональна статусу — архивное created/scheduled
+            // не должно попадать в «активное» для идемпотентности старта (§10.1).
+            ->whereNull('archived_at')
             ->whereNotIn('status', [LearnStatus::Graded->value])
             ->orderByDesc('id')
             ->first();
@@ -199,6 +211,9 @@ final class EloquentLearnRepository implements LearnRepositoryInterface
             statusDate: $this->toImmutable($model->status_date ?? $model->created_at),
             completedAt: $model->complete_date !== null
                 ? $this->toImmutable($model->complete_date)
+                : null,
+            startedAt: $model->started_at !== null
+                ? $this->toImmutable($model->started_at)
                 : null,
         );
     }

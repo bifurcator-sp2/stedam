@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Application\Learn\Ports\AnswerStorageInterface;
-use App\Domain\Learn\Enums\LearnStatus;
+use App\Domain\Learn\Entities\Learn;
 use App\Domain\Learn\ValueObjects\AnswerImage;
-use App\Domain\Learn\ValueObjects\LearnAnswers;
+use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Прохождение (learns) в новой схеме жизненного цикла.
+ * Прохождение (learns) в схеме жизненного цикла.
+ *
+ * Работает напрямую с доменной сущностью Learn (без повторной загрузки
+ * Eloquent-модели по id).
  *
  * Схема:
  *   status          — created|scheduled|in_progress|done|graded
@@ -21,43 +24,47 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *   lesson_snapshot — хэш снапшота урока (для in_progress+)
  *   score           — оценка (для graded)
  *   graded_by       — кто оценил (null — автоматически)
- *   answers         — ответы ученика (JSON)
+ *   answers         — ответы ученика
  *   complete_date   — момент перехода в done
  *   archived_at     — архив (системный)
+ *   updated_at      — приблизительный момент последнего изменения (= statusDate)
  */
 class LearnResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $status = $this->status;
+        /** @var Learn $learn */
+        $learn = $this->resource;
 
         return [
-            'id'              => $this->id,
-            'user_id'         => $this->user_id,
-            'lesson_id'       => $this->lesson_id,
-            'status'          => $status instanceof LearnStatus ? $status->value : (string) $status,
-            'status_date'     => $this->status_date?->toIso8601String(),
-            'schedule_date'   => $this->schedule_date?->toIso8601String(),
-            'lesson_snapshot' => $this->lesson_snapshot,
-            'score'           => $this->score !== null ? (float) $this->score : null,
-            'graded_by'       => $this->graded_by,
-            'answers'         => $this->answersPayload($this->answers ?? []),
-            'complete_date'   => $this->complete_date?->toIso8601String(),
-            'archived_at'     => $this->archived_at?->toIso8601String(),
-            'created_at'      => $this->created_at?->toIso8601String(),
-            'updated_at'      => $this->updated_at?->toIso8601String(),
+            'id'              => $learn->id()?->value,
+            'user_id'         => $learn->userId()->value,
+            'lesson_id'       => $learn->lessonId()->value,
+            'status'          => $learn->status()->value,
+            'status_date'     => $learn->statusDate()->format(DateTimeInterface::ATOM),
+            'schedule_date'   => $learn->scheduleDate()?->value->format(DateTimeInterface::ATOM),
+            'lesson_snapshot' => $learn->snapshot()?->value,
+            'score'           => $learn->grade()?->value,
+            'graded_by'       => $learn->gradedBy()?->value,
+            'answers'         => $this->answersPayload($learn),
+            'complete_date'   => $learn->completedAt()?->format(DateTimeInterface::ATOM),
+            'archived_at'     => $learn->archivedAt()?->format(DateTimeInterface::ATOM),
+            'created_at'      => $learn->createdAt()->format(DateTimeInterface::ATOM),
+            // У доменной сущности нет updated_at; отдаём statusDate
+            // как лучшую оценку момента последнего изменения.
+            'updated_at'      => $learn->statusDate()->format(DateTimeInterface::ATOM),
         ];
     }
 
     /**
      * Ответы-изображения как [{index, url}].
      *
-     * @param array<int, array{index?: mixed, file?: mixed}>|null $raw
      * @return list<array{index: int, url: string}>
      */
-    private function answersPayload(?array $raw): array
+    private function answersPayload(Learn $learn): array
     {
-        if ($raw === null || $raw === []) {
+        $images = $learn->answers()->images();
+        if ($images === []) {
             return [];
         }
 
@@ -69,7 +76,7 @@ class LearnResource extends JsonResource
                 'index' => $img->index,
                 'url'   => $storage->urlFor($img),
             ],
-            LearnAnswers::fromArray($raw)->images(),
+            $images,
         );
     }
 }

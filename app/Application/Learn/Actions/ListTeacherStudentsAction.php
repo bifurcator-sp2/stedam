@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Application\Learn\Actions;
 
 use App\Application\Learn\Context\ContextResolverInterface;
-use App\Application\Learn\Context\ViewerRole;
 use App\Application\Learn\Exceptions\LearnAccessDenied;
 use App\Application\Learn\Ports\TeacherStudentsQueryInterface;
 use App\Application\Shared\Pagination\PaginatedResult;
@@ -32,7 +31,7 @@ final readonly class ListTeacherStudentsAction
     ): PaginatedResult {
         $context = $this->contextResolver->resolve($viewerId);
 
-        if (!$context->canGrade && !in_array(ViewerRole::Teacher, $context->roles, true)) {
+        if (!$context->canGrade) {
             throw new LearnAccessDenied('Only teachers can list their students');
         }
 

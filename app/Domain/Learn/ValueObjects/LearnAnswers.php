@@ -22,7 +22,7 @@ use JsonSerializable;
 final readonly class LearnAnswers implements JsonSerializable
 {
     /** @var list<AnswerImage> */
-    public array $items;
+    private array $items;
 
     /**
      * @param list<AnswerImage> $items
@@ -62,7 +62,13 @@ final readonly class LearnAnswers implements JsonSerializable
                 // Чужие/старые данные считаем «нет ответа».
                 continue;
             }
-            $items[] = new AnswerImage((int) $entry['index'], (string) $entry['file']);
+            $index = (int) $entry['index'];
+            if ($index < 1) {
+                // §7.2: элементы чужой/старой структуры (index < 1, нечисловой)
+                // игнорируются, а не роняют гидратацию.
+                continue;
+            }
+            $items[] = new AnswerImage($index, (string) $entry['file']);
         }
 
         return new self($items);

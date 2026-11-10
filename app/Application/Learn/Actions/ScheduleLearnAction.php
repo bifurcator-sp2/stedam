@@ -42,8 +42,13 @@ final readonly class ScheduleLearnAction
     {
         $context = $this->contextResolver->resolve($data->viewerId);
 
-        if (!$context->canSchedule || !$context->canAssign) {
-            throw new LearnAccessDenied('You are not allowed to assign/schedule');
+        // §10.3: canAssign и canSchedule — независимые права.
+        // scheduleDate === null → assign (created); иначе → schedule/reschedule (scheduled).
+        $requiredCapability = $data->scheduleDate !== null ? $context->canSchedule : $context->canAssign;
+        if (!$requiredCapability) {
+            throw new LearnAccessDenied($data->scheduleDate !== null
+                ? 'You are not allowed to schedule'
+                : 'You are not allowed to assign');
         }
 
         // Целевой ученик обязан быть в scope учителя.

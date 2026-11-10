@@ -25,6 +25,7 @@ class Learn extends Model
         'status',
         'status_date',
         'schedule_date',
+        'started_at',
         'score',
         'graded_by',
         'answers',
@@ -42,6 +43,7 @@ class Learn extends Model
 
         'status_date'     => 'datetime',
         'schedule_date'   => 'datetime',
+        'started_at'      => 'datetime',
         'complete_date'   => 'datetime',
         'archived_at'     => 'datetime',
     ];

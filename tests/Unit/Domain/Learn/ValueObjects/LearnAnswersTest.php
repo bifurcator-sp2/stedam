@@ -41,11 +41,31 @@ it('treats foreign/legacy payload as empty', function () {
     expect($answers->isEmpty())->toBeTrue();
 });
 
+it('skips entries with non-positive or non-numeric index (spec §7.2)', function () {
+    $answers = LearnAnswers::fromArray([
+        ['index' => 0, 'file' => 'answers/a.webp'],      // index < 1 → пропуск
+        ['index' => 'abc', 'file' => 'answers/b.webp'],  // нечисловой → (int)=0 → пропуск
+        ['index' => 2, 'file' => 'answers/c.webp'],      // валидный
+    ]);
+
+    expect($answers->toArray())->toBe([
+        ['index' => 2, 'file' => 'answers/c.webp'],
+    ]);
+});
+
 it('rejects duplicate index', function () {
     expect(fn () => LearnAnswers::fromImages([
         new AnswerImage(1, 'a.webp'),
         new AnswerImage(1, 'b.webp'),
     ]))->toThrow(InvalidAnswerImage::class);
+});
+
+it('does not expose mutable internal storage', function () {
+    $answers = LearnAnswers::fromImages([new AnswerImage(1, 'a.webp')]);
+
+    // $items — private: снаружи доступ только через images()/toArray().
+    expect(property_exists($answers, 'items'))->toBeTrue()
+        ->and((new ReflectionProperty(LearnAnswers::class, 'items'))->isPrivate())->toBeTrue();
 });
 
 it('compares by value', function () {

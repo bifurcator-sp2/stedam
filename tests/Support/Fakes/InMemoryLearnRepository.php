@@ -41,6 +41,7 @@ final class InMemoryLearnRepository implements LearnRepositoryInterface
             if ($learn->userId()->equals($userId)
                 && $learn->lessonId()->value === $lessonId->value
                 && !$learn->status()->isTerminal()
+                && !$learn->isArchived() // §14.8: архивное — не «активное»
             ) {
                 return $learn;
             }

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Application\Learn\Actions\StartLearnAction;
+use App\Application\Learn\Context\ViewerContext;
+use App\Application\Learn\Context\ViewerRole;
 use App\Application\Learn\DTOs\StartLearnData;
 use App\Application\Learn\Exceptions\LessonNotFound;
 use App\Domain\Learn\Enums\LearnStatus;
@@ -12,6 +14,7 @@ use Tests\Support\Fakes\FakeLessonRepository;
 use Tests\Support\Fakes\FakeSnapshotResolver;
 use Tests\Support\Fakes\FakeStatusLogger;
 use Tests\Support\Fakes\InMemoryLearnRepository;
+use Tests\Support\Fakes\StubContextResolver;
 use Tests\Support\FrozenClock;
 
 /**
@@ -22,6 +25,7 @@ function makeStartLearnAction(
     ?FakeLessonRepository $lessons = null,
     ?FakeSnapshotResolver $snapshots = null,
     ?FakeStatusLogger $logger = null,
+    ?StubContextResolver $resolver = null,
 ): array {
     $learns = new InMemoryLearnRepository();
     $lessons ??= new FakeLessonRepository();
@@ -29,7 +33,18 @@ function makeStartLearnAction(
     $logger ??= new FakeStatusLogger();
     $clock = new FrozenClock(new DateTimeImmutable('2025-01-01 12:00:00 UTC'));
 
-    $action = new StartLearnAction($learns, $lessons, $snapshots, $logger, $clock);
+    // Ученик с правом на старт для всех тестовых userId (1 по умолчанию).
+    $resolver ??= new StubContextResolver([
+        1 => new ViewerContext(
+            viewerId: 1,
+            roles: [ViewerRole::Student],
+            visibleUserIds: [1],
+            canGrade: false, canAssign: false, canSchedule: false,
+            canCancel: false, canStart: true, canSave: true,
+        ),
+    ]);
+
+    $action = new StartLearnAction($learns, $lessons, $snapshots, $logger, $resolver, $clock);
 
     return [$action, $learns, $lessons, $snapshots, $logger];
 }

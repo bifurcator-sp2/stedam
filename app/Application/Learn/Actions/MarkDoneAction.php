@@ -35,7 +35,8 @@ final readonly class MarkDoneAction
     {
         $context = $this->contextResolver->resolve($data->viewerId);
 
-        // markDone — часть выполнения учеником; знак canSave (student).
+        // markDone — часть выполнения учеником (§10.3): в ViewerContext нет
+        // отдельного canComplete; право на завершение гейтится через canSave.
         if (!$context->canSave) {
             throw new LearnAccessDenied('You are not allowed to complete a learn');
         }

@@ -104,6 +104,16 @@ describe('reconstitute', function () {
         ))->toThrow(InvalidStatusTransition::class);
     });
 
+    it('rejects created with schedule_date', function () {
+        expect(fn () => Learn::reconstitute(
+            new LearnId(1), new UserId(10), new LessonId(20),
+            LearnStatus::Created, null, null, null,
+            new ScheduleDate(domainNow()), // §14.2: created не имеет scheduleDate
+            LearnAnswers::empty(),
+            domainNow(), null, domainNow(), null,
+        ))->toThrow(InvalidStatusTransition::class);
+    });
+
     it('rejects graded without grade', function () {
         expect(fn () => Learn::reconstitute(
             new LearnId(1), new UserId(10), new LessonId(20),

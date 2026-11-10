@@ -155,3 +155,39 @@ it('denies non-parent for learns list', function () {
     expect(fn () => listParentLearns($student))
         ->toThrow(\App\Application\Learn\Exceptions\LearnAccessDenied::class);
 });
+
+it('findActiveByUserAndLesson ignores archived learns', function () {
+    $student = parentUserWithRole('student');
+    $lesson = parentLesson($student);
+    parentLearn($student, $lesson, 'created');
+
+    $repo = new EloquentLearnRepository();
+    $active = $repo->findActiveByUserAndLesson(new UserId($student->id), new \App\Domain\Learn\ValueObjects\LessonId($lesson->id));
+    expect($active)->not->toBeNull();
+
+    // Архивируем — больше не «активное» (§14.8).
+    $active->archive(new \DateTimeImmutable());
+    $repo->save($active);
+
+    $afterArchive = $repo->findActiveByUserAndLesson(new UserId($student->id), new \App\Domain\Learn\ValueObjects\LessonId($lesson->id));
+    expect($afterArchive)->toBeNull();
+});
+
+it('save throws LearnNotFound when row was deleted between read and write', function () {
+    $student = parentUserWithRole('student');
+    $lesson = parentLesson($student);
+    parentLearn($student, $lesson, 'created');
+
+    $repo = new EloquentLearnRepository();
+    $learn = $repo->findActiveByUserAndLesson(
+        new UserId($student->id),
+        new \App\Domain\Learn\ValueObjects\LessonId($lesson->id),
+    );
+    expect($learn)->not->toBeNull();
+
+    // Удаляем строку «в обход» репозитория.
+    LearnModel::query()->whereKey($learn->id()->value)->delete();
+
+    expect(fn () => $repo->save($learn))
+        ->toThrow(\App\Domain\Learn\Exceptions\LearnNotFound::class);
+});

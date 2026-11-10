@@ -214,6 +214,52 @@ it('teacher cannot schedule for user outside scope', function () use ($clock) {
     )))->toThrow(LearnAccessDenied::class);
 });
 
+it('assign requires canAssign (canSchedule not enough)', function () use ($clock) {
+    $repo = new InMemoryLearnRepository();
+    $lessons = new FakeLessonRepository();
+    $lessons->add(10);
+
+    // Только canSchedule, без canAssign.
+    $resolver = new StubContextResolver([1 => new ViewerContext(
+        viewerId: 1,
+        roles: [ViewerRole::Teacher],
+        visibleUserIds: [1, 5],
+        canGrade: true, canAssign: false, canSchedule: true,
+        canCancel: true, canStart: false, canSave: false,
+    )]);
+    $action = new ScheduleLearnAction($repo, $lessons, $resolver, new FakeStatusLogger(), $clock());
+
+    expect(fn () => $action(new ScheduleLearnData(
+        viewerId: new UserId(1),
+        targetUserId: new UserId(5),
+        lessonId: new LessonId(10),
+        scheduleDate: null, // assign
+    )))->toThrow(LearnAccessDenied::class);
+});
+
+it('schedule requires canSchedule (canAssign not enough)', function () use ($clock) {
+    $repo = new InMemoryLearnRepository();
+    $lessons = new FakeLessonRepository();
+    $lessons->add(10);
+
+    // Только canAssign, без canSchedule.
+    $resolver = new StubContextResolver([1 => new ViewerContext(
+        viewerId: 1,
+        roles: [ViewerRole::Teacher],
+        visibleUserIds: [1, 5],
+        canGrade: true, canAssign: true, canSchedule: false,
+        canCancel: true, canStart: false, canSave: false,
+    )]);
+    $action = new ScheduleLearnAction($repo, $lessons, $resolver, new FakeStatusLogger(), $clock());
+
+    expect(fn () => $action(new ScheduleLearnData(
+        viewerId: new UserId(1),
+        targetUserId: new UserId(5),
+        lessonId: new LessonId(10),
+        scheduleDate: new ScheduleDate(new DateTimeImmutable('2025-02-01 10:00:00 UTC')),
+    )))->toThrow(LearnAccessDenied::class);
+});
+
 // ==================== cancel ====================
 
 it('teacher cancels scheduled learn of own student', function () use ($clock) {

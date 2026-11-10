@@ -57,6 +57,7 @@
 | `grade`         | `?Grade`                | обязателен в `graded` |
 | `gradedBy`      | `?UserId`               | `null` — автооценка системой |
 | `scheduleDate`  | `?ScheduleDate`         | обязателен в `scheduled`; `null` в `created` |
+| `startedAt`     | `?DateTimeImmutable`    | фактический момент старта; `null` до первого `start(snapshot, now)` (в `created`/`scheduled`) |
 | `answers`       | `LearnAnswers`          | по умолчанию пусто |
 | `createdAt`     | `DateTimeImmutable`     | момент создания |
 | `archivedAt`    | `?DateTimeImmutable`    | не-`null` — в архиве |
@@ -68,7 +69,7 @@
 Садятся сразу в определённый статус с корректным набором полей:
 
 - **`startNow(userId, lessonId, snapshot, now)`** → `in_progress`.
-  Снапшот обязателен (создаётся до перехода в `in_progress`).
+  Снапшот обязателен (создаётся до перехода в `in_progress`). `startedAt := now`.
 - **`schedule(userId, lessonId, scheduleDate, now)`** → `scheduled`, `scheduleDate` задан.
 - **`assign(userId, lessonId, now)`** → `created` (материал курса без даты).
 
@@ -79,7 +80,12 @@
 
 - `in_progress` ⟹ `snapshot !== null`, иначе `SnapshotMissing`;
 - `scheduled` ⟹ `scheduleDate !== null`, иначе `InvalidStatusTransition`;
+- `created` ⟹ `scheduleDate === null`, иначе `InvalidStatusTransition`;
 - `graded` ⟹ `grade !== null`, иначе `InvalidStatusTransition`.
+
+`startedAt` восстанавливается как есть (опционален, `null` по умолчанию) —
+инвариант: для `in_progress` он задан, для `created`/`scheduled` — `null`
+(заполняется только при старте).
 
 ### 3.4. Идентичность
 
@@ -127,9 +133,9 @@ created → scheduled → in_progress → done → graded
 
 | Метод | Предусловие | Эффект |
 |-------|-------------|--------|
-| `start(snapshot, now)` | статус допускает переход в `in_progress` | статус → `in_progress`, `snapshot := snapshot` |
+| `start(snapshot, now)` | статус допускает переход в `in_progress` | статус → `in_progress`, `snapshot := snapshot`, `startedAt := now` |
 | `scheduleAt(scheduleDate, now)` | переход в `scheduled` разрешён | статус → `scheduled`, `scheduleDate := scheduleDate` |
-| `reschedule(scheduleDate, now)` | статус = `scheduled` | `scheduleDate := scheduleDate`, `statusDate := now`, событие |
+| `reschedule(scheduleDate, now)` | статус = `scheduled` | `scheduleDate := scheduleDate`, `status → scheduled` (самопереход), `statusDate := now`, событие |
 | `cancel(now)` | переход в `created` разрешён | статус → `created`, `scheduleDate := null` |
 | `markDone(answers, now)` | переход в `done` разрешён | статус → `done`, `answers := answers`, `completedAt := now` |
 | `markGraded(grade, gradedBy, now)` | статус ≠ `graded` и переход разрешён | статус → `graded`, `grade := grade`, `gradedBy := gradedBy` |
@@ -145,6 +151,18 @@ created → scheduled → in_progress → done → graded
   статус и `statusDate`.
 - `markDone` и `markGraded` не требуют предварительного апдейта ответов —
   ответы передаются явно (для `markDone`).
+
+### 5.1. Отклонение от плана (`startedLateFromPlanInMinutes`)
+
+Вычисляемый геттер (не хранится): разница `startedAt − scheduleDate` в минутах,
+округлённая до целого.
+
+- `> 0` — ученик начал **позже** плана; `< 0` — раньше.
+- `null` — прохождение ещё не начато (`startedAt === null`) **или** план не
+  задавался (`scheduleDate === null`: `created`, отменённое планирование).
+- `startedAt` заполняется только при переходе в `in_progress` (`start` /
+  `startNow`); повторный старт уже идущего прохождения его не перезаписывает
+  (Application не вызывает `start` для `in_progress`).
 
 ---
 
@@ -168,6 +186,9 @@ created → scheduled → in_progress → done → graded
 
 Сравнение дней — через `ScheduleDate` по локальной дате в заданной таймзоне
 (не по абсолютному времени).
+`scheduled` всегда имеет `scheduleDate` (инвариант §14.2, гарантируется
+`reconstitute`), поэтому ветка «scheduled без даты» в `category()` недостижима:
+срабатывание — программерская ошибка (assertion `LogicException`), а не бизнес-ситуация.
 
 ---
 
@@ -193,7 +214,9 @@ created → scheduled → in_progress → done → graded
 Операции:
 - `fromImages(list<AnswerImage>)` — валидирующее создание;
 - `fromArray(raw)` — восстановление из персистентного формата `[{index,file}]`;
-  элементы чужой/старой структуры игнорируются (трактуются как «нет ответа»);
+  элементы чужой/старой структуры игнорируются (трактуются как «нет ответа»).
+  `index < 1` и нечисловой `index` также **пропускаются** молча и не бросают
+  `InvalidAnswerImage`: битые исторические данные не должны ронять гидратацию;
 - `empty()`, `isEmpty()`, `images()`, `toArray()`, `jsonSerialize()`, `equals()`.
 
 Семантика обновления — **полная замена** (см. `Learn::updateAnswers`).
@@ -205,8 +228,9 @@ created → scheduled → in_progress → done → graded
 
 ### 7.4. `ScheduleDate`
 
-Оборачивает `DateTimeImmutable`. Методы сравнения дня — по локальной дате в
-таймзоне: `isOnLocalDay`, `isBeforeLocalDay`, `isAfterLocalDay`, `isPast`.
+Оборачивает `DateTimeImmutable`. Методы сравнения **дня** — по локальной дате в
+таймзоне: `isOnLocalDay`, `isBeforeLocalDay`, `isAfterLocalDay`. Отдельно
+`isPast(now)` — сравнение **абсолютного времени** (`value < now`), без `$tz`.
 
 ### 7.5. `SnapshotHash`
 
@@ -215,7 +239,8 @@ created → scheduled → in_progress → done → graded
 
 ### 7.6. `LearnId` / `UserId` / `LessonId`
 
-Обёртки над положительным целым. `LearnId` с `value ≤ 0` — `InvalidId`.
+Обёртки над положительным целым. `value ≤ 0` — `InvalidId` для всех трёх
+(`LearnId`, `UserId`, `LessonId`).
 
 ---
 
@@ -247,6 +272,10 @@ LearnAnswers::fromImages(...)  →  Learn::updateAnswers()/markDone()
 - **Хранилище** (Infrastructure) — публичный диск, шардированная раскладка
   `{prefix}/{learnId % 1000:03}/{learnId}/{index}.{ext}`; обработка
   (pass-through / resize / convert-to-webp) — по конфигу `learn.answers`.
+- **heic:** при `transcode=false` сохраняется как `heic` (pass-through); при
+  `transcode=true` и `convert_to_webp=false` heic перекодируется в `png`
+  (Intervention/GD не умеет кодировать heic); при `convert_to_webp=true` —
+  в `webp`.
 
 `LearnAnswers` НЕ содержит бинарных данных — только `file`-ключи.
 
@@ -274,7 +303,7 @@ LearnAnswers::fromImages(...)  →  Learn::updateAnswers()/markDone()
 | `getById(LearnId): Learn` | `LearnNotFound` при отсутствии |
 | `findByIdWithinScope(LearnId, visibleUserIds): ?Learn` | `null` — нет такого **или** вне scope |
 | `listWithinScope(visibleUserIds, LearnListFilter): PaginatedResult<Learn>` | постраничный список владельцев из scope |
-| `findActiveByUserAndLesson(UserId, LessonId): ?Learn` | активное (не терминальное) прохождение; для идемпотентности старта |
+| `findActiveByUserAndLesson(UserId, LessonId): ?Learn` | активное (не терминальное и **не в архиве**) прохождение; для идемпотентности старта |
 | `pluckArchivableIds(status, cutoff, limit): list<int>` | id для системной архивации |
 
 Опорная дата для архивации: `graded → complete_date (fallback status_date)`,
@@ -304,6 +333,16 @@ Application-понятие, строится `ContextResolverInterface` из р�
 
 - `canSeeUser(id)` — входит ли владелец в scope.
 - `isReadOnly()` — все `can*` = `false` (например, родитель).
+- **Права независимы.** `canAssign`, `canSchedule`, `canCancel`, `canGrade`
+  — отдельные capabilities, хотя в текущем `EloquentContextResolver` все они
+  выдаются роли `teacher`. Резолвер может их развести; Application не должен
+  полагаться на их эквивалентность (в частности, не гейтить действие проверкой
+  «оба права»).
+- **Гейт `ScheduleLearnAction` по сценарию:** `scheduleDate === null` (assign,
+  `created`) требует `canAssign`; `scheduleDate !== null` (schedule/reschedule,
+  `scheduled`) требует `canSchedule`. Наличие одного права не заменяет другое.
+- **Завершение (`MarkDoneAction`) гейтится `canSave`:** отдельного `canComplete`
+  нет; сохранение ответов и завершение — обе части «выполнения учеником».
 - Архивация в контексте **отсутствует** — это системное действие (крон), не
   пользовательское.
 
@@ -343,7 +382,7 @@ Application-понятие, строится `ContextResolverInterface` из р�
 |--------|------|-------|
 | `StartLearnAction` | `StartLearnData` | Старт (идемпотентно по активному прохождению user+lesson), `snapshot` через порт |
 | `ScheduleLearnAction` | `ScheduleLearnData` | Назначение/планирование учителем |
-| `SaveAnswersAction` | `SaveAnswersData` | Автосохранение ответов (own, `in_progress`) через `AnswerStorage` |
+| `SaveAnswersAction` | `SaveAnswersData` | Автосохранение ответов (own, `in_progress`, гейт `canSave`) через `AnswerStorage` |
 | `MarkDoneAction` | `MarkDoneData` | Завершение; ответы — явно или уже сохранённые |
 | `GradeLearnAction` | `GradeLearnData` | Оценка учителем |
 | `CancelLearnAction` | `LearnId`, `viewerId` | Отмена планирования |
@@ -360,6 +399,9 @@ Application-понятие, строится `ContextResolverInterface` из р�
 `statuses: list<LearnStatus>`, `lessonId?`, `dateFrom?`, `dateTo?`,
 `page = 1`, `perPage = 20`, `includeArchived = false`. Scope по пользователям
 передаётся отдельно (`ViewerContext`), в фильтре не дублируется.
+`includeArchived` управляется query-флагом `include_archived`, но **игнорируется
+для read-only ролей** (parent): архив видят только кураторы —
+teacher/methodologist/headteacher.
 
 ### 12.2. Контракт загрузки изображений
 
@@ -402,3 +444,6 @@ max_side|null, converted_to_webp }`. Единый источник — `config('
 11. Доступ к прохождениям всегда через `ViewerContext.visibleUserIds`;
     вне scope — «не найдено»/`LearnAccessDenied`.
 12. События смены статуса доступны только у сохранённого агрегата.
+13. `startedAt` заполняется ровно при переходе в `in_progress`; до старта —
+    `null`. Отклонение от плана (`startedLateFromPlanInMinutes`) существует,
+    только если заданы и `startedAt`, и `scheduleDate`.

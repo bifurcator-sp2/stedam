@@ -17,6 +17,7 @@ use App\Application\Learn\Actions\SaveAnswersAction;
 use App\Application\Learn\Actions\ScheduleLearnAction;
 use App\Application\Learn\Actions\StartLearnAction;
 use App\Application\Learn\Context\ContextResolverInterface;
+use App\Application\Learn\Context\ViewerRole;
 use App\Application\Learn\DTOs\GradeLearnData;
 use App\Application\Learn\DTOs\LearnListFilter;
 use App\Application\Learn\DTOs\MarkDoneData;
@@ -32,7 +33,6 @@ use App\Domain\Learn\ValueObjects\ScheduleDate;
 use App\Domain\Learn\ValueObjects\UserId;
 use App\Http\Resources\LearnResource;
 use App\Http\Resources\LessonListResource;
-use App\Models\Learn as LearnModel;
 use App\Models\Lesson;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -98,18 +98,13 @@ class LearnController
     public function beginLearnLesson(
         Request $request,
         StartLearnAction $start,
-        ContextResolverInterface $contextResolver,
     ): JsonResponse {
         $user = $request->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $context = $contextResolver->resolve(new UserId((int) $user->id));
-
-        if (!$context->canStart) {
-            abort(403, 'Только студенты могут проходить уроки.');
-        }
+        // Право canStart проверяет StartLearnAction по ViewerContext.
 
         $validated = $request->validate([
             'lesson_id' => ['required', 'integer', 'exists:lessons,id'],
@@ -121,7 +116,7 @@ class LearnController
         ));
 
         return response()->json(
-            new LearnResource($this->toModel($learn)),
+            new LearnResource($learn),
             201,
         );
     }
@@ -152,7 +147,7 @@ class LearnController
             answers: $answers,
         ));
 
-        return response()->json(new LearnResource($this->toModel($entity)));
+        return response()->json(new LearnResource($entity));
     }
 
     /**
@@ -214,7 +209,7 @@ class LearnController
             answers: $answers,
         ));
 
-        return response()->json(new LearnResource($this->toModel($entity)));
+        return response()->json(new LearnResource($entity));
     }
 
     /**
@@ -237,7 +232,7 @@ class LearnController
             grade: new Grade((float) $validated['score']),
         ));
 
-        return response()->json(new LearnResource($this->toModel($entity)));
+        return response()->json(new LearnResource($entity));
     }
 
     /**
@@ -269,7 +264,7 @@ class LearnController
             scheduleDate: $scheduleDate,
         ));
 
-        return response()->json(new LearnResource($this->toModel($entity)), 201);
+        return response()->json(new LearnResource($entity), 201);
     }
 
     /**
@@ -284,7 +279,7 @@ class LearnController
 
         $entity = $action(new LearnId($learn), new UserId((int) $user->id));
 
-        return response()->json(new LearnResource($this->toModel($entity)));
+        return response()->json(new LearnResource($entity));
     }
 
     /**
@@ -299,7 +294,7 @@ class LearnController
 
         $entity = $action(new LearnId($learn), new UserId((int) $user->id));
 
-        return response()->json(new LearnResource($this->toModel($entity)));
+        return response()->json(new LearnResource($entity));
     }
 
     /**
@@ -326,7 +321,7 @@ class LearnController
 
         return response()->json([
             'data' => array_map(
-                fn (LearnEntity $e): array => (new LearnResource($this->toModel($e)))->resolve($request),
+                fn (LearnEntity $e): array => (new LearnResource($e))->resolve($request),
                 $page->items,
             ),
             'meta' => [
@@ -412,7 +407,7 @@ class LearnController
 
         return response()->json([
             'data' => array_map(
-                fn (LearnEntity $e): array => (new LearnResource($this->toModel($e)))->resolve($request),
+                fn (LearnEntity $e): array => (new LearnResource($e))->resolve($request),
                 $page->items,
             ),
             'meta' => [
@@ -491,6 +486,13 @@ class LearnController
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
 
+        // Архив видят только кураторы (teacher/methodologist/headteacher);
+        // родитель — read-only и никогда не видит архив.
+        $canSeeArchived = $context->hasRole(ViewerRole::Teacher)
+            || $context->hasRole(ViewerRole::Methodologist)
+            || $context->hasRole(ViewerRole::Headteacher);
+        $includeArchived = $canSeeArchived && $request->boolean('include_archived');
+
         return new LearnListFilter(
             statuses: $statuses,
             lessonId: $lessonId > 0 ? new LessonId($lessonId) : null,
@@ -498,16 +500,7 @@ class LearnController
             dateTo: $dateTo !== null ? Carbon::parse($dateTo)->toDateTimeImmutable() : null,
             page: max(1, (int) $request->integer('page', 1)),
             perPage: max(1, min((int) $request->integer('per_page', 20), 100)),
-            includeArchived: false,
+            includeArchived: $includeArchived,
         );
-    }
-
-    /**
-     * Доменная сущность → тонкая Eloquent-модель для LearnResource.
-     * Грузим из БД по id, чтобы ресурс получал актуальные timestamps/связи.
-     */
-    private function toModel(LearnEntity $entity): LearnModel
-    {
-        return LearnModel::query()->findOrFail($entity->id()->value);
     }
 }
