@@ -7,7 +7,7 @@ namespace App\Application\LessonBlocks\Actions;
 use App\Application\LessonBlocks\Ports\LessonBlockRepositoryInterface;
 use App\Domain\LessonBlocks\Exceptions\BlockAssignmentDenied;
 use App\Domain\LessonBlocks\ValueObjects\LessonBlockId;
-use App\Domain\Lessons\Ports\LessonRepositoryInterface;
+use App\Application\Lessons\Ports\LessonRepositoryInterface;
 use App\Domain\Lessons\ValueObjects\LessonId;
 use App\Domain\Lessons\ValueObjects\UserId;
 

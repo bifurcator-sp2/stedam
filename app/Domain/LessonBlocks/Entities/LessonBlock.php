@@ -30,12 +30,16 @@ use App\Domain\Lessons\ValueObjects\UserId;
  * Домен не знает про Eloquent: идентификатор — VO, состояние копируется
  * репозиторием. Мутации возвращают void, применяются в памяти;
  * сохранение — обязанность репозитория.
+ *
+ * user_id в БД nullable (см. миграцию make_user_id_nullable_on_lesson_blocks):
+ * глобальные задания из сидов заводятся без владельца, поэтому домен
+ * тоже допускает «безымянного» владельца — ?UserId.
  */
 final class LessonBlock
 {
     private function __construct(
         private ?LessonBlockId $id,
-        private UserId $userId,
+        private ?UserId $userId,
         private BlockId $blockId,
         private LessonId $lessonId,
         private int $order,
@@ -109,7 +113,7 @@ final class LessonBlock
      */
     public static function fromPersistence(
         LessonBlockId $id,
-        UserId $userId,
+        ?UserId $userId,
         BlockId $blockId,
         ?LessonId $lessonId,
         int $order,
@@ -150,7 +154,7 @@ final class LessonBlock
         return $this->id;
     }
 
-    public function userId(): UserId
+    public function userId(): ?UserId
     {
         return $this->userId;
     }
@@ -251,6 +255,6 @@ final class LessonBlock
      */
     public function isOwnedBy(UserId $userId): bool
     {
-        return $this->userId->equals($userId);
+        return $this->userId !== null && $this->userId->equals($userId);
     }
 }

@@ -9,7 +9,7 @@ use App\Application\LessonBlocks\Ports\LessonBlockRepositoryInterface;
 use App\Domain\LessonBlocks\Entities\LessonBlock;
 use App\Domain\LessonBlocks\Exceptions\LessonBlockNotFound;
 use App\Domain\LessonBlocks\Exceptions\LessonIsPublished;
-use App\Domain\Lessons\Ports\LessonRepositoryInterface;
+use App\Application\Lessons\Ports\LessonRepositoryInterface;
 use App\Domain\Lessons\Services\BlockOrderPlanner;
 use App\Domain\Lessons\ValueObjects\BlockId;
 use App\Domain\Lessons\ValueObjects\LessonId;
@@ -100,6 +100,10 @@ final readonly class AddBlockAction
         $order    = $requestedOrder ?? ($maxOrder + 1);
 
         $this->blocks->attachToLesson($taskId, $lessonId, $order);
+
+        // Пересчёт complexity происходит автоматически в модели Lesson:
+        // booted()::saving → recalculateComplexity() читает pivot заново.
+        // Поэтому достаточно «пустого» save() — он и триггерит хук.
         $this->lessons->save($this->lessons->getById($lessonId));
 
         return $saved;

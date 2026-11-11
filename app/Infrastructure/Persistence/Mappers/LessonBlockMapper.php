@@ -22,9 +22,11 @@ final class LessonBlockMapper
 {
     public static function toDomain(LessonBlockModel $model): DomainLessonBlock
     {
+        $userId = (int) ($model->user_id ?? 0);
+
         return DomainLessonBlock::fromPersistence(
             id: new LessonBlockId((int) $model->id),
-            userId: new UserId((int) $model->user_id),
+            userId: $userId > 0 ? new UserId($userId) : null,
             blockId: new BlockId((int) $model->block_id),
             lessonId: $model->lesson_id === null ? null : new LessonId((int) $model->lesson_id),
             order: (int) $model->order,
@@ -38,7 +40,7 @@ final class LessonBlockMapper
 
     public static function applyToModel(DomainLessonBlock $domain, LessonBlockModel $model): LessonBlockModel
     {
-        $model->user_id    = $domain->userId()->value;
+        $model->user_id    = $domain->userId()?->value;
         $model->block_id   = $domain->blockId()->value;
         $model->lesson_id  = $domain->lessonId()?->value;
         $model->order      = $domain->order();

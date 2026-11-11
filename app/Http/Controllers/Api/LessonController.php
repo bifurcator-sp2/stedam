@@ -3,37 +3,65 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Domain\Blocks\Settings\SettingsNormalizer;
+use App\Application\LessonBlocks\Actions\AddBlockAction;
+use App\Application\LessonBlocks\DTOs\AddBlockData;
+use App\Application\Lessons\Actions\CreateLessonAction;
+use App\Application\Lessons\Actions\SaveLessonAction;
+use App\Application\Lessons\DTOs\CreateLessonData;
+use App\Application\Lessons\DTOs\UpdateLessonData;
+use App\Application\Lessons\Exceptions\LessonAccessDeniedError;
+use App\Domain\LessonBlocks\Exceptions\BlockAssignmentDenied;
+use App\Domain\LessonBlocks\Exceptions\LessonBlockNotFound;
+use App\Domain\LessonBlocks\Exceptions\LessonIsPublished;
+use App\Domain\Lessons\Exceptions\LessonAccessDenied;
+use App\Domain\Lessons\Exceptions\LessonNotFound;
+use App\Domain\Lessons\ValueObjects\LessonId;
+use App\Domain\Lessons\ValueObjects\UserId;
+use App\Domain\Tasks\Exceptions\TaskInUse;
+use App\Domain\Tasks\Exceptions\TaxonomyRequired;
 use App\Http\Resources\LessonBlockResource;
 use App\Http\Resources\LessonListResource;
 use App\Http\Resources\LessonResource;
-use App\Models\Block;
 use App\Models\Lesson;
 use App\Models\LessonBlock;
 use App\Models\Taxonomy;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class LessonController
 {
+    public function __construct(
+        private readonly CreateLessonAction $createLesson,
+        private readonly AddBlockAction $addBlock,
+        private readonly SaveLessonAction $saveLesson,
+    ) {}
+
     public function make(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'locale' => ['sometimes', 'string', 'max:10'],
         ]);
 
-        $lesson = Lesson::create([
-            'user_id' => $request->user()->id,
-            'locale' => $validated['locale'] ?? $request->user()->locale ?? config('app.locale'),
-            'title' => '',
-            'saved' => false,
-            'published' => false,
-        ]);
+        $user = $request->user();
 
-        $lesson->load(['blocks.block', 'lessonBlockAsTests.block']);
+        // Выбор локали: запрос → у пользователя → app.locale.
+        // CreateLessonAction подставит app.locale, если locale === null,
+        // поэтому передаём «локаль владельца» как fallback здесь.
+        $locale = $validated['locale'] ?? $user->locale ?? null;
 
-        return response()->json(new LessonResource($lesson), 201);
+        $lesson = $this->guard(fn () => ($this->createLesson)(
+            new UserId((int) $user->id),
+            new CreateLessonData($locale),
+        ));
+
+        $lessonId = (int) $lesson->id()->value;
+
+        $model = Lesson::query()->findOrFail($lessonId);
+        $model->load(['blocks.block', 'lessonBlockAsTests.block']);
+
+        return response()->json(new LessonResource($model), 201);
     }
 
     public function storeBlock(Request $request, Lesson $lesson): JsonResponse
@@ -53,124 +81,29 @@ class LessonController
             'order'    => ['sometimes', 'integer', 'min:0'],
         ]);
 
-        $prototype = Block::findOrFail($validated['block_id']);
+        $block = $this->guard(fn () => ($this->addBlock)(
+            lessonId: new LessonId((int) $lesson->id),
+            actor: new UserId((int) $user->id),
+            data: new AddBlockData(
+                blockId: (int) $validated['block_id'],
+                order: isset($validated['order']) ? (int) $validated['order'] : null,
+                isAdmin: (bool) $isAdmin,
+            ),
+        ));
 
-        // =====================================================================
-        // 1. ЛОГИКА ДЛЯ БЛОКОВ-ЗАДАНИЙ (определяем по прототипу)
-        // =====================================================================
-        if ($prototype->is_test) {
-            $block = DB::transaction(function () use ($lesson, $prototype, $validated, $user) {
-                // Всегда создаем НОВЫЙ экземпляр задания (глобальный)
-                $sharedBlock = LessonBlock::create([
-                    'user_id'   => $user->id,
-                    'block_id'  => $prototype->id,
-                    'settings'  => $prototype->settings ?? [],
-                    'lesson_id' => null,
-                    'is_proc'   => $prototype->is_proc ?? false,
-                ]);
+        $blockId = (int) $block->id()->value;
 
-                // Клонируем файлы из прототипа
-                if (!empty($prototype->settings)) {
-                    $settings = $prototype->settings;
-                    $code = $prototype->code;
+        // Ресурсу нужен Eloquent с relation block и выставленным pivot.order
+        // для корректного поля order в ответе.
+        $model = LessonBlock::query()->with('block')->findOrFail($blockId);
+        $model->pivot = (object) ['order' => $block->order()];
 
-                    SettingsNormalizer::syncFileSetsFromSettings($settings, $sharedBlock, $code);
-                    $settings = SettingsNormalizer::cloneFileSetsFromModel($settings, $sharedBlock, $prototype, $code);
-                    $sharedBlock->update(['settings' => $settings]);
-                }
-
-                // Вычисляем order (учитываем и собственные блоки, и другие задания)
-                $maxOwn = $lesson->blocks()->max('order') ?? -1;
-                $maxTest = DB::table('lesson_lesson_block_as_test')->where('lesson_id', $lesson->id)->max('order') ?? -1;
-                $order = $validated['order'] ?? (max($maxOwn, $maxTest) + 1);
-
-                // БЕЗОПАСНЫЙ СДВИГ ORDER ДЛЯ POSTGRESQL
-                $hasOwn = $lesson->blocks()->where('order', '>=', $order)->exists();
-                $hasTest = DB::table('lesson_lesson_block_as_test')->where('lesson_id', $lesson->id)->where('order', '>=', $order)->exists();
-
-                if ($hasOwn) {
-                    $lesson->blocks()->where('order', '>=', $order)->update(['order' => DB::raw('"order" + 1000000')]);
-                }
-                if ($hasTest) {
-                    DB::table('lesson_lesson_block_as_test')->where('lesson_id', $lesson->id)->where('order', '>=', $order)->update(['order' => DB::raw('"order" + 1000000')]);
-                }
-
-                // Привязываем к уроку
-                DB::table('lesson_lesson_block_as_test')->insert([
-                    'lesson_id'       => $lesson->id,
-                    'lesson_block_id' => $sharedBlock->id,
-                    'order'           => $order,
-                    'created_at'      => now(),
-                    'updated_at'      => now(),
-                ]);
-
-                // ВОЗВРАЩАЕМ СДВИНУТЫЕ ЭЛЕМЕНТЫ НА +1
-                if ($hasOwn) {
-                    $lesson->blocks()->where('order', '>=', 1000000)->update(['order' => DB::raw('"order" - 999999')]);
-                }
-                if ($hasTest) {
-                    DB::table('lesson_lesson_block_as_test')->where('lesson_id', $lesson->id)->where('order', '>=', 1000000)->update(['order' => DB::raw('"order" - 999999')]);
-                }
-                $lesson->recalculateComplexity();
-                $lesson->saveQuietly();
-                // Устанавливаем pivot вручную, чтобы LessonBlockResource корректно отдал order
-                $sharedBlock->pivot = (object)['order' => $order];
-
-                return $sharedBlock;
-            });
-
-            $block->load('block');
-
-            return response()->json(new LessonBlockResource($block), 201);
-        }
-
-        // =====================================================================
-        // 2. ЛОГИКА ДЛЯ ОБЫЧНЫХ БЛОКОВ (как было раньше)
-        // =====================================================================
-        $order = $validated['order']
-            ?? ($lesson->blocks()->max('order') + 1);
-
-        $block = DB::transaction(function () use ($lesson, $prototype, $order, $user) {
-            // БЕЗОПАСНЫЙ СДВИГ ORDER ДЛЯ POSTGRESQL
-            $hasOwn = $lesson->blocks()->where('order', '>=', $order)->exists();
-
-            if ($hasOwn) {
-                $lesson->blocks()->where('order', '>=', $order)->update(['order' => DB::raw('"order" + 1000000')]);
-            }
-
-            $block = $lesson->blocks()->create([
-                'user_id' => $user->id,
-                'block_id' => $prototype->id,
-                'settings' => [],
-                'order' => $order,
-            ]);
-
-            if (!empty($prototype->settings)) {
-                $settings = $prototype->settings;
-                $code = $prototype->code;
-
-                SettingsNormalizer::syncFileSetsFromSettings($settings, $block, $code);
-                $settings = SettingsNormalizer::cloneFileSetsFromModel($settings, $block, $prototype, $code);
-                $block->update(['settings' => $settings]);
-            }
-
-            // ВОЗВРАЩАЕМ СДВИНУТЫЕ ЭЛЕМЕНТЫ НА +1
-            if ($hasOwn) {
-                $lesson->blocks()->where('order', '>=', 1000000)->update(['order' => DB::raw('"order" - 999999')]);
-            }
-
-            return $block;
-        });
-
-        $block->load('block');
-
-        return response()->json(new LessonBlockResource($block), 201);
+        return response()->json(new LessonBlockResource($model), 201);
     }
 
     public function save(Request $request, Lesson $lesson): JsonResponse
     {
         $user = $request->user();
-        $isAdmin = $user->hasRole('admin');
 
         abort_unless($lesson->user_id === $user->id, 403);
 
@@ -197,28 +130,72 @@ class LessonController
         }
         // ===================================================================
 
-        $result = DB::transaction(function () use ($lesson, &$validated) {
-            $lesson->fill(collect($validated)->only([
-                'title', 'description', 'locale', 'saved', 'published',
-            ])->all());
+        $data = $this->buildUpdateData($request, $validated);
 
-            // Синхронизация связей с Taxonomy
-            if (array_key_exists('taxonomy_ids', $validated)) {
-                $lesson->taxonomies()->sync($validated['taxonomy_ids']);
-            }
+        $this->guard(fn () => DB::transaction(function () use ($lesson, $data, $user) {
+            ($this->saveLesson)(
+                new LessonId((int) $lesson->id),
+                new UserId((int) $user->id),
+                $data,
+            );
 
-            if (array_key_exists('blocks', $validated)) {
-                $this->syncBlocks($lesson, $validated['blocks']);
-            }
+            // Правила урока проверяются ПОСЛЕ sync составa блоков:
+            // валидатору нужен актуальный набор привязанных заданий.
+            $fresh = Lesson::query()->findOrFail($lesson->id);
+            $this->validateLessonRules($fresh);
+        }));
 
-            // ВАЛИДАЦИЯ ПРАВИЛ УРОКА
-            $this->validateLessonRules($lesson);
+        $lesson->refresh()->load(['blocks.block', 'lessonBlockAsTests.block', 'taxonomies']);
 
-            $lesson->save();
-            return $lesson->load(['blocks.block', 'lessonBlockAsTests.block', 'taxonomies']);
-        });
+        return response()->json(new LessonResource($lesson));
+    }
 
-        return response()->json(new LessonResource($result));
+    /**
+     * Собрать DTO из провалидированных данных с учётом «touch»-флагов.
+     *
+     * Description обрабатывается отдельно: null — валидное значение,
+     * поэтому нужен presence-флаг.
+     */
+    private function buildUpdateData(Request $request, array $validated): UpdateLessonData
+    {
+        return new UpdateLessonData(
+            title: array_key_exists('title', $validated) ? (string) ($validated['title'] ?? '') : null,
+            description: array_key_exists('description', $validated) ? ($validated['description'] ?? null) : null,
+            descriptionTouched: $request->has('description'),
+            locale: $validated['locale'] ?? null,
+            saved: array_key_exists('saved', $validated) ? (bool) $validated['saved'] : null,
+            published: array_key_exists('published', $validated) ? (bool) $validated['published'] : null,
+            taxonomyIds: array_key_exists('taxonomy_ids', $validated)
+                ? array_map('intval', (array) $validated['taxonomy_ids'])
+                : null,
+            blocks: array_key_exists('blocks', $validated) ? (array) $validated['blocks'] : null,
+        );
+    }
+
+    /**
+     * Проброс доменных ошибок в HTTP-ответы.
+     *
+     * Маппинг сохранён 1:1 с поведением старого контроллера:
+     *   — доступ/публикация → 403 (как abort(403));
+     *   — правила/ассайнмент → 422 (как abort(422));
+     *   — отсутствие → 404.
+     */
+    private function guard(callable $fn): mixed
+    {
+        try {
+            return $fn();
+        } catch (LessonAccessDenied | LessonAccessDeniedError $e) {
+            abort(403, $e->getMessage());
+        } catch (LessonIsPublished $e) {
+            abort(403, $e->getMessage());
+        } catch (BlockAssignmentDenied | TaxonomyRequired | TaskInUse $e) {
+            abort(422, $e->getMessage());
+        } catch (LessonNotFound | LessonBlockNotFound $e) {
+            abort(404, $e->getMessage());
+        } catch (DomainException $e) {
+            // Остальные доменные нарушения — 422 (валидационные по смыслу).
+            abort(422, $e->getMessage());
+        }
     }
 
     public function show(Request $request, Lesson $lesson): JsonResponse
@@ -239,6 +216,9 @@ class LessonController
     /**
      * Валидация правил урока перед сохранением.
      * Не мутирует объект $lesson.
+     *
+     * Вызывается из save() ПОСЛЕ SaveLessonAction (sync блоков),
+     * внутри той же транзакции. Логика идентична старой версии.
      */
     protected function validateLessonRules(Lesson $lesson): void
     {
@@ -309,99 +289,6 @@ class LessonController
                 }
             }
         }
-    }
-
-    protected function syncBlocks(Lesson $lesson, array $blocks): void
-    {
-        $currentUserId = auth()->id();
-
-        // Сдвигаем только собственные блоки урока в безопасную зону
-        $lesson->blocks()->update(['order' => DB::raw('"order" + 1000000')]);
-
-        // Удаляем ВСЕ старые привязки заданий к этому уроку
-        DB::table('lesson_lesson_block_as_test')
-            ->where('lesson_id', $lesson->id)
-            ->delete();
-
-        $existingOwn = $lesson->blocks()
-            ->with('block')
-            ->get()
-            ->keyBy('id');
-
-        $keptOwnIds = [];
-
-        foreach ($blocks as $i => $data) {
-            $id          = $data['id'] ?? null;
-            $newSettings = $data['settings'] ?? null;
-
-            abort_unless($id !== null, 422, 'У блока отсутствует id.');
-
-            // 1) Собственный блок урока
-            if ($existingOwn->has($id)) {
-                $block = $existingOwn->get($id);
-
-                if ($newSettings !== null) {
-                    $code = $block->block?->code;
-                    if ($code) {
-                        SettingsNormalizer::syncFileSetsFromSettings($newSettings, $block, $code);
-                    }
-                    $block->settings = SettingsNormalizer::extractPublicDefaults(
-                        $newSettings,
-                        $block->block?->settings
-                    );
-                }
-
-                $block->order = $i;
-                $block->save();
-
-                $keptOwnIds[] = $block->id;
-                continue;
-            }
-
-            // 2) «Задание» — LessonBlock с lesson_id = null, шарится между уроками
-            $shared = LessonBlock::query()
-                ->whereNull('lesson_id')
-                ->with('block')
-                ->find($id);
-
-            abort_unless(
-                $shared !== null,
-                422,
-                "Блок с id={$id} не принадлежит уроку {$lesson->id} и не является заданием."
-            );
-
-            if ($newSettings !== null) {
-                $code = $shared->block?->code;
-                if ($code) {
-                    SettingsNormalizer::syncFileSetsFromSettings($newSettings, $shared, $code);
-                }
-
-                $shared->settings = SettingsNormalizer::extractPublicDefaults(
-                    $newSettings,
-                    $shared->block?->settings
-                );
-                $shared->save();
-            }
-
-            // Обычный INSERT (мы удалили старые записи в начале).
-            // Теперь можно привязать одно и то же задание несколько раз (разный $i).
-            DB::table('lesson_lesson_block_as_test')->insert([
-                'lesson_id'       => $lesson->id,
-                'lesson_block_id' => $shared->id,
-                'order'           => $i,
-                'created_at'      => now(),
-                'updated_at'      => now(),
-            ]);
-        }
-
-        // Удаляем собственные блоки, которых нет в запросе
-        $lesson->blocks()
-            ->whereNotIn('id', $keptOwnIds)
-            ->get()
-            ->each
-            ->delete();
-
-        // Pivot-строки уже пересозданы выше, удалять их в конце не нужно.
     }
 
     /**

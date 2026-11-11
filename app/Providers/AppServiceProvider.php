@@ -41,6 +41,34 @@ class AppServiceProvider extends ServiceProvider
             \App\Infrastructure\Persistence\Repositories\EloquentLessonRepository::class,
         );
 
+        // ===== Домен «уроки и задания» (DDD-слои) =====
+        //
+        // Эти четыре порта — write-side для контекстов Lessons / LessonBlocks /
+        // Tasks / TasksProc. Их реализации скрывают физическую схему:
+        //   - таблица lesson_blocks играет две роли (own-блок / глобальное задание);
+        //   - позиция задания в уроке — в pivot lesson_lesson_block_as_test;
+        //   - таксономии задания — в pivot lesson_block_taxonomy;
+        //   - порядок блоков требует двухфазного SAFE_OFFSET-сдвига (PostgreSQL UNIQUE).
+        //
+        // Learn-порт LessonRepositoryInterface (выше) — отдельный, read-only:
+        // он отвечает только за isPublished(). Не путать.
+        $this->app->bind(
+            \App\Application\Lessons\Ports\LessonRepositoryInterface::class,
+            \App\Infrastructure\Persistence\Repositories\EloquentLessonAggregateRepository::class,
+        );
+        $this->app->bind(
+            \App\Application\LessonBlocks\Ports\LessonBlockRepositoryInterface::class,
+            \App\Infrastructure\Persistence\Repositories\EloquentLessonBlockRepository::class,
+        );
+        $this->app->bind(
+            \App\Application\Tasks\Ports\TaskRepositoryInterface::class,
+            \App\Infrastructure\Persistence\Repositories\EloquentTaskRepository::class,
+        );
+        $this->app->bind(
+            \App\Application\TasksProc\Ports\ProcTaskRepositoryInterface::class,
+            \App\Infrastructure\Persistence\Repositories\EloquentProcTaskRepository::class,
+        );
+
         // Структура урока для снапшота и поиск resolver-пути генератора.
         $this->app->bind(
             \App\Application\Learn\Ports\ProcedureResolverPathInterface::class,
