@@ -2,11 +2,11 @@
 
 namespace App\Filament\Resources\Taxonomies\Schemas;
 
-use App\Blocks\TestGenerator\Support\GeneratorOptions;
+use App\Domain\Blocks\TestGenerator\Support\GeneratorOptions;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 

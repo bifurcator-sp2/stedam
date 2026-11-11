@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\TestGenerator;
 
-use App\Blocks\TestGenerator\Discovery\GeneratorDiscovery;
-use App\Blocks\TestGenerator\DTO\MathProblem;
-use App\Blocks\TestGenerator\Random\Seed;
-use App\Blocks\TestGenerator\Support\PathResolver;
+use App\Domain\Blocks\TestGenerator\Discovery\GeneratorDiscovery;
+use App\Domain\Blocks\TestGenerator\DTO\MathProblem;
+use App\Domain\Blocks\TestGenerator\Random\Seed;
+use App\Domain\Blocks\TestGenerator\Support\PathResolver;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionMethod;
@@ -15,7 +15,7 @@ use Tests\TestCase;
 use Throwable;
 
 /**
- * Сквозной smoke-тест всех генераторов из app/Blocks/TestGenerator/Generators.
+ * Сквозной smoke-тест всех генераторов из app/Domain/Blocks/TestGenerator/Generators.
  *
  * Для каждого генератора и набора сложностей (границы уровней + середины)
  * прогоняем generate() с детерминированным сидом и проверяем инварианты:
@@ -52,11 +52,11 @@ final class GeneratorSmokeTest extends TestCase
         // Строим GeneratorDiscovery напрямую из корня проекта.
         try {
             $app = require dirname(__DIR__, 3) . '/bootstrap/app.php';
-            $basePath = $app->path('Blocks/TestGenerator/Generators');
+            $basePath = $app->path('Domain/Blocks/TestGenerator/Generators');
 
             $discovery = new GeneratorDiscovery(
                 basePath: $basePath,
-                baseNamespace: 'App\\Blocks\\TestGenerator\\Generators',
+                baseNamespace: 'App\\Domain\\Blocks\\TestGenerator\\Generators',
             );
 
             // discover() кэширует результат через cache() — в статическом

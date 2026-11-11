@@ -24,6 +24,7 @@ function seedGraded(InMemoryLearnRepository $repo, DateTimeImmutable $completedA
         new UserId($userId),
         new LessonId($lessonId),
         SnapshotHash::fromContent("lesson-{$lessonId}"),
+        domainQuestions(),
         $start,
     );
     $learn->markDone(LearnAnswers::empty(), $completedAt);
@@ -70,7 +71,7 @@ it('does not archive done/in_progress (no criteria for them)', function () {
     $now = new DateTimeImmutable('2025-06-01 00:00:00 UTC');
 
     // done: сдан, ждёт оценки — не должен архивироваться
-    $done = Learn::startNow(new UserId(5), new LessonId(10), SnapshotHash::fromContent('l10'), $now->modify('-400 days'));
+    $done = Learn::startNow(new UserId(5), new LessonId(10), SnapshotHash::fromContent('l10'), domainQuestions(), $now->modify('-400 days'));
     $done->markDone(LearnAnswers::empty(), $now->modify('-399 days'));
     $done = $repo->save($done);
 

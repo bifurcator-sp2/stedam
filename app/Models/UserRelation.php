@@ -15,11 +15,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Семантику scope (кто чьи прохождения видит) реализует
  * App\Infrastructure\...\EloquentContextResolver, читая эту таблицу.
  *
- * Типы связей:
- *   teaches     teacher        → student
- *   parents     parent         → student
- *   supervises  methodologist  → teacher
- *   heads       headteacher    → methodologist
+ * Типы связей (значение = роль хозяина ребра):
+ *   teacher       teacher        → student
+ *   parent        parent         → student
+ *   methodologist methodologist  → teacher
+ *   headteacher   headteacher    → methodologist
  */
 class UserRelation extends Model
 {

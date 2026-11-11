@@ -17,9 +17,20 @@ interface LearnRepositoryInterface
 {
     /**
      * Сохраняет Learn. Если id === null — INSERT, возвращает копию с присвоенным id.
-     * Если id задан — UPDATE.
+     * Если id задан — UPDATE; отсутствие строки — доменная ошибка LearnNotFound.
      */
     public function save(Learn $learn): Learn;
+
+    /**
+     * INSERT прохождения с id, предвыделенным reserveId().
+     *
+     * Отдельный метод (а не «save угадает»), потому что «строка есть / строки
+     * нет» здесь определяет вызывающий код: сценарий старта знает, что
+     * прохождение новое, и что id взяли из последовательности заранее.
+     *
+     * @throws \LogicException если id у агрегата не задан
+     */
+    public function insert(Learn $learn): Learn;
 
     /**
      * @throws \App\Domain\Learn\Exceptions\LearnNotFound
@@ -47,6 +58,17 @@ interface LearnRepositoryInterface
      * Нужно для идемпотентности StartLearnAction.
      */
     public function findActiveByUserAndLesson(UserId $userId, LessonId $lessonId): ?Learn;
+
+    /**
+     * Резервирует id из последовательности learns (SELECT nextval) БЕЗ INSERT.
+     *
+     * Нужен для генерации questions с сидом по learnId ДО сохранения:
+     * сид = f(userId, learnId, blockIndex), значит learnId должен быть
+     * известен до того, как агрегат получает строку в БД.
+     * На этом id либо затем делается INSERT с withId(), либо он теряется
+     * (пропуски в последовательности безопасны).
+     */
+    public function reserveId(): LearnId;
 
     /**
      * Ids прохождений в заданном статусе, не архивированных, чья «опорная»

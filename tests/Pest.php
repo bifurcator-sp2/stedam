@@ -36,6 +36,34 @@ if (!function_exists('domainSnapshot')) {
     }
 }
 
+if (!function_exists('domainQuestions')) {
+    /**
+     * LearnQuestions с заданиями по заданным индексам (по умолчанию — [1]).
+     * Индексы заданий должны совпадать с индексами изображений-ответов
+     * (answerImages()) — это ключевой инвариант §8.1.
+     */
+    function domainQuestions(int ...$indices): \App\Domain\Learn\ValueObjects\LearnQuestions
+    {
+        $indices = $indices === [] ? [1] : $indices;
+
+        return \App\Domain\Learn\ValueObjects\LearnQuestions::fromItems(
+            array_map(
+                static fn (int $i): \App\Domain\Learn\ValueObjects\QuestionItem =>
+                    new \App\Domain\Learn\ValueObjects\QuestionItem(
+                        index: $i,
+                        question: "Q{$i}",
+                        answer: 'A',
+                        solution: 'S',
+                        topic: 'math.test',
+                        difficulty: 0.5,
+                        seed: $i,
+                    ),
+                $indices,
+            ),
+        );
+    }
+}
+
 if (!function_exists('answerImages')) {
     /**
      * LearnAnswers с единственным изображением-ответом по индексу.

@@ -3,9 +3,9 @@
 
 namespace App\Console\Commands;
 
-use App\Blocks\Settings\BlockSettingsRegistry;
-use App\Blocks\Settings\SettingsNormalizer;
-use App\Blocks\Settings\SettingsShapeException;
+use App\Domain\Blocks\Settings\BlockSettingsRegistry;
+use App\Domain\Blocks\Settings\SettingsNormalizer;
+use App\Domain\Blocks\Settings\SettingsShapeException;
 use App\Models\Block;
 use App\Models\Lesson;
 use App\Models\LessonBlock;

@@ -13,6 +13,7 @@ use App\Domain\Learn\Exceptions\LearnNotFound;
 use App\Domain\Learn\ValueObjects\Grade;
 use App\Domain\Learn\ValueObjects\LearnAnswers;
 use App\Domain\Learn\ValueObjects\LearnId;
+use App\Domain\Learn\ValueObjects\LearnQuestions;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\ScheduleDate;
 use App\Domain\Learn\ValueObjects\SnapshotHash;
@@ -38,15 +39,42 @@ final class EloquentLearnRepository implements LearnRepositoryInterface
 
     public function save(LearnEntity $learn): LearnEntity
     {
-        if ($learn->id() === null) {
-            $model = new LearnModel();
-        } else {
-            $model = LearnModel::query()->find($learn->id()->value);
+        return $this->persist($learn, allowInsert: false);
+    }
 
-            if ($model === null) {
+    public function insert(LearnEntity $learn): LearnEntity
+    {
+        return $this->persist($learn, allowInsert: true);
+    }
+
+    /**
+     * @param bool $allowInsert true — разрешить INSERT с предвыделенным id
+     *                          (reserveId() + withId()); false — только UPDATE.
+     */
+    private function persist(LearnEntity $learn, bool $allowInsert): LearnEntity
+    {
+        $model = null;
+
+        if ($learn->id() !== null) {
+            $model = LearnModel::query()->find($learn->id()->value);
+        }
+
+        if ($model === null) {
+            if (!$allowInsert) {
                 // Между загрузкой и сохранением модель могли удалить — это
                 // доменная ошибка, а не ModelNotFoundException.
-                throw new LearnNotFound("Learn {$learn->id()->value} not found for update");
+                $id = $learn->id()?->value ?? '(new)';
+                throw new LearnNotFound("Learn {$id} not found for update");
+            }
+
+            $model = new LearnModel();
+
+            // id присваиваем напрямую: его нет в $fillable (mass-assignment
+            // не должен позволять менять первичный ключ), но при
+            // предвыделенном id (reserveId) он уже «занят» через sequence.
+            if ($learn->id() !== null) {
+                $model->id = $learn->id()->value;
+                $model->exists = false;
             }
         }
 
@@ -60,6 +88,7 @@ final class EloquentLearnRepository implements LearnRepositoryInterface
         $model->score           = $learn->grade()?->value;
         $model->graded_by       = $learn->gradedBy()?->value;
         $model->answers         = $learn->answers()->toArray();
+        $model->questions       = $learn->questions()->toArray();
         $model->complete_date   = $learn->completedAt();
         $model->archived_at     = $learn->archivedAt();
 
@@ -182,6 +211,19 @@ final class EloquentLearnRepository implements LearnRepositoryInterface
         return $query->pluck('id')->map(static fn ($id): int => (int) $id)->all();
     }
 
+    public function reserveId(): LearnId
+    {
+        // SELECT nextval('learns_id_seq') — предвыделение id без INSERT.
+        // Нужно, чтобы сгенерировать questions с сидом по learnId до
+        // сохранения агрегата (см. StartLearnAction, спеку §8.2).
+        // Пропуски в последовательности безопасны.
+        $row = LearnModel::query()->getConnection()->selectOne(
+            "SELECT nextval(pg_get_serial_sequence('learns', 'id')) AS id"
+        );
+
+        return new LearnId((int) $row->id);
+    }
+
     // ==================== Маппинг ====================
 
     private function toEntity(LearnModel $model): LearnEntity
@@ -215,6 +257,7 @@ final class EloquentLearnRepository implements LearnRepositoryInterface
             startedAt: $model->started_at !== null
                 ? $this->toImmutable($model->started_at)
                 : null,
+            questions: LearnQuestions::fromArray($model->questions ?? []),
         );
     }
 

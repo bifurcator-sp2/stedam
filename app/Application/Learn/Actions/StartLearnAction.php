@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace App\Application\Learn\Actions;
 
 use App\Application\Learn\Context\ContextResolverInterface;
+use App\Application\Learn\DTOs\LearnSeed;
 use App\Application\Learn\DTOs\StartLearnData;
 use App\Application\Learn\Exceptions\LearnAccessDenied;
 use App\Application\Learn\Exceptions\LessonNotFound;
+use App\Application\Learn\Ports\LearnQuestionsBuilderInterface;
 use App\Application\Learn\Ports\LearnRepositoryInterface;
 use App\Application\Learn\Ports\LessonRepositoryInterface;
 use App\Application\Learn\Ports\SnapshotResolverInterface;
 use App\Application\Learn\Ports\StatusLoggerInterface;
 use App\Application\Shared\Clock;
 use App\Domain\Learn\Entities\Learn;
+use App\Domain\Learn\ValueObjects\LearnQuestions;
 
 final readonly class StartLearnAction
 {
@@ -21,6 +24,7 @@ final readonly class StartLearnAction
         private LearnRepositoryInterface $learns,
         private LessonRepositoryInterface $lessons,
         private SnapshotResolverInterface $snapshots,
+        private LearnQuestionsBuilderInterface $questionsBuilder,
         private StatusLoggerInterface $statusLogger,
         private ContextResolverInterface $contextResolver,
         private Clock $clock,
@@ -49,14 +53,23 @@ final readonly class StartLearnAction
             $data->lessonId,
         );
         if ($existing !== null) {
-            // Уже идёт — повторный старт ничего не меняет.
+            // Уже идёт — повторный старт ничего не меняет (в т.ч. не
+            // перегенерирует questions: ученик видит ту же серию задач).
             if ($existing->isInProgress()) {
                 return $existing;
             }
 
-            // created/scheduled → старт: пишем снапшот и фактическое время.
-            // scheduleDate сохраняется — по нему считается отклонение от плана.
-            $existing->start($this->snapshots->ensureFor($data->lessonId), $now);
+            // created/scheduled → старт: снапшот + уникальные задачи для
+            // этого learnId. Сид привязан к существующему learnId, поэтому
+            // повторный start после cancel вернёт ту же серию.
+            $learnId   = $existing->id();
+            $questions = $this->buildQuestions($data, $learnId);
+
+            $existing->start(
+                $this->snapshots->ensureFor($data->lessonId),
+                $questions,
+                $now,
+            );
 
             $existing = $this->learns->save($existing);
             $this->drainEvents($existing);
@@ -64,21 +77,29 @@ final readonly class StartLearnAction
             return $existing;
         }
 
-        // 4. Резолвим снапшот (Redis → S3 → генерация под lock)
+        // 4. Резолвим снапшот (Redis → S3 → генерация под lock).
+        //    Снапшот НЕ содержит текстов заданий — только структуру.
         $snapshot = $this->snapshots->ensureFor($data->lessonId);
 
-        // 5. Домен создаёт прохождение
+        // 5. Резервируем learnId до генерации: сид = f(userId, learnId, blockIndex).
+        $learnId = $this->learns->reserveId();
+
+        // 6. Генерируем уникальные задачи для этого прохождения.
+        $questions = $this->buildQuestions($data, $learnId);
+
+        // 7. Домен создаёт прохождение.
         $learn = Learn::startNow(
             userId: $data->userId,
             lessonId: $data->lessonId,
             snapshot: $snapshot,
+            questions: $questions,
             now: $now,
-        );
+        )->withId($learnId);
 
-        // 6. Синхронный INSERT. Возвращает Learn с присвоенным id.
-        $learn = $this->learns->save($learn);
+        // 8. Синхронный INSERT с предвыделенным id.
+        $learn = $this->learns->insert($learn);
 
-        // 7. Начальный статус нового прохождения — в очередь через порт.
+        // 9. Начальный статус нового прохождения — в очередь через порт.
         //    Домен порождает события только на переходах; здесь фиксируем
         //    первичную запись статуса in_progress.
         $this->statusLogger->log(
@@ -89,10 +110,18 @@ final readonly class StartLearnAction
             scheduleDate: $learn->scheduleDate()?->value,
         );
 
-        // 8. Доменные события — единообразно во внешние порты.
+        // 10. Доменные события — единообразно во внешние порты.
         $this->drainEvents($learn);
 
         return $learn;
+    }
+
+    private function buildQuestions(StartLearnData $data, \App\Domain\Learn\ValueObjects\LearnId $learnId): LearnQuestions
+    {
+        return $this->questionsBuilder->buildFor(
+            new LearnSeed(userId: $data->userId, learnId: $learnId),
+            $data->lessonId,
+        );
     }
 
     private function drainEvents(Learn $learn): void

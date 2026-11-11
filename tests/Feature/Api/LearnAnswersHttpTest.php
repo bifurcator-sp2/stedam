@@ -28,7 +28,7 @@ function httpRelate(User $teacher, User $student): void
     DB::table('user_relations')->insert([
         'parent_user_id' => $teacher->id,
         'child_user_id'  => $student->id,
-        'relation'       => \App\Application\Learn\Context\RelationType::Teaches->value,
+        'relation'       => \App\Application\Learn\Context\RelationType::Teacher->value,
         'active_from'    => null,
         'active_to'      => null,
         'created_at'     => now(),
@@ -38,12 +38,42 @@ function httpRelate(User $teacher, User $student): void
 
 function httpLesson(User $owner): Lesson
 {
+    // Таксономия с РЕАЛЬНЫМ resolver-путём из GeneratorDiscovery
+    // (app/Domain/Blocks/TestGenerator/Generators/Math/Arithmetic/Operations/AdditionGenerator.php).
+    // Без неё EloquentProcedureResolverPath::resolveForLesson() вернёт null,
+    // и прохождение получит пустой набор заданий (LearnQuestions::empty()).
+    $taxonomy = \App\Models\Taxonomy::query()->create([
+        'parent_id'     => -1,
+        'user_id'       => $owner->id,
+        'order'         => 0,
+        'test_resolver' => 'math.arithmetic.operations.addition',
+    ]);
+
     $lesson = new Lesson();
     $lesson->user_id = $owner->id;
     $lesson->title = 'Lesson';
     $lesson->locale = 'ru';
     $lesson->published = true;
     $lesson->save();
+
+    $lesson->taxonomies()->attach($taxonomy->id);
+
+    // Два процедурных блока → два задания с index = 1 и 2
+    // (инвариант §8.1: ответ обязан соответствовать заданию).
+    \App\Models\LessonBlock::query()->create([
+        'lesson_id' => $lesson->id,
+        'order'     => 0,
+        'is_proc'   => true,
+        'complexity' => 0.5,
+        'settings'  => [],
+    ]);
+    \App\Models\LessonBlock::query()->create([
+        'lesson_id' => $lesson->id,
+        'order'     => 1,
+        'is_proc'   => true,
+        'complexity' => 0.5,
+        'settings'  => [],
+    ]);
 
     return $lesson;
 }

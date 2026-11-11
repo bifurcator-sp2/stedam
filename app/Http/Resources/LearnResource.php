@@ -24,7 +24,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *   lesson_snapshot — хэш снапшота урока (для in_progress+)
  *   score           — оценка (для graded)
  *   graded_by       — кто оценил (null — автоматически)
- *   answers         — ответы ученика
+ *   questions       — сгенерированные задания прохождения (только proc-блоки)
+ *   answers         — ответы ученика (изображения, только на задания)
  *   complete_date   — момент перехода в done
  *   archived_at     — архив (системный)
  *   updated_at      — приблизительный момент последнего изменения (= statusDate)
@@ -46,6 +47,7 @@ class LearnResource extends JsonResource
             'lesson_snapshot' => $learn->snapshot()?->value,
             'score'           => $learn->grade()?->value,
             'graded_by'       => $learn->gradedBy()?->value,
+            'questions'       => $learn->questions()->toArray(),
             'answers'         => $this->answersPayload($learn),
             'complete_date'   => $learn->completedAt()?->format(DateTimeInterface::ATOM),
             'archived_at'     => $learn->archivedAt()?->format(DateTimeInterface::ATOM),

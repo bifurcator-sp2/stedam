@@ -23,8 +23,22 @@ final class InMemoryLearnRepository implements LearnRepositoryInterface
     {
         if ($learn->id() === null) {
             $learn = $learn->withId(new LearnId($this->nextId++));
+        } elseif (!isset($this->items[$learn->id()->value])) {
+            // Строгий UPDATE: строки нет — доменная ошибка (как в Eloquent-репо).
+            throw new LearnNotFound("Learn {$learn->id()->value} not found for update");
         }
+
         $this->items[$learn->id()->value] = $learn;
+
+        return $learn;
+    }
+
+    public function insert(Learn $learn): Learn
+    {
+        $id = $learn->id() ?? throw new \LogicException('insert() requires a pre-reserved id');
+
+        $this->items[$id->value] = $learn;
+        $this->nextId = max($this->nextId, $id->value + 1);
 
         return $learn;
     }
@@ -35,9 +49,13 @@ final class InMemoryLearnRepository implements LearnRepositoryInterface
             ?? throw new LearnNotFound("Learn {$id->value} not found");
     }
 
-    public function findActiveByUserAndLesson(UserId $userId, LessonId $lessonId): ?Learn
+    public function reserveId(): LearnId
     {
-        foreach ($this->items as $learn) {
+        return new LearnId($this->nextId++);
+    }
+
+    public function findActiveByUserAndLesson(UserId $userId, LessonId $lessonId): ?Learn
+    {        foreach ($this->items as $learn) {
             if ($learn->userId()->equals($userId)
                 && $learn->lessonId()->value === $lessonId->value
                 && !$learn->status()->isTerminal()

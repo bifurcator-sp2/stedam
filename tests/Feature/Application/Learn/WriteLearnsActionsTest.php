@@ -35,13 +35,14 @@ use Tests\Support\FrozenClock;
  *
  * @return array{0: InMemoryLearnRepository, 1: Learn}
  */
-function seedInProgress(int $ownerUserId, int $lessonId = 10): array
+function seedInProgress(int $ownerUserId, int $lessonId = 10, array $questionIndices = [1, 2, 3]): array
 {
     $repo = new InMemoryLearnRepository();
     $learn = Learn::startNow(
         userId: new UserId($ownerUserId),
         lessonId: new LessonId($lessonId),
         snapshot: SnapshotHash::fromContent("lesson-{$lessonId}"),
+        questions: domainQuestions(...$questionIndices),
         now: new DateTimeImmutable('2025-01-01 12:00:00 UTC'),
     );
 

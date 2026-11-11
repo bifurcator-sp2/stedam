@@ -3,8 +3,8 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Blocks\Settings\BlockSettingsRegistry;
-use App\Blocks\Settings\SettingsNormalizer;
+use App\Domain\Blocks\Settings\BlockSettingsRegistry;
+use App\Domain\Blocks\Settings\SettingsNormalizer;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BlockResource;
 use App\Models\Block;

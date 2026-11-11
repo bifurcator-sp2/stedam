@@ -9,12 +9,12 @@ use Illuminate\Support\Facades\Schema;
  *
  * Одна generic-таблица вместо отдельных teacher_student / parent_student /
  * methodologist_teacher / headteacher_methodologist. Каждая связь — ребро
- * "хозяин → подчинённый" с типом:
+ * "хозяин → подчинённый". Значение relation = роль хозяина ребра:
  *
- *   teaches     teacher        → student
- *   parents     parent         → student   (наблюдение, read-only)
- *   supervises  methodologist  → teacher
- *   heads       headteacher    → methodologist
+ *   teacher       teacher        → student
+ *   parent        parent         → student   (наблюдение, read-only)
+ *   methodologist methodologist  → teacher
+ *   headteacher   headteacher    → methodologist
  *
  * active_from / active_to заложены на будущее (временные связи: смена учителя,
  * отпуск). Сейчас логика "действующей связи" трактует NULL active_to как

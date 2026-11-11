@@ -12,7 +12,7 @@ use App\Domain\Learn\ValueObjects\UserId;
 
 describe('updateAnswers', function () {
     it('replaces answers in in_progress', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(1, 2), domainNow());
         $learn->updateAnswers(answerImages(1));
 
         expect($learn->answers()->toArray())->toBe([['index' => 1, 'file' => 'answers/1.webp']]);
@@ -23,7 +23,7 @@ describe('updateAnswers', function () {
     });
 
     it('can clear answers', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->updateAnswers(answerImages(1));
         $learn->updateAnswers(LearnAnswers::empty());
 
@@ -31,7 +31,7 @@ describe('updateAnswers', function () {
     });
 
     it('does not change status or statusDate', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $before = $learn->statusDate();
 
         $learn->updateAnswers(answerImages(1));
@@ -51,12 +51,12 @@ describe('updateAnswers', function () {
             domainNow(),
         )],
         'done'      => [function () {
-            $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+            $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
             $l->markDone(LearnAnswers::empty(), domainLater());
             return $l;
         }],
         'graded'    => [function () {
-            $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+            $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
             $l->markDone(LearnAnswers::empty(), domainLater());
             $l->markGraded(new Grade(90), new UserId(2), domainLater());
             return $l;
@@ -76,14 +76,14 @@ describe('archive', function () {
             new UserId(1), new LessonId(10),
             new ScheduleDate(new DateTimeImmutable('2025-06-01')), domainNow(),
         )],
-        'in_progress' => [fn () => Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow())],
+        'in_progress' => [fn () => Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow())],
         'done'        => [function () {
-            $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+            $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
             $l->markDone(LearnAnswers::empty(), domainLater());
             return $l;
         }],
         'graded'      => [function () {
-            $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+            $l = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
             $l->markDone(LearnAnswers::empty(), domainLater());
             $l->markGraded(new Grade(90), new UserId(2), domainLater());
             return $l;
@@ -91,7 +91,7 @@ describe('archive', function () {
     ]);
 
     it('does not change status', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $before = $learn->status();
 
         $learn->archive(domainLater());
@@ -100,7 +100,7 @@ describe('archive', function () {
     });
 
     it('is idempotent', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->archive(domainLater());
 
         $second = new DateTimeImmutable('2025-06-01');
@@ -112,7 +112,7 @@ describe('archive', function () {
 
     it('allows transitions on archived learns', function () {
         // архивация — флаг видимости, не заморозка
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->archive(domainNow());
         $learn->markDone(LearnAnswers::empty(), domainLater());
 
@@ -123,7 +123,7 @@ describe('archive', function () {
 
 describe('unarchive', function () {
     it('clears archivedAt', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->archive(domainLater());
         $learn->unarchive();
 
@@ -132,7 +132,7 @@ describe('unarchive', function () {
     });
 
     it('is idempotent on non-archived', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->unarchive();    // не должно падать
 
         expect($learn->isArchived())->toBeFalse();

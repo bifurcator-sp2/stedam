@@ -7,12 +7,14 @@ namespace App\Domain\Learn\Entities;
 use App\Domain\Learn\Enums\LearnCategory;
 use App\Domain\Learn\Enums\LearnStatus;
 use App\Domain\Learn\Events\LearnStatusChanged;
+use App\Domain\Learn\Exceptions\InvalidAnswerImage;
 use App\Domain\Learn\Exceptions\InvalidStatusTransition;
 use App\Domain\Learn\Exceptions\LearnAlreadyGraded;
 use App\Domain\Learn\Exceptions\SnapshotMissing;
 use App\Domain\Learn\ValueObjects\Grade;
 use App\Domain\Learn\ValueObjects\LearnAnswers;
 use App\Domain\Learn\ValueObjects\LearnId;
+use App\Domain\Learn\ValueObjects\LearnQuestions;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\ScheduleDate;
 use App\Domain\Learn\ValueObjects\SnapshotHash;
@@ -36,6 +38,7 @@ final class Learn
         private ?UserId $gradedBy,
         private ?ScheduleDate $scheduleDate,
         private LearnAnswers $answers,
+        private LearnQuestions $questions,
         private DateTimeImmutable $createdAt,
         private ?DateTimeImmutable $archivedAt,
         private DateTimeImmutable $statusDate,
@@ -48,12 +51,14 @@ final class Learn
 
     /**
      * Моментальное прохождение: ученик сам нажал «Пройти урок».
-     * Снапшот обязателен — он создаётся до перехода в in_progress.
+     * Снапшот и сгенерированные задания обязательны — материализуются
+     * до перехода в in_progress (см. спеку §3.2 / §8.2).
      */
     public static function startNow(
         UserId $userId,
         LessonId $lessonId,
         SnapshotHash $snapshot,
+        LearnQuestions $questions,
         DateTimeImmutable $now,
     ): self {
         return new self(
@@ -66,6 +71,7 @@ final class Learn
             gradedBy: null,
             scheduleDate: null,
             answers: LearnAnswers::empty(),
+            questions: $questions,
             createdAt: $now,
             archivedAt: null,
             statusDate: $now,
@@ -93,6 +99,7 @@ final class Learn
             gradedBy: null,
             scheduleDate: $scheduleDate,
             answers: LearnAnswers::empty(),
+            questions: LearnQuestions::empty(),
             createdAt: $now,
             archivedAt: null,
             statusDate: $now,
@@ -118,6 +125,7 @@ final class Learn
             gradedBy: null,
             scheduleDate: null,
             answers: LearnAnswers::empty(),
+            questions: LearnQuestions::empty(),
             createdAt: $now,
             archivedAt: null,
             statusDate: $now,
@@ -144,6 +152,7 @@ final class Learn
         DateTimeImmutable $statusDate,
         ?DateTimeImmutable $completedAt,
         ?DateTimeImmutable $startedAt = null,
+        ?LearnQuestions $questions = null,
     ): self {
         if ($status === LearnStatus::InProgress && $snapshot === null) {
             throw new SnapshotMissing('Learn in in_progress status must have a snapshot');
@@ -169,6 +178,7 @@ final class Learn
             gradedBy: $gradedBy,
             scheduleDate: $scheduleDate,
             answers: $answers,
+            questions: $questions ?? LearnQuestions::empty(),
             createdAt: $createdAt,
             archivedAt: $archivedAt,
             statusDate: $statusDate,
@@ -179,10 +189,11 @@ final class Learn
 
     // === Переходы ===
 
-    public function start(SnapshotHash $snapshot, DateTimeImmutable $now): void
+    public function start(SnapshotHash $snapshot, LearnQuestions $questions, DateTimeImmutable $now): void
     {
         $this->transitionTo(LearnStatus::InProgress, $now);
         $this->snapshot = $snapshot;
+        $this->questions = $questions;
         // Фактический старт: вместе с сохранённым scheduleDate даёт
         // отклонение от плана (см. startedLateFromPlanInMinutes()).
         $this->startedAt = $now;
@@ -226,6 +237,7 @@ final class Learn
 
     public function markDone(LearnAnswers $answers, DateTimeImmutable $now): void
     {
+        $this->assertAnswersMatchQuestions($answers);
         $this->transitionTo(LearnStatus::Done, $now);
         $this->answers = $answers;
         $this->completedAt = $now;
@@ -257,6 +269,7 @@ final class Learn
                 "Cannot update answers in status {$this->status->value}"
             );
         }
+        $this->assertAnswersMatchQuestions($answers);
         $this->answers = $answers;
     }
 
@@ -396,6 +409,28 @@ final class Learn
 
     // === Внутренние инварианты ===
 
+    /**
+     * Каждый index ответа обязан иметь QuestionItem с тем же index
+     * (см. спеку §8.1). Обратное не требуется: ученик мог ответить не
+     * на все задания. Пустой questions + непустые answers — тоже ошибка.
+     */
+    private function assertAnswersMatchQuestions(LearnAnswers $answers): void
+    {
+        if ($answers->isEmpty()) {
+            return;
+        }
+
+        $questionIndices = $this->questions->indices();
+
+        foreach ($answers->images() as $image) {
+            if (!in_array($image->index, $questionIndices, true)) {
+                throw new InvalidAnswerImage(
+                    "Answer index {$image->index} does not correspond to any question"
+                );
+            }
+        }
+    }
+
     private function transitionTo(LearnStatus $target, DateTimeImmutable $now): void
     {
         if (!$this->status->canTransitionTo($target)) {
@@ -469,6 +504,11 @@ final class Learn
     public function answers(): LearnAnswers
     {
         return $this->answers;
+    }
+
+    public function questions(): LearnQuestions
+    {
+        return $this->questions;
     }
 
     public function createdAt(): DateTimeImmutable

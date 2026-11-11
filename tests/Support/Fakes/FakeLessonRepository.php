@@ -4,31 +4,32 @@ declare(strict_types=1);
 
 namespace Tests\Support\Fakes;
 
-use App\Application\Learn\Exceptions\LessonNotFound;
 use App\Application\Learn\Ports\LessonRepositoryInterface;
 use App\Domain\Learn\ValueObjects\LessonId;
 
+/**
+ * Фейк доступа Learn-контекста к урокам: управляемый набор опубликованных.
+ */
 final class FakeLessonRepository implements LessonRepositoryInterface
 {
-    /** @var array<int, array{published: bool, data: array<string, mixed>}> */
-    private array $lessons = [];
+    /** @var array<int, bool> */
+    private array $published = [];
 
-    public function add(int $id, bool $published = true, array $data = ['title' => 'Lesson']): void
+    public function publish(int $lessonId, bool $published = true): void
     {
-        $this->lessons[$id] = ['published' => $published, 'data' => $data];
+        $this->published[$lessonId] = $published;
+    }
+
+    /**
+     * Синоним publish() — сохранён для совместимости со старыми тестами.
+     */
+    public function add(int $lessonId, bool $published = true): void
+    {
+        $this->publish($lessonId, $published);
     }
 
     public function isPublished(LessonId $id): bool
     {
-        return ($this->lessons[$id->value]['published'] ?? false) === true;
-    }
-
-    public function getForSnapshot(LessonId $id): array
-    {
-        if (!isset($this->lessons[$id->value])) {
-            throw new LessonNotFound("Lesson {$id->value} not found");
-        }
-
-        return $this->lessons[$id->value]['data'];
+        return $this->published[$id->value] ?? false;
     }
 }

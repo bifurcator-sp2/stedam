@@ -10,6 +10,7 @@ use App\Application\Learn\Exceptions\LessonNotFound;
 use App\Domain\Learn\Enums\LearnStatus;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\UserId;
+use Tests\Support\Fakes\FakeLearnQuestionsBuilder;
 use Tests\Support\Fakes\FakeLessonRepository;
 use Tests\Support\Fakes\FakeSnapshotResolver;
 use Tests\Support\Fakes\FakeStatusLogger;
@@ -19,18 +20,20 @@ use Tests\Support\FrozenClock;
 
 /**
  * Хелпер, собирающий Action со всеми фейками.
- * Возвращает массив: [action, learns, lessons, snapshots, logger]
+ * Возвращает массив: [action, learns, lessons, snapshots, logger, questionsBuilder]
  */
 function makeStartLearnAction(
     ?FakeLessonRepository $lessons = null,
     ?FakeSnapshotResolver $snapshots = null,
     ?FakeStatusLogger $logger = null,
     ?StubContextResolver $resolver = null,
+    ?FakeLearnQuestionsBuilder $questionsBuilder = null,
 ): array {
     $learns = new InMemoryLearnRepository();
     $lessons ??= new FakeLessonRepository();
     $snapshots ??= new FakeSnapshotResolver();
     $logger ??= new FakeStatusLogger();
+    $questionsBuilder ??= new FakeLearnQuestionsBuilder();
     $clock = new FrozenClock(new DateTimeImmutable('2025-01-01 12:00:00 UTC'));
 
     // Ученик с правом на старт для всех тестовых userId (1 по умолчанию).
@@ -44,9 +47,17 @@ function makeStartLearnAction(
         ),
     ]);
 
-    $action = new StartLearnAction($learns, $lessons, $snapshots, $logger, $resolver, $clock);
+    $action = new StartLearnAction(
+        $learns,
+        $lessons,
+        $snapshots,
+        $questionsBuilder,
+        $logger,
+        $resolver,
+        $clock,
+    );
 
-    return [$action, $learns, $lessons, $snapshots, $logger];
+    return [$action, $learns, $lessons, $snapshots, $logger, $questionsBuilder];
 }
 
 it('starts a learn for a published lesson', function () {
@@ -93,4 +104,43 @@ it('resolves snapshot exactly once per distinct lesson', function () {
     $action(new StartLearnData(new UserId(1), new LessonId(20)));
 
     expect($snapshots->calls)->toBe(2); // для разных уроков — разные снапшоты
+});
+
+it('generates unique questions at start', function () {
+    [$action, , $lessons, , , $questionsBuilder] = makeStartLearnAction();
+    $lessons->add(10);
+
+    $learn = $action(new StartLearnData(new UserId(1), new LessonId(10)));
+
+    expect($questionsBuilder->calls)->toBe(1)
+        ->and($learn->questions()->isEmpty())->toBeFalse()
+        ->and($learn->questions()->indices())->toBe([1]);
+});
+
+it('does not regenerate questions on repeated start (idempotent)', function () {
+    [$action, , $lessons, , , $questionsBuilder] = makeStartLearnAction();
+    $lessons->add(10);
+
+    $action(new StartLearnData(new UserId(1), new LessonId(10)));
+    $action(new StartLearnData(new UserId(1), new LessonId(10)));
+
+    // Задачи не перегенерируются для уже идущего прохождения.
+    expect($questionsBuilder->calls)->toBe(1);
+});
+
+it('reserves learn id before generating questions (seed by learnId)', function () {
+    [$action, $learns, $lessons, , , $questionsBuilder] = makeStartLearnAction();
+    $lessons->add(10);
+
+    $seenSeedLearnId = null;
+    $questionsBuilder->withFactory(function (\App\Application\Learn\DTOs\LearnSeed $seed) use (&$seenSeedLearnId) {
+        $seenSeedLearnId = $seed->learnId->value;
+
+        return domainQuestions();
+    });
+
+    $learn = $action(new StartLearnData(new UserId(1), new LessonId(10)));
+
+    // learnId, который сид задач использовал, совпадает с id сохранённого прохождения.
+    expect($seenSeedLearnId)->toBe($learn->id()->value);
 });

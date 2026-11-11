@@ -31,14 +31,14 @@ it('categorises created as Assigned', function () {
 });
 
 it('categorises in_progress as InProgress', function () {
-    $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+    $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
 
     expect($learn->isInProgress())->toBeTrue()
         ->and($learn->category(domainNow(), domainZone()))->toBe(LearnCategory::InProgress);
 });
 
 it('categorises done as AwaitingGrade', function () {
-    $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+    $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
     $learn->markDone(LearnAnswers::empty(), domainLater());
 
     expect($learn->isAwaitingGrade())->toBeTrue()
@@ -46,7 +46,7 @@ it('categorises done as AwaitingGrade', function () {
 });
 
 it('categorises graded as Graded', function () {
-    $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+    $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
     $learn->markDone(LearnAnswers::empty(), domainLater());
     $learn->markGraded(new Grade(90), new UserId(2), domainLater());
 

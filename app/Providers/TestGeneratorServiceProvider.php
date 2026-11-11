@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Blocks\TestGenerator\Contracts\MathProblemGeneratorInterface;
-use App\Blocks\TestGenerator\Discovery\GeneratorDiscovery;
-use App\Blocks\TestGenerator\Resolvers\TestResolverMap;
-use App\Blocks\TestGenerator\Support\PathResolver;
-use App\Blocks\TestGenerator\TestGenerator;
+use App\Domain\Blocks\TestGenerator\Contracts\MathProblemGeneratorInterface;
+use App\Domain\Blocks\TestGenerator\Discovery\GeneratorDiscovery;
+use App\Domain\Blocks\TestGenerator\Resolvers\TestResolverMap;
+use App\Domain\Blocks\TestGenerator\Support\PathResolver;
+use App\Domain\Blocks\TestGenerator\TestGenerator;
 use Illuminate\Support\ServiceProvider;
 
 final class TestGeneratorServiceProvider extends ServiceProvider
@@ -17,8 +17,8 @@ final class TestGeneratorServiceProvider extends ServiceProvider
     {
         $this->app->singleton(GeneratorDiscovery::class, function (): GeneratorDiscovery {
             return new GeneratorDiscovery(
-                basePath:      app_path('Blocks/TestGenerator/Generators'),
-                baseNamespace: 'App\\Blocks\\TestGenerator\\Generators',
+                basePath:      app_path('Domain/Blocks/TestGenerator/Generators'),
+                baseNamespace: 'App\\Domain\\Blocks\\TestGenerator\\Generators',
             );
         });
 

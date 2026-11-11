@@ -21,7 +21,7 @@ use App\Domain\Learn\ValueObjects\UserId;
 
 describe('startNow', function () {
     it('creates in_progress with snapshot', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
 
         expect($learn->id())->toBeNull()
             ->and($learn->status())->toBe(LearnStatus::InProgress)
@@ -175,7 +175,7 @@ describe('reconstitute', function () {
 describe('start', function () {
     it('transitions created → in_progress, attaching snapshot', function () {
         $learn = Learn::assign(new UserId(1), new LessonId(10), domainNow());
-        $learn->start(domainSnapshot(), domainLater());
+        $learn->start(domainSnapshot(), domainQuestions(), domainLater());
 
         expect($learn->status())->toBe(LearnStatus::InProgress)
             ->and($learn->snapshot())->not->toBeNull()
@@ -185,16 +185,16 @@ describe('start', function () {
     it('transitions scheduled → in_progress', function () {
         $date = new ScheduleDate(new DateTimeImmutable('2025-06-01'));
         $learn = Learn::schedule(new UserId(1), new LessonId(10), $date, domainNow());
-        $learn->start(domainSnapshot(), domainLater());
+        $learn->start(domainSnapshot(), domainQuestions(), domainLater());
 
         expect($learn->status())->toBe(LearnStatus::InProgress)
             ->and($learn->scheduleDate())->toBe($date); // история даты сохраняется
     });
 
     it('forbids starting from in_progress', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
 
-        expect(fn () => $learn->start(domainSnapshot(), domainLater()))
+        expect(fn () => $learn->start(domainSnapshot(), domainQuestions(), domainLater()))
             ->toThrow(InvalidStatusTransition::class);
     });
 });
@@ -213,7 +213,7 @@ describe('reschedule', function () {
     });
 
     it('forbids rescheduling a non-scheduled learn', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
 
         expect(fn () => $learn->reschedule(
             new ScheduleDate(new DateTimeImmutable('2025-07-01')),
@@ -237,14 +237,14 @@ describe('cancel', function () {
     });
 
     it('forbids cancelling in_progress', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
 
         expect(fn () => $learn->cancel(domainLater()))
             ->toThrow(InvalidStatusTransition::class);
     });
 
     it('does not touch state if cancel is invalid', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $before = $learn->status();
 
         try {
@@ -259,7 +259,7 @@ describe('cancel', function () {
 
 describe('markDone', function () {
     it('transitions in_progress → done, storing answers and completedAt', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->markDone(answerImages(1), domainLater());
 
         expect($learn->status())->toBe(LearnStatus::Done)
@@ -269,7 +269,7 @@ describe('markDone', function () {
     });
 
     it('forbids marking done twice', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->markDone(LearnAnswers::empty(), domainLater());
 
         expect(fn () => $learn->markDone(LearnAnswers::empty(), domainLater()))
@@ -291,7 +291,7 @@ describe('markDone', function () {
 
 describe('markGraded', function () {
     it('transitions done → graded', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->markDone(LearnAnswers::empty(), domainLater());
         $learn->markGraded(new Grade(85.5), new UserId(2), domainLater());
 
@@ -301,7 +301,7 @@ describe('markGraded', function () {
     });
 
     it('allows auto-grading without user (gradedBy = null)', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->markDone(LearnAnswers::empty(), domainLater());
         $learn->markGraded(new Grade(100), null, domainLater());
 
@@ -311,7 +311,7 @@ describe('markGraded', function () {
     });
 
     it('keeps completedAt after grading', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->markDone(LearnAnswers::empty(), domainLater());
 
         $gradedAt = new DateTimeImmutable('2025-01-01 15:00:00 UTC');
@@ -323,7 +323,7 @@ describe('markGraded', function () {
     });
 
     it('throws when already graded', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $learn->markDone(LearnAnswers::empty(), domainLater());
         $learn->markGraded(new Grade(85.5), new UserId(2), domainLater());
 
@@ -332,7 +332,7 @@ describe('markGraded', function () {
     });
 
     it('forbids grading from in_progress', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
 
         expect(fn () => $learn->markGraded(new Grade(85), new UserId(2), domainLater()))
             ->toThrow(InvalidStatusTransition::class);
@@ -357,13 +357,13 @@ describe('markGraded', function () {
 
 describe('domain events', function () {
     it('does not emit status events before the aggregate has an id', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
 
         expect($learn->pullEvents())->toBe([]);
     });
 
     it('emits a status event on transition (after id is assigned)', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow())
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow())
             ->withId(new LearnId(7));
 
         $learn->markDone(LearnAnswers::empty(), domainLater());
@@ -379,7 +379,7 @@ describe('domain events', function () {
     });
 
     it('pullEvents drains accumulated events', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow())
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow())
             ->withId(new LearnId(7));
 
         $learn->markDone(LearnAnswers::empty(), domainLater());
@@ -413,7 +413,7 @@ describe('domain events', function () {
 
 describe('withId', function () {
     it('returns a clone with id, leaving original untouched', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow());
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow());
         $saved = $learn->withId(new LearnId(42));
 
         expect($saved)->not->toBe($learn)
@@ -422,7 +422,7 @@ describe('withId', function () {
     });
 
     it('refuses to set id twice', function () {
-        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainNow())
+        $learn = Learn::startNow(new UserId(1), new LessonId(10), domainSnapshot(), domainQuestions(), domainNow())
             ->withId(new LearnId(42));
 
         expect(fn () => $learn->withId(new LearnId(43)))

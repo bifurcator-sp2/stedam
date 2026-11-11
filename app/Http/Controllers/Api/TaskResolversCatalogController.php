@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Blocks\TestGenerator\TestGenerator;
+use App\Domain\Blocks\TestGenerator\TestGenerator;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 

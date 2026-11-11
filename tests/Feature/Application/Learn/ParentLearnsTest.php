@@ -35,7 +35,7 @@ function parentRelate(User $parent, User $child): void
     DB::table('user_relations')->insert([
         'parent_user_id' => $parent->id,
         'child_user_id'  => $child->id,
-        'relation'       => RelationType::Parents->value,
+        'relation'       => RelationType::Parent->value,
         'active_from'    => null,
         'active_to'      => null,
         'created_at'     => now(),

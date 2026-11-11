@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Learn;
 
-use App\Application\Learn\Ports\LessonRepositoryInterface;
+use App\Application\Learn\Ports\LessonSnapshotAssemblerInterface;
 use App\Application\Learn\Ports\SnapshotResolverInterface;
+use App\Domain\Blocks\Settings\SettingsNormalizer;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\SnapshotHash;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -35,7 +36,7 @@ final readonly class S3SnapshotResolver implements SnapshotResolverInterface
     private const LOCK_PREFIX = 'learn:lesson_snapshot:lock:';
 
     public function __construct(
-        private LessonRepositoryInterface $lessons,
+        private LessonSnapshotAssemblerInterface $assembler,
         private Cache $cache,
         private FilesystemManager $filesystems,
         private string $disk,
@@ -111,8 +112,10 @@ final readonly class S3SnapshotResolver implements SnapshotResolverInterface
      */
     private function buildAndStore(LessonId $lessonId): SnapshotHash
     {
-        $payload = $this->lessons->getForSnapshot($lessonId);
-        $content = (string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $payload = $this->assembler->assemble($lessonId);
+        // canonicalJson: стабильный порядок ключей — без него sha256
+        // непредсказуем даже на одинаковых данных.
+        $content = SettingsNormalizer::canonicalJson($payload);
 
         $hash = SnapshotHash::fromContent($content);
 

@@ -39,6 +39,8 @@
 | `Grade`             | value object                | Оценка 0..100 |
 | `AnswerImage`       | value object                | Ссылка на изображение-ответ |
 | `LearnAnswers`      | value object                | Упорядоченный набор `AnswerImage` |
+| `QuestionItem`      | value object                | Сгенерированное задание (условие + эталон) |
+| `LearnQuestions`    | value object                | Упорядоченный набор `QuestionItem` (только генеративные блоки) |
 | `LearnStatusChanged`| доменное событие            | Смена статуса (для логгера статусов) |
 
 ---
@@ -57,7 +59,8 @@
 | `grade`         | `?Grade`                | обязателен в `graded` |
 | `gradedBy`      | `?UserId`               | `null` — автооценка системой |
 | `scheduleDate`  | `?ScheduleDate`         | обязателен в `scheduled`; `null` в `created` |
-| `startedAt`     | `?DateTimeImmutable`    | фактический момент старта; `null` до первого `start(snapshot, now)` (в `created`/`scheduled`) |
+| `startedAt`     | `?DateTimeImmutable`    | фактический момент старта; `null` до первого `start(snapshot, questions, now)` (в `created`/`scheduled`) |
+| `questions`     | `LearnQuestions`        | сгенерированные задачи прохождения; пусто в `created`/`scheduled`, заполнено в `in_progress`+ (см. §7.8) |
 | `answers`       | `LearnAnswers`          | по умолчанию пусто |
 | `createdAt`     | `DateTimeImmutable`     | момент создания |
 | `archivedAt`    | `?DateTimeImmutable`    | не-`null` — в архиве |
@@ -68,10 +71,13 @@
 
 Садятся сразу в определённый статус с корректным набором полей:
 
-- **`startNow(userId, lessonId, snapshot, now)`** → `in_progress`.
-  Снапшот обязателен (создаётся до перехода в `in_progress`). `startedAt := now`.
+- **`startNow(userId, lessonId, snapshot, questions, now)`** → `in_progress`.
+  Снапшот и сгенерированные задачи обязательны (материализуются до перехода в
+  `in_progress`). `startedAt := now`.
 - **`schedule(userId, lessonId, scheduleDate, now)`** → `scheduled`, `scheduleDate` задан.
+  `questions := empty()`.
 - **`assign(userId, lessonId, now)`** → `created` (материал курса без даты).
+  `questions := empty()`.
 
 ### 3.3. Гидратация (`reconstitute`)
 
@@ -86,6 +92,12 @@
 `startedAt` восстанавливается как есть (опционален, `null` по умолчанию) —
 инвариант: для `in_progress` он задан, для `created`/`scheduled` — `null`
 (заполняется только при старте).
+
+`questions` восстанавливается через `LearnQuestions::fromArray` (по умолчанию —
+`empty()`). `reconstitute` **не проверяет** соответствие `answers ⊆ questions`:
+в БД могут быть легаси-записи, созданные до введения `questions`. Согласованность
+`answers ⊆ questions` гарантируется только на мутациях (`updateAnswers`,
+`markDone`, §5).
 
 ### 3.4. Идентичность
 
@@ -133,13 +145,13 @@ created → scheduled → in_progress → done → graded
 
 | Метод | Предусловие | Эффект |
 |-------|-------------|--------|
-| `start(snapshot, now)` | статус допускает переход в `in_progress` | статус → `in_progress`, `snapshot := snapshot`, `startedAt := now` |
+| `start(snapshot, questions, now)` | статус допускает переход в `in_progress` | статус → `in_progress`, `snapshot := snapshot`, `questions := questions`, `startedAt := now` |
 | `scheduleAt(scheduleDate, now)` | переход в `scheduled` разрешён | статус → `scheduled`, `scheduleDate := scheduleDate` |
 | `reschedule(scheduleDate, now)` | статус = `scheduled` | `scheduleDate := scheduleDate`, `status → scheduled` (самопереход), `statusDate := now`, событие |
 | `cancel(now)` | переход в `created` разрешён | статус → `created`, `scheduleDate := null` |
-| `markDone(answers, now)` | переход в `done` разрешён | статус → `done`, `answers := answers`, `completedAt := now` |
+| `markDone(answers, now)` | переход в `done` разрешён | статус → `done`, `answers := answers` (после проверки `answers ⊆ questions`), `completedAt := now` |
 | `markGraded(grade, gradedBy, now)` | статус ≠ `graded` и переход разрешён | статус → `graded`, `grade := grade`, `gradedBy := gradedBy` |
-| `updateAnswers(answers)` | статус `isEditable()` (`in_progress`) | `answers := answers` (полная замена) |
+| `updateAnswers(answers)` | статус `isEditable()` (`in_progress`) | `answers := answers` (полная замена) после проверки `answers ⊆ questions` |
 | `archive(now)` | — | `archivedAt := now`, если ещё не в архиве (идемпотентно) |
 | `unarchive()` | — | `archivedAt := null` (идемпотентно) |
 
@@ -147,6 +159,8 @@ created → scheduled → in_progress → done → graded
 
 - `markGraded` в `graded` — `LearnAlreadyGraded`.
 - `updateAnswers` вне `in_progress` — `InvalidStatusTransition`.
+- `updateAnswers`/`markDone` с индексом ответа, отсутствующим в `questions` —
+  `InvalidAnswerImage` (см. §7.8, §8.1).
 - Архивация **ортогональна** статусу: доступна из любого статуса, **не меняет**
   статус и `statusDate`.
 - `markDone` и `markGraded` не требуют предварительного апдейта ответов —
@@ -163,6 +177,42 @@ created → scheduled → in_progress → done → graded
 - `startedAt` заполняется только при переходе в `in_progress` (`start` /
   `startNow`); повторный старт уже идущего прохождения его не перезаписывает
   (Application не вызывает `start` для `in_progress`).
+
+### 5.2. Планируется: вынос архивных прохождений в отдельное хранилище
+
+> Статус: **запланировано, не реализовано** (на момент текущей версии кода
+> архивные строки остаются в основной таблице `learns` с `archived_at != null`).
+
+**Цель.** Очистить основную таблицу `learns` от «холодных» данных: архивные
+прохождения (`archivedAt != null`) переносятся в отдельное хранилище, чтобы
+основная таблица содержала только актуальные записи и оставалась компактной
+(быстрее индексы, листинги, меньше bloat/VACUUM).
+
+**Предпосылки (уже есть в коде):**
+- `archive(now)` ставит `archivedAt` и не меняет статус — архивные записи
+  однозначно идентифицируются (`archived_at IS NOT NULL`) и уже исключены из
+  логики scope/старта (`findActiveByUserAndLesson`, `listWithinScope`,
+  cron-выборки `pluckArchivableIds` игнорируют архив).
+- Архивация не порождает событий и ортогональна статусу — перенос не затронет
+  историю статусов (`learn_statuses`).
+
+**Контур переноса (черновик, подлежит уточнению при реализации):**
+1. Отдельное хранилище архивных прохождений (отдельная таблица-архив, либо
+   холодное хранилище/партиции), с тем же составом полей, что и `learns`,
+   плюс метка времени переноса.
+2. Batch-джоба «выгрузка»: читает строки из `learns` с `archived_at != null`
+   старше порога, пишет в архивное хранилище, затем **удаляет** их из
+   `learns` в той же транзакции (или через outbox, если хранилище внешнее).
+3. Чтение: архивные прохождения не участвуют в обычных листингах; доступ к ним
+   (если нужен) — отдельный сценарий/репозиторий, а не основной
+   `LearnRepositoryInterface`.
+4. Идемпотентность и восстановление: повторный прогон безопасен (ключ по
+   `learnId`); при сбое посреди батча — строки либо ещё в `learns`, либо уже в
+   архиве, без потери.
+
+**Что нужно будет обновить при реализации:** порты репозитория (метод выгрузки/
+чтения архива), конфиг `learn.archive` (порог выгрузки, размер батча),
+крон-шедулер, спека §5.2 и §10.1.
 
 ---
 
@@ -242,6 +292,76 @@ created → scheduled → in_progress → done → graded
 Обёртки над положительным целым. `value ≤ 0` — `InvalidId` для всех трёх
 (`LearnId`, `UserId`, `LessonId`).
 
+### 7.7. `QuestionItem`
+
+Сгенерированное задание, выданное конкретному прохождению (материализация
+случайности генератора).
+
+| Поле | Тип | Инвариант |
+|------|-----|-----------|
+| `index`      | `int`    | **≥ 1**; равен `AnswerImage::index` блока, для которого сгенерировано задание (см. §8.1) |
+| `question`   | `string` | непустое; текст условия в KaTeX-разметке |
+| `answer`     | `string` | может быть пустым (у генераторов, где ответ не подразумевается) |
+| `solution`   | `string` | может быть пустым; эталонное решение |
+| `topic`      | `string` | resolver-path генератора (`math.algebra.equations.linearEquation`) |
+| `difficulty` | `float`  | `0.0 ≤ difficulty ≤ 1.0` |
+| `seed`       | `?int`   | сид, которым сгенерировано задание (для воспроизведения/отладки); `null` — не сидировано |
+
+Нарушение — `InvalidQuestion`. Формат сериализации:
+
+```json
+{ "index": 3, "question": "...", "answer": "...", "solution": "...",
+  "topic": "math.algebra", "difficulty": 0.4, "seed": 123456 }
+```
+
+`QuestionItem` **не содержит** blob/изображений: только текст. Отрендеренный
+текст уходит на фронт как данные; пиктографический ответ ученика живёт
+отдельно как `AnswerImage`.
+
+### 7.8. `LearnQuestions`
+
+Неизменяемый упорядоченный набор `QuestionItem` — **только для генеративных
+(test/proc) блоков** урока.
+
+Инварианты:
+- индексы **уникальны** (иначе `InvalidQuestion`);
+- список **упорядочен по `index` возрастанию**;
+- содержит **только** записи для генеративных блоков: статические блоки
+  (`is_test = false`) в `questions` не попадают (их содержимое запечено в
+  снапшоте урока и одинаково для всех прохождений).
+
+Операции:
+- `fromItems(list<QuestionItem>)` — валидирующее создание;
+- `fromArray(raw)` — восстановление из персистентного формата; элементы чужой/
+  старой структуры игнорируются (как в `LearnAnswers::fromArray`);
+- `empty()`, `isEmpty()`, `items()`, `indices(): list<int>`, `toArray()`,
+  `jsonSerialize()`, `equals()`.
+
+**Связь `answers` ↔ `questions` (§8.1):**
+- `answers` содержит изображения-ответы на **все блоки-задания**, на которые
+  ученик ответил. Индекс ответа = индекс блока (§7.1).
+- `questions` содержит сгенерированные условия **только для генеративных**
+  блоков; индекс задания = индекс блока.
+- Инвариант на **мутациях** (`updateAnswers`, `markDone`): каждый
+  `answers[j].index` обязан иметь `questions[k].index` с тем же значением
+  (иначе `InvalidAnswerImage`).
+- Обратное **не требуется**: `questions` может содержать больше индексов, чем
+  `answers` (ученик мог ответить не на все задания).
+
+Жизненный цикл по статусам:
+
+| Статус | `questions` |
+|--------|-------------|
+| `created`   | пусто (`assign`) |
+| `scheduled` | пусто (`schedule`); заполняется при `start` |
+| `in_progress` | заполнено (генерируется в момент старта, §10.1) |
+| `done`      | не меняется (сохраняется как было) |
+| `graded`    | не меняется |
+
+`questions` **независимо** от `answers` и не отчищается: при отмене
+(`scheduled/created → created`) `questions` остаётся (на случай повторного
+`start` того же `learnId` — те же задания, см. §8.2).
+
 ---
 
 ## 8. Ответы ученика как изображения (сквозной поток)
@@ -279,6 +399,87 @@ LearnAnswers::fromImages(...)  →  Learn::updateAnswers()/markDone()
 
 `LearnAnswers` НЕ содержит бинарных данных — только `file`-ключи.
 
+### 8.1. Связь индексов `answers` ↔ `questions`
+
+`AnswerImage::index` и `QuestionItem::index` — **одна и та же позиция**:
+позиция блока в `allBlocksOrdered()` (строгий по́рядок) **+ 1**.
+
+Ученик отвечает **на все блоки-задания** (генеративные). Статические блоки
+содержат запечённые данные из снапшота — на них ответ не запрашивается.
+`questions` содержит только генеративные блоки (`is_proc`/`is_test`).
+
+Пример (урок из 5 блоков, №3 и №5 — процедурные):
+
+```
+block[0] — статика           — index в answers/questions не существует
+block[1] — статика           — index не существует
+block[2] — proc              — questions.index = 3,  answers.index возможен = 3
+block[3] — статика           — index не существует
+block[4] — proc              — questions.index = 5,  answers.index возможен = 5
+
+q.indices() = [3, 5]
+a.indices() ⊆ [3, 5]
+```
+
+Правило валидации в `Learn::updateAnswers()` / `markDone()`:
+
+```php
+foreach ($answers->images() as $img) {
+    if (!in_array($img->index, $questions->indices(), true)) {
+        throw new InvalidAnswerImage(
+            "Answer index {$img->index} does not correspond to any question"
+        );
+    }
+}
+```
+
+Практическое следствие: если урок не содержит генеративных блоков —
+`questions = empty()`, а любые `answers` отклоняются. Это корректно: отвечать
+изображением на статический контент нельзя.
+
+### 8.2. Генерация `questions` при старте
+
+Задачи генерируются **в момент первого `start()`** (`StartLearnAction`), а не
+при `assign`/`schedule`:
+
+1. `StartLearnAction` резервирует `learnId` (`LearnRepositoryInterface::reserveId()`);
+2. через `LearnQuestionsBuilderInterface::buildFor(LearnSeed{userId, learnId}, lessonId)`
+   строит `LearnQuestions`;
+3. `Learn::startNow(userId, lessonId, snapshot, questions, now)` — задачи и
+   снапшот попадают в агрегат атомарно;
+4. `save()`.
+
+**Детерминизм.** Сид каждого задания вычисляется как
+`Seed::forTask(userId, learnId, blockIndex)` (блок `Random/Seed` в
+`Domain/Blocks/TestGenerator`). Это означает:
+
+- один и тот же `(userId, learnId, blockIndex)` → та же задача;
+- другой ученик или другой `learnId` → другая задача;
+- повторный `start` уже идущего `in_progress` (`findActiveByUserAndLesson`
+  вернул существующий) — **не перегенерирует** `questions`; ученик видит ту же
+  серию, что выдана при первом старте;
+- `cancel` (`scheduled/created → created`) `questions` не очищает; повторный
+  `start` того же `learnId` даст те же задания (детерминизм по `learnId`).
+
+### 8.3. Снапшот vs `questions` — разделение ответственности
+
+- **Снапшот** (`SnapshotHash`) — хэш **структуры** урока (id/code/order/proc,
+  а также **запечённое содержимое статических блоков**). Текст генеративных
+  заданий в снапшот **не входит** (в proc-узлах `default` принудительно
+  обнуляется при его сборке, см. §10.2).
+- **`questions`** — материализованные тексты генеративных задач для **этого**
+  `learn`. Хранятся в `learns.questions` (jsonb).
+- Статические блоки не нуждаются в хранении на уровне `learn`: их содержимое
+  неизменно и одинаково для всех прохождений одного снапшота.
+
+Благодаря этому:
+- hash снапшота одинаковый для всех учеников, стартовавших один и тот же
+  (неизменённый) урок;
+- набор задач уникален для каждого ученика/прохождения;
+- при изменении урока в редакторе: новые `learn` получают новый снапшот +
+  новые задачи (набор `(userId, learnId, blockIndex)` тоже новый — `learnId`
+  другой), старые `learn` остаются на своём снапшоте и своих задачах.
+
 ---
 
 ## 9. Доменные события
@@ -304,6 +505,7 @@ LearnAnswers::fromImages(...)  →  Learn::updateAnswers()/markDone()
 | `findByIdWithinScope(LearnId, visibleUserIds): ?Learn` | `null` — нет такого **или** вне scope |
 | `listWithinScope(visibleUserIds, LearnListFilter): PaginatedResult<Learn>` | постраничный список владельцев из scope |
 | `findActiveByUserAndLesson(UserId, LessonId): ?Learn` | активное (не терминальное и **не в архиве**) прохождение; для идемпотентности старта |
+| `reserveId(): LearnId` | резервирует id из последовательности (`SELECT nextval`) **без** INSERT; нужно для генерации `questions` с сидом по `learnId` до сохранения |
 | `pluckArchivableIds(status, cutoff, limit): list<int>` | id для системной архивации |
 
 Опорная дата для архивации: `graded → complete_date (fallback status_date)`,
@@ -313,9 +515,20 @@ LearnAnswers::fromImages(...)  →  Learn::updateAnswers()/markDone()
 
 - **`SnapshotResolverInterface::ensureFor(LessonId): SnapshotHash`** — возвращает
   хэш существующего снапшота или создаёт новый (кэш/S3/лок — детали снаружи).
+  Снапшот **не содержит** текста генеративных заданий (proc-узлы с пустым
+  `default`), см. §8.3.
+- **`LessonSnapshotAssemblerInterface::assemble(LessonId): array`** — сборка
+  сериализуемого payload для хэша: только структура урока, proc-узлы
+  обнулены. Реализация — Infrastructure.
+- **`ProcedureResolverPathInterface`** — `resolveForLesson(LessonId): ?string`,
+  `resolveForTaxonomy(int): ?string`. Ближайший валидный `test_resolver` вверх
+  по дереву таксономий (наследование темы от родителя).
+- **`LearnQuestionsBuilderInterface::buildFor(LearnSeed, LessonId): LearnQuestions`**
+  — генерирует уникальный набор заданий для прохождения (§8.2). Сид —
+  `Seed::forTask(userId, learnId, blockIndex)`.
 - **`StatusLoggerInterface::log(...)`** — приёмник доменных событий смены статуса.
 - **`AnswerStorageInterface`** — сохранение/URL изображений-ответов (см. §8).
-- **`LessonRepositoryInterface`** — доступ к урокам (существование и т.п.).
+- **`LessonRepositoryInterface`** — доступ к урокам (`isPublished(LessonId): bool`).
 - **`TeacherStudentsQueryInterface`** — список учеников учителя с агрегатами.
 - `StatusBufferInterface` / `LearnStatusBufferInterface` — буферизация статусных
   событий (инфраструктурное ускорение записи).
@@ -352,10 +565,13 @@ Application-понятие, строится `ContextResolverInterface` из р�
 
 | Значение | Ребро |
 |----------|-------|
-| `teaches` | teacher → student |
-| `parents` | parent → student |
-| `supervises` | methodologist → teacher |
-| `heads` | headteacher → methodologist |
+| `teacher` | teacher → student |
+| `parent` | parent → student |
+| `methodologist` | methodologist → teacher |
+| `headteacher` | headteacher → methodologist |
+
+Значение = роль «хозяина» ребра (`parent_user_id`): `parent_user_id` является
+`<значение>` относительно `child_user_id`. Читается буквально в БД.
 
 ---
 
@@ -367,7 +583,8 @@ Application-понятие, строится `ContextResolverInterface` из р�
 | `LearnAlreadyGraded` | `markGraded` при уже `graded` |
 | `SnapshotMissing` | `reconstitute` для `in_progress` без снапшота |
 | `InvalidGrade` | оценка вне 0..100 |
-| `InvalidAnswerImage` | `index < 1`, пустой `file`, дубль индекса |
+| `InvalidAnswerImage` | `index < 1`, пустой `file`, дубль индекса, `index` не соответствует ни одному `questions[k].index` |
+| `InvalidQuestion` | `index < 1`, пустой `question`, `difficulty` вне 0..1, дубль индекса |
 | `InvalidSnapshotHash` | не SHA-256 hex |
 | `InvalidId` | `LearnId` ≤ 0 |
 | `LearnNotFound` | прохождение не найдено |
@@ -380,7 +597,7 @@ Application-понятие, строится `ContextResolverInterface` из р�
 
 | Action | Вход | Смысл |
 |--------|------|-------|
-| `StartLearnAction` | `StartLearnData` | Старт (идемпотентно по активному прохождению user+lesson), `snapshot` через порт |
+| `StartLearnAction` | `StartLearnData` | Старт (идемпотентно по активному прохождению user+lesson), `snapshot` через порт, `questions` через `LearnQuestionsBuilderInterface` |
 | `ScheduleLearnAction` | `ScheduleLearnData` | Назначение/планирование учителем |
 | `SaveAnswersAction` | `SaveAnswersData` | Автосохранение ответов (own, `in_progress`, гейт `canSave`) через `AnswerStorage` |
 | `MarkDoneAction` | `MarkDoneData` | Завершение; ответы — явно или уже сохранённые |
@@ -447,3 +664,15 @@ max_side|null, converted_to_webp }`. Единый источник — `config('
 13. `startedAt` заполняется ровно при переходе в `in_progress`; до старта —
     `null`. Отклонение от плана (`startedLateFromPlanInMinutes`) существует,
     только если заданы и `startedAt`, и `scheduleDate`.
+14. `questions` заполняется ровно при переходе в `in_progress`; в `created`/
+    `scheduled` — пусто (`empty()`); после — не меняется.
+15. `questions` содержит только генеративные блоки; статические блоки живут
+    в снапшоте, в `learn` не дублируются.
+16. Индексы `questions` и `answers` живут в едином пространстве — позиция
+    блока в `allBlocksOrdered() + 1`; при `updateAnswers`/`markDone`:
+    `answers.indices() ⊆ questions.indices()` (иначе `InvalidAnswerImage`).
+17. Снапшот урока **не содержит** текст генеративных заданий (proc-узлы
+    сериализуются с пустым `default`). Благодаря этому хэш снапшота одинаков
+    для всех учеников, стартовавших неизменный урок.
+18. `questions` детерминированы по `(userId, learnId, blockIndex)`; повторный
+    `start` того же `learnId` не перегенерирует набор заданий.

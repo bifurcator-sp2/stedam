@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Blocks\TestGenerator\Resolvers\TestResolverMap;
-use App\Blocks\TestGenerator\TestGenerator;
+use App\Domain\Blocks\TestGenerator\Resolvers\TestResolverMap;
+use App\Domain\Blocks\TestGenerator\TestGenerator;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\GenerateMathTaskRequest;
 use App\Http\Resources\MathProblemResource;

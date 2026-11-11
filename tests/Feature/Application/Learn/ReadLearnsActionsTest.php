@@ -28,6 +28,7 @@ function makeLearn(InMemoryLearnRepository $repo, int $userId, int $lessonId = 1
         userId: new UserId($userId),
         lessonId: new LessonId($lessonId),
         snapshot: SnapshotHash::fromContent("lesson-{$lessonId}"),
+        questions: domainQuestions(),
         now: $now,
     );
 

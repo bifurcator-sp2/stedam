@@ -17,10 +17,10 @@ use Illuminate\Support\Facades\DB;
  *
  * Правила scope (см. спеку):
  *   student        — только сам.
- *   teacher        — его ученики (teaches).
- *   methodologist  — ученики его учителей (supervises → teaches).
- *   headteacher    — ученики учителей его методистов (heads → supervises → teaches).
- *   parent         — его дети (parents), read-only.
+ *   teacher        — его ученики (relation=teacher).
+ *   methodologist  — ученики его учителей (methodologist → teacher).
+ *   headteacher    — ученики учителей его методистов (headteacher → methodologist → teacher).
+ *   parent         — его дети (relation=parent), read-only.
  *
  * Смотрящий всегда видит себя. Мультироль → объединение scope всех ролей.
  *
@@ -55,23 +55,23 @@ final class EloquentContextResolver implements ContextResolverInterface
 
         // teacher: его ученики.
         if (isset($userRoles[ViewerRole::Teacher->value])) {
-            foreach ($this->directChildren($userId->value, RelationType::Teaches) as $id) {
+            foreach ($this->directChildren($userId->value, RelationType::Teacher) as $id) {
                 $visible[$id] = true;
             }
         }
 
         // parent: его дети (read-only).
         if (isset($userRoles[ViewerRole::Parent->value])) {
-            foreach ($this->directChildren($userId->value, RelationType::Parents) as $id) {
+            foreach ($this->directChildren($userId->value, RelationType::Parent) as $id) {
                 $visible[$id] = true;
             }
         }
 
         // methodologist: ученики его учителей (2 хопа).
         if (isset($userRoles[ViewerRole::Methodologist->value])) {
-            $teacherIds = $this->directChildren($userId->value, RelationType::Supervises);
+            $teacherIds = $this->directChildren($userId->value, RelationType::Methodologist);
             foreach ($teacherIds as $teacherId) {
-                foreach ($this->directChildren($teacherId, RelationType::Teaches) as $id) {
+                foreach ($this->directChildren($teacherId, RelationType::Teacher) as $id) {
                     $visible[$id] = true;
                 }
             }
@@ -79,11 +79,11 @@ final class EloquentContextResolver implements ContextResolverInterface
 
         // headteacher: ученики учителей его методистов (3 хопа).
         if (isset($userRoles[ViewerRole::Headteacher->value])) {
-            $methodologistIds = $this->directChildren($userId->value, RelationType::Heads);
+            $methodologistIds = $this->directChildren($userId->value, RelationType::Headteacher);
             foreach ($methodologistIds as $methodologistId) {
-                $teacherIds = $this->directChildren($methodologistId, RelationType::Supervises);
+                $teacherIds = $this->directChildren($methodologistId, RelationType::Methodologist);
                 foreach ($teacherIds as $teacherId) {
-                    foreach ($this->directChildren($teacherId, RelationType::Teaches) as $id) {
+                    foreach ($this->directChildren($teacherId, RelationType::Teacher) as $id) {
                         $visible[$id] = true;
                     }
                 }

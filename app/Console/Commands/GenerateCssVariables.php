@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Blocks\Settings\CssVariablesGenerator;
+use App\Domain\Blocks\Settings\CssVariablesGenerator;
 use Illuminate\Console\Command;
 
 class GenerateCssVariables extends Command

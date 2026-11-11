@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Persistence\Repositories;
 
-use App\Application\Learn\Exceptions\LessonNotFound;
 use App\Application\Learn\Ports\LessonRepositoryInterface;
 use App\Domain\Learn\ValueObjects\LessonId;
-use App\Http\Resources\LessonResource;
 use App\Models\Lesson;
 
 /**
- * Eloquent-реализация чтения уроков для контекста Learn.
- * Публичная проверка + сериализация для снапшота.
+ * Eloquent-реализация доступа Learn-контекста к урокам.
+ *
+ * Отвечает ТОЛЬКО на вопрос «опубликован ли урок». Содержимое урока для
+ * снапшота собирает Infrastructure\Learn\EloquentLessonSnapshotAssembler,
+ * задачи генерирует Infrastructure\Learn\EloquentLearnQuestionsBuilder.
  */
 final class EloquentLessonRepository implements LessonRepositoryInterface
 {
@@ -22,20 +23,5 @@ final class EloquentLessonRepository implements LessonRepositoryInterface
             ->whereKey($id->value)
             ->where('published', true)
             ->exists();
-    }
-
-    public function getForSnapshot(LessonId $id): array
-    {
-        $lesson = Lesson::query()
-            ->with(['blocks.block', 'lessonBlockAsTests.block', 'taxonomies'])
-            ->find($id->value);
-
-        if ($lesson === null) {
-            throw new LessonNotFound("Lesson {$id->value} not found");
-        }
-
-        // Сериализуем так же, как отдавали в API ранее (LessonResource),
-        // но без привязки к HTTP-запросу.
-        return (new LessonResource($lesson))->resolve(request());
     }
 }

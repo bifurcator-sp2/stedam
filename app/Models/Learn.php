@@ -29,6 +29,7 @@ class Learn extends Model
         'score',
         'graded_by',
         'answers',
+        'questions',
         'complete_date',
         'archived_at',
     ];
@@ -38,6 +39,7 @@ class Learn extends Model
 
         // JSONB → array при чтении / обратно при записи.
         'answers'         => 'array',
+        'questions'       => 'array',
 
         'score'           => 'float',
 

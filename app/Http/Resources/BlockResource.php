@@ -2,8 +2,8 @@
 
 namespace App\Http\Resources;
 
-use App\Blocks\Settings\BlockSettingsRegistry;
-use App\Blocks\Settings\SettingsNormalizer;
+use App\Domain\Blocks\Settings\BlockSettingsRegistry;
+use App\Domain\Blocks\Settings\SettingsNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 

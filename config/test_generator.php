@@ -11,7 +11,7 @@ return [
      * Витрина для /api/catalog и группировка топиков по предметам.
      *
      * Mapping "узел дерева → генератор" здесь НЕ хранится:
-     * он выводится из структуры папок app/Blocks/TestGenerator/Generators.
+     * он выводится из структуры папок app/Domain/Blocks/TestGenerator/Generators.
      *
      * Ключ subject = первый сегмент resolver-пути ('math', 'physics', ...).
      * Ключи внутри topics — короткие ярлыки; контроллеры сопоставляют их

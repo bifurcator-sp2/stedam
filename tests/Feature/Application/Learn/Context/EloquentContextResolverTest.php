@@ -67,8 +67,8 @@ it('teacher sees own students and self', function () {
     $s2 = userWithRole('student');
     $stranger = userWithRole('student');
 
-    relate($teacher, $s1, RelationType::Teaches);
-    relate($teacher, $s2, RelationType::Teaches);
+    relate($teacher, $s1, RelationType::Teacher);
+    relate($teacher, $s2, RelationType::Teacher);
 
     $ctx = resolver()->resolve(new UserId($teacher->id));
 
@@ -88,8 +88,8 @@ it('parent sees children, read-only', function () {
     $kid1 = userWithRole('student');
     $kid2 = userWithRole('student');
 
-    relate($parent, $kid1, RelationType::Parents);
-    relate($parent, $kid2, RelationType::Parents);
+    relate($parent, $kid1, RelationType::Parent);
+    relate($parent, $kid2, RelationType::Parent);
 
     $ctx = resolver()->resolve(new UserId($parent->id));
 
@@ -109,8 +109,8 @@ it('methodologist sees students of own teachers through 2 hops', function () {
     $teacher = userWithRole('teacher');
     $student = userWithRole('student');
 
-    relate($methodologist, $teacher, RelationType::Supervises);
-    relate($teacher, $student, RelationType::Teaches);
+    relate($methodologist, $teacher, RelationType::Methodologist);
+    relate($teacher, $student, RelationType::Teacher);
 
     $ctx = resolver()->resolve(new UserId($methodologist->id));
 
@@ -125,9 +125,9 @@ it('headteacher sees students through 3 hops, not intermediate levels', function
     $teacher = userWithRole('teacher');
     $student = userWithRole('student');
 
-    relate($headteacher, $methodologist, RelationType::Heads);
-    relate($methodologist, $teacher, RelationType::Supervises);
-    relate($teacher, $student, RelationType::Teaches);
+    relate($headteacher, $methodologist, RelationType::Headteacher);
+    relate($methodologist, $teacher, RelationType::Methodologist);
+    relate($teacher, $student, RelationType::Teacher);
 
     $ctx = resolver()->resolve(new UserId($headteacher->id));
 
@@ -148,8 +148,8 @@ it('multi-role unions scopes (teacher + parent)', function () {
     $studentOf = userWithRole('student');
     $ownKid = userWithRole('student');
 
-    relate($user, $studentOf, RelationType::Teaches);
-    relate($user, $ownKid, RelationType::Parents);
+    relate($user, $studentOf, RelationType::Teacher);
+    relate($user, $ownKid, RelationType::Parent);
 
     $ctx = resolver()->resolve(new UserId($user->id));
 
@@ -166,8 +166,8 @@ it('ignores relations whose active_to is in the past', function () {
     $former = userWithRole('student');
     $current = userWithRole('student');
 
-    relate($teacher, $former, RelationType::Teaches, new DateTimeImmutable('-1 day'));
-    relate($teacher, $current, RelationType::Teaches);
+    relate($teacher, $former, RelationType::Teacher, new DateTimeImmutable('-1 day'));
+    relate($teacher, $current, RelationType::Teacher);
 
     $ctx = resolver()->resolve(new UserId($teacher->id));
 

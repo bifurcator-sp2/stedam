@@ -40,6 +40,22 @@ class AppServiceProvider extends ServiceProvider
             \App\Application\Learn\Ports\LessonRepositoryInterface::class,
             \App\Infrastructure\Persistence\Repositories\EloquentLessonRepository::class,
         );
+
+        // Структура урока для снапшота и поиск resolver-пути генератора.
+        $this->app->bind(
+            \App\Application\Learn\Ports\ProcedureResolverPathInterface::class,
+            \App\Infrastructure\Learn\EloquentProcedureResolverPath::class,
+        );
+        $this->app->bind(
+            \App\Application\Learn\Ports\LessonSnapshotAssemblerInterface::class,
+            \App\Infrastructure\Learn\EloquentLessonSnapshotAssembler::class,
+        );
+
+        // Генерация уникальных задач прохождения (сид по userId+learnId).
+        $this->app->bind(
+            \App\Application\Learn\Ports\LearnQuestionsBuilderInterface::class,
+            \App\Infrastructure\Learn\EloquentLearnQuestionsBuilder::class,
+        );
         $this->app->bind(
             \App\Application\Learn\Ports\SnapshotResolverInterface::class,
             function ($app) {
@@ -48,7 +64,7 @@ class AppServiceProvider extends ServiceProvider
                 }
 
                 return new \App\Infrastructure\Learn\S3SnapshotResolver(
-                    lessons: $app->make(\App\Application\Learn\Ports\LessonRepositoryInterface::class),
+                    assembler: $app->make(\App\Application\Learn\Ports\LessonSnapshotAssemblerInterface::class),
                     cache: $app->make(\Illuminate\Contracts\Cache\Repository::class),
                     filesystems: $app->make(\Illuminate\Contracts\Filesystem\Factory::class),
                     disk: (string) config('learn.snapshot.disk', 's3_private'),

@@ -85,8 +85,8 @@ it('lists only teacher students (not strangers, not self)', function () {
     $s2 = userWithRole2('student');
     $stranger = userWithRole2('student');
 
-    relate2($teacher, $s1, RelationType::Teaches);
-    relate2($teacher, $s2, RelationType::Teaches);
+    relate2($teacher, $s1, RelationType::Teacher);
+    relate2($teacher, $s2, RelationType::Teacher);
 
     $result = listStudents($teacher);
 
@@ -101,7 +101,7 @@ it('lists only teacher students (not strangers, not self)', function () {
 it('computes aggregates per student', function () {
     $teacher = userWithRole2('teacher');
     $s = userWithRole2('student');
-    relate2($teacher, $s, RelationType::Teaches);
+    relate2($teacher, $s, RelationType::Teacher);
 
     $lesson = createLessonRow($teacher);
     createLearnRow($s, $lesson, 'in_progress');
@@ -130,8 +130,8 @@ it('filters by search', function () {
     $s2->name = 'Bob Petrov';
     $s2->save();
 
-    relate2($teacher, $s1, RelationType::Teaches);
-    relate2($teacher, $s2, RelationType::Teaches);
+    relate2($teacher, $s1, RelationType::Teacher);
+    relate2($teacher, $s2, RelationType::Teacher);
 
     $result = listStudents($teacher, 'Alice');
 

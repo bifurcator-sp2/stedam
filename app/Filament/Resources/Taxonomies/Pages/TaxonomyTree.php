@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Taxonomies\Pages;
 
-use App\Blocks\TestGenerator\Support\GeneratorOptions;
+use App\Domain\Blocks\TestGenerator\Support\GeneratorOptions;
 use App\Filament\Resources\Taxonomies\TaxonomyResource;
 use App\Models\Taxonomy;
 use Illuminate\Database\Eloquent\Builder;

@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Learn;
 
-use App\Application\Learn\Ports\LessonRepositoryInterface;
+use App\Application\Learn\Ports\LessonSnapshotAssemblerInterface;
 use App\Application\Learn\Ports\SnapshotResolverInterface;
+use App\Domain\Blocks\Settings\SettingsNormalizer;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\SnapshotHash;
 use Illuminate\Contracts\Cache\Repository as Cache;
@@ -25,7 +26,7 @@ final readonly class HashSnapshotResolver implements SnapshotResolverInterface
     private const TTL_SECONDS = 3600;
 
     public function __construct(
-        private LessonRepositoryInterface $lessons,
+        private LessonSnapshotAssemblerInterface $assembler,
         private Cache $cache,
     ) {}
 
@@ -38,8 +39,8 @@ final readonly class HashSnapshotResolver implements SnapshotResolverInterface
             return new SnapshotHash($cached);
         }
 
-        $payload = $this->lessons->getForSnapshot($lessonId);
-        $hash = SnapshotHash::fromContent((string) json_encode($payload));
+        $payload = $this->assembler->assemble($lessonId);
+        $hash = SnapshotHash::fromContent(SettingsNormalizer::canonicalJson($payload));
 
         $this->cache->put($cacheKey, $hash->value, self::TTL_SECONDS);
 

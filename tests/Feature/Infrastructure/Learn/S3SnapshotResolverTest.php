@@ -2,47 +2,21 @@
 
 declare(strict_types=1);
 
-use App\Application\Learn\Ports\LessonRepositoryInterface;
+use App\Application\Learn\Ports\LessonSnapshotAssemblerInterface;
+use App\Domain\Blocks\Settings\SettingsNormalizer;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Infrastructure\Learn\S3SnapshotResolver;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\Fakes\FakeSnapshotAssembler;
 
-/**
- * Фейковый репозиторий уроков: отдаёт заданный payload для снапшота.
- */
-final class FakeLessonRepo implements LessonRepositoryInterface
-{
-    /** @var array<int, array<string, mixed>> */
-    public array $payloads = [];
-
-    public int $calls = 0;
-
-    public function __construct(array $payloads = [])
-    {
-        $this->payloads = $payloads;
-    }
-
-    public function isPublished(LessonId $id): bool
-    {
-        return true;
-    }
-
-    public function getForSnapshot(LessonId $id): array
-    {
-        $this->calls++;
-
-        return $this->payloads[$id->value] ?? ['id' => $id->value, 'title' => 'L'];
-    }
-}
-
-function resolverWith(FakeLessonRepo $lessons): S3SnapshotResolver
+function resolverWith(FakeSnapshotAssembler $assembler): S3SnapshotResolver
 {
     Storage::fake('s3_private');
     Cache::store('array')->clear();
 
     return new S3SnapshotResolver(
-        lessons: $lessons,
+        assembler: $assembler,
         cache: Cache::store('array'),
         filesystems: Storage::getFacadeRoot(),
         disk: 's3_private',
@@ -54,15 +28,12 @@ function resolverWith(FakeLessonRepo $lessons): S3SnapshotResolver
 }
 
 it('builds hash, stores snapshot on disk, returns content-addressed hash', function () {
-    $lessons = new FakeLessonRepo([10 => ['id' => 10, 'title' => 'Hello']]);
-    $resolver = resolverWith($lessons);
+    $assembler = new FakeSnapshotAssembler([10 => ['id' => 10, 'title' => 'Hello']]);
+    $resolver = resolverWith($assembler);
 
     $hash = $resolver->ensureFor(new LessonId(10));
 
-    $expected = hash('sha256', (string) json_encode(
-        ['id' => 10, 'title' => 'Hello'],
-        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
-    ));
+    $expected = hash('sha256', SettingsNormalizer::canonicalJson(['id' => 10, 'title' => 'Hello']));
 
     expect($hash->value)->toBe($expected);
 
@@ -71,19 +42,19 @@ it('builds hash, stores snapshot on disk, returns content-addressed hash', funct
 });
 
 it('serves from cache on the second call (no rebuild)', function () {
-    $lessons = new FakeLessonRepo();
-    $resolver = resolverWith($lessons);
+    $assembler = new FakeSnapshotAssembler();
+    $resolver = resolverWith($assembler);
 
     $resolver->ensureFor(new LessonId(10));
     $resolver->ensureFor(new LessonId(10));
 
-    // Ровно один поход в репозиторий — второй раз из кэша.
-    expect($lessons->calls)->toBe(1);
+    // Ровно один поход в ассемблер — второй раз из кэша.
+    expect($assembler->calls)->toBe(1);
 });
 
 it('is idempotent for same content: same hash, single file', function () {
-    $lessons = new FakeLessonRepo();
-    $resolver = resolverWith($lessons);
+    $assembler = new FakeSnapshotAssembler();
+    $resolver = resolverWith($assembler);
 
     $a = $resolver->ensureFor(new LessonId(10));
     // Сброс кэша, чтобы принудительно пересобрать.
@@ -94,4 +65,17 @@ it('is idempotent for same content: same hash, single file', function () {
 
     $files = Storage::disk('s3_private')->allFiles('learns/snapshots');
     expect($files)->toHaveCount(1);
+});
+
+it('is stable regardless of key order in the payload', function () {
+    // Кириллица/порядок ключей не должны «плясать» в хэше: canonicalJson
+    // сортирует ключи. Это защищает §14.17 (одинаковый snap для всех).
+    $first = new FakeSnapshotAssembler([10 => ['title' => 'Урок', 'id' => 10]]);
+    $second = new FakeSnapshotAssembler([10 => ['id' => 10, 'title' => 'Урок']]);
+
+    $a = resolverWith($first)->ensureFor(new LessonId(10));
+    Cache::store('array')->clear();
+    $b = resolverWith($second)->ensureFor(new LessonId(10));
+
+    expect($a->value)->toBe($b->value);
 });

@@ -3,7 +3,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Blocks\Settings\BlockSettingsRegistry;
+use App\Domain\Blocks\Settings\BlockSettingsRegistry;
 use App\Http\Controllers\Controller;
 use App\Models\Block;
 use App\Models\BlockIndex;
