@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Domain\Blocks\TestGenerator\Resolvers\TestResolverMap;
+use App\Infrastructure\Blocks\TestGenerator\Resolvers\TestResolverMap;
 use App\Http\Controllers\Controller;
 use App\Models\Taxonomy;
 use Illuminate\Http\JsonResponse;

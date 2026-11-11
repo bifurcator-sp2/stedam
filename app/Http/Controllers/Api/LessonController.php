@@ -245,10 +245,10 @@ class LessonController
         // Запрашиваем связи напрямую из БД, не изменяя состояние объекта $lesson
         $taxonomies = $lesson->taxonomies()->get();
 
-        $ownBlocks = $lesson->blocks()->with(['block', 'taxonomies'])->get();
+        // Задания урока (pivot lesson_lesson_block_as_test).
+        // Собственные info-блоки урока (lesson_id = N) здесь не нужны —
+        // они не валидируются на таксономию.
         $testBlocks = $lesson->lessonBlockAsTests()->with(['block', 'taxonomies'])->get();
-
-        $allBlocks = $ownBlocks->concat($testBlocks);
 
         // 1. Собираем все валидные ID таксономий урока (с учетом потомков)
         $lessonTaxIds = $taxonomies->pluck('id')->toArray();
@@ -278,13 +278,15 @@ class LessonController
             }
         }
 
-        // 3. Валидация каждого задания
-        foreach ($allBlocks as $block) {
-            $isTest = $block->block && $block->block->is_test;
-            if (!$isTest) {
-                continue;
-            }
-
+        // 3. Валидация каждого ЗАДАНИЯ.
+        //
+        // ВАЖНО: проверять надо РОЛЬ в уроке, а не Block::is_test.
+        //   - собственные info-блоки урока (lesson_id = N) — не валидируем:
+        //     таксономия им не нужна;
+        //   - задания из lesson_lesson_block_as_test — валидируем ниже.
+        // Block::is_test — атрибут ШАБЛОНА, а не роль в уроке:
+        // шаблон с is_test = true может использоваться и как info-блок.
+        foreach ($testBlocks as $block) {
             // Условие 1: проверка таксономии задания
             if (!empty($validLessonTaxIds)) {
                 $blockTaxIds = $block->taxonomies->pluck('id')->toArray();
@@ -293,7 +295,7 @@ class LessonController
                         abort(422, "Задание (ID: {$block->id}) не соответствует таксономии урока.");
                     }
                 } else {
-                    // Исключение только для непроцедурных заданий
+                    // Исключение только для процедурных заданий
                     if (!$block->is_proc) {
                         abort(422, "Задание (ID: {$block->id}) не привязано ни к одному разделу таксономии.");
                     }

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Taxonomies\Schemas;
 
-use App\Domain\Blocks\TestGenerator\Support\GeneratorOptions;
+use App\Infrastructure\Blocks\TestGenerator\Support\GeneratorOptions;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;

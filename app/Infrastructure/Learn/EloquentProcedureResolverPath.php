@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Learn;
 
 use App\Application\Learn\Ports\ProcedureResolverPathInterface;
-use App\Domain\Blocks\TestGenerator\Resolvers\TestResolverMap;
+use App\Infrastructure\Blocks\TestGenerator\Resolvers\TestResolverMap;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Models\Lesson;
 use App\Models\Taxonomy;

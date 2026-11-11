@@ -9,7 +9,7 @@ use App\Application\Learn\Exceptions\LessonNotFound;
 use App\Application\Learn\Ports\LearnQuestionsBuilderInterface;
 use App\Application\Learn\Ports\ProcedureResolverPathInterface;
 use App\Domain\Blocks\TestGenerator\Random\Seed;
-use App\Domain\Blocks\TestGenerator\TestGenerator;
+use App\Domain\Blocks\TestGenerator\Ports\ProblemGeneratorInterface;
 use App\Domain\Learn\ValueObjects\LearnQuestions;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\QuestionItem;
@@ -37,7 +37,7 @@ final readonly class EloquentLearnQuestionsBuilder implements LearnQuestionsBuil
 
     public function __construct(
         private ProcedureResolverPathInterface $resolverPaths,
-        private TestGenerator $generator,
+        private ProblemGeneratorInterface $generator,
     ) {}
 
     public function buildFor(LearnSeed $seed, LessonId $lessonId): LearnQuestions

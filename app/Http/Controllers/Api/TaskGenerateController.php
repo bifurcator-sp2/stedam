@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Domain\Blocks\TestGenerator\Resolvers\TestResolverMap;
-use App\Domain\Blocks\TestGenerator\TestGenerator;
+use App\Infrastructure\Blocks\TestGenerator\Resolvers\TestResolverMap;
+use App\Domain\Blocks\TestGenerator\Ports\GeneratorCatalogInterface;
+use App\Domain\Blocks\TestGenerator\Ports\ProblemGeneratorInterface;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\GenerateMathTaskRequest;
 use App\Http\Resources\MathProblemResource;
@@ -32,10 +33,11 @@ final class TaskGenerateController extends Controller
 {
     public function __invoke(
         GenerateMathTaskRequest $request,
-        TestGenerator $testGenerator,
+        ProblemGeneratorInterface $testGenerator,
+        GeneratorCatalogInterface $catalog,
         TestResolverMap $resolverMap,
     ): JsonResponse {
-        $availablePaths = $testGenerator->availablePaths();
+        $availablePaths = $catalog->availablePaths();
         $difficulty     = $request->resolvedDifficulty();
 
         $path = null;

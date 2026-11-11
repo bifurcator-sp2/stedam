@@ -9,6 +9,7 @@ use App\Domain\Blocks\Settings\SettingsShapeException;
 use App\Models\Block;
 use App\Models\Lesson;
 use App\Models\LessonBlock;
+use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -34,10 +35,11 @@ class SeedLotrLessonsCommand extends Command
     */
 
     protected $signature = 'lessons:seed-lotr
-        {--count=10000 : Number of lessons to create}
-        {--min-blocks=3 : Minimum LessonBlocks per lesson}
-        {--max-blocks=5 : Maximum LessonBlocks per lesson}
-        {--user=1 : Owner user id}
+        {--count=100 : Number of lessons to create}
+        {--min-blocks=15 : Minimum info LessonBlocks per lesson}
+        {--max-blocks=25 : Maximum info LessonBlocks per lesson}
+        {--min-tests=5 : Minimum tasks per lesson (common + proc)}
+        {--max-tests=10 : Maximum tasks per lesson (common + proc)}
         {--chunk=100 : Lessons per atomic transaction}
         {--keep : Do not delete existing lessons}
         {--safe : Safe delete (per-model, slow). Default: fast truncate}
@@ -55,6 +57,7 @@ class SeedLotrLessonsCommand extends Command
 
     protected array $pendingBlocks = [];
     protected array $pendingPivots = [];
+    protected array $pendingLessonsTax = [];
 
     protected bool $stopRequested = false;
     protected ?string $stopFile = null;
@@ -436,16 +439,37 @@ class SeedLotrLessonsCommand extends Command
     // Точка входа
     // ============================================================
 
+    /** Всегда включаемые владельцы (системные пользователи dev-БД). */
+    protected const BASE_LESSON_OWNER_IDS = [1, 3];
+
+    /**
+     * Владельцы уроков: все пользователи с ролью teacher + BASE_LESSON_OWNER_IDS.
+     * Назначаются по кругу, поровну. Заполняется в handle().
+     *
+     * @var array<int, int>
+     */
+    protected array $lessonOwnerIds = [];
+
+    /** Пул глобальных заданий по таксономии-листу: [leafId => [testId, ...]]. */
+    protected array $commonTestsByTaxonomy = [];
+
+    /** Пул процедурных заданий (общий, не привязан к таксономии). */
+    protected array $procTests = [];
+
     public function handle(): int
     {
         $this->stopFile  = $this->option('stop-file') ?: null;
         $this->chunkSize = max(1, (int) $this->option('chunk'));
         $this->installSignalHandlers();
 
-        $userId    = (int) $this->option('user');
+        $this->lessonOwnerIds = $this->resolveLessonOwnerIds();
+        $this->info('Владельцы уроков: ' . implode(', ', $this->lessonOwnerIds));
+
         $count     = (int) $this->option('count');
         $minBlocks = (int) $this->option('min-blocks');
         $maxBlocks = (int) $this->option('max-blocks');
+        $minTests  = (int) $this->option('min-tests');
+        $maxTests  = (int) $this->option('max-tests');
         $keep      = (bool) $this->option('keep');
 
         if ($count < 1) {
@@ -456,6 +480,10 @@ class SeedLotrLessonsCommand extends Command
             $this->error('Invalid --min-blocks / --max-blocks');
             return self::FAILURE;
         }
+        if ($minTests < 0 || $maxTests < $minTests) {
+            $this->error('Invalid --min-tests / --max-tests');
+            return self::FAILURE;
+        }
 
         $lessonTotal = Lesson::withTrashed()->count();
         $blockTotal  = LessonBlock::withTrashed()->count();
@@ -464,8 +492,8 @@ class SeedLotrLessonsCommand extends Command
             // --force пропускает подтверждение; --safe — только выбирает метод удаления
             if (!$this->option('force')) {
                 if (!$this->confirm(
-                    "This will DELETE {$lessonTotal} lessons and {$blockTotal} lesson_blocks ".
-                    "for user {$userId}, then seed {$count} fresh lessons. Continue?"
+                    "This will DELETE {$lessonTotal} lessons and {$blockTotal} lesson_blocks, " .
+                    "then seed {$count} fresh lessons (owners: " . implode(', ', $this->lessonOwnerIds) . "). Continue?"
                 )) {
                     return self::SUCCESS;
                 }
@@ -473,19 +501,41 @@ class SeedLotrLessonsCommand extends Command
             $this->deleteAllLessons();
         }
 
-        $blocks = Block::query()->get();
+        $blocks = Block::query()->where('is_test', false)->get();
         if ($blocks->isEmpty()) {
-            $this->error('No blocks found in `blocks` table. Nothing to use as template.');
+            $this->error('No blocks found in `blocks` table (is_test = false). Nothing to use as template.');
             return self::FAILURE;
         }
         $this->info("Blocks available: {$blocks->count()}");
 
-        $leaves = $this->leafIds($userId);
+        // Листья таксономий: важны только их id и наличие test_resolver.
+        // Владелец таксономии роли не играет.
+        $leaves = $this->leafTaxonomies();
         if (empty($leaves)) {
-            $this->error("No leaf taxonomies found for user {$userId}");
+            $this->error('No leaf taxonomies found.');
             return self::FAILURE;
         }
-        $this->info("Leaf taxonomies: " . count($leaves));
+        $this->info('Leaf taxonomies: ' . count($leaves));
+
+        // Пулы заданий.
+        $this->commonTestsByTaxonomy = $this->loadCommonTestsByLeaf(array_keys($leaves));
+        $this->procTests             = $this->loadProcTests();
+
+        $commonTotal = array_sum(array_map('count', $this->commonTestsByTaxonomy));
+        $procTotal   = count($this->procTests);
+
+        $this->info("Common tasks: {$commonTotal}, proc tasks: {$procTotal}");
+
+        if ($commonTotal === 0) {
+            $this->error('Нет обычных заданий (lesson_blocks: lesson_id IS NULL & is_proc = false).');
+            $this->line('Создайте их через интерфейс, прежде чем сеять уроки.');
+            return self::FAILURE;
+        }
+
+        if ($procTotal === 0) {
+            $this->warn('Процедурных заданий нет. Уроки с test_resolver получат только обычные задания.');
+            $this->line('Запустите: php artisan tests:seed-proc --force');
+        }
 
         // кэшируем схемы по code
         foreach ($blocks as $block) {
@@ -500,14 +550,15 @@ class SeedLotrLessonsCommand extends Command
 
         $created = 0;
         $stopped = false;
+        $leafIndex = 0;
 
-        foreach ($leaves as $i => $leafId) {
+        foreach ($leaves as $leafId => $hasResolver) {
             if ($this->shouldStop()) {
                 $stopped = true;
                 break;
             }
 
-            $n = $distribution[$i];
+            $n = $distribution[$leafIndex++] ?? 0;
             if ($n <= 0) {
                 continue;
             }
@@ -519,7 +570,16 @@ class SeedLotrLessonsCommand extends Command
                 }
 
                 $chunk = min($this->chunkSize, $n - $off);
-                $done  = $this->createChunk($leafId, $chunk, $userId, $blocks, $minBlocks, $maxBlocks);
+                $done  = $this->createChunk(
+                    $leafId,
+                    $hasResolver,
+                    $chunk,
+                    $blocks,
+                    $minBlocks,
+                    $maxBlocks,
+                    $minTests,
+                    $maxTests,
+                );
 
                 $created += $done;
                 $bar->advance($done);
@@ -549,6 +609,45 @@ class SeedLotrLessonsCommand extends Command
     // ============================================================
     // Graceful stop
     // ============================================================
+
+    /**
+     * Пул владельцев уроков: все пользователи с ролью teacher плюс
+     * BASE_LESSON_OWNER_IDS. Дубликаты убираются, порядок стабилен
+     * (сначала базовые, потом учителя по возрастанию id).
+     *
+     * @return array<int, int>
+     */
+    protected function resolveLessonOwnerIds(): array
+    {
+        $teacherIds = $this->teacherUserIds();
+
+        $ids = array_values(array_unique(array_merge(self::BASE_LESSON_OWNER_IDS, $teacherIds)));
+
+        return $ids === [] ? self::BASE_LESSON_OWNER_IDS : $ids;
+    }
+
+    /**
+     * ID пользователей с ролью teacher. Фильтр по morph-алиасу берём
+     * из самой модели User — так запрос не ломается при enforceMorphMap().
+     *
+     * @return array<int, int>
+     */
+    protected function teacherUserIds(): array
+    {
+        $model     = new User();
+        $morphKey  = $model->getMorphClass();
+        $roleTable  = config('permission.table_names.roles', 'roles');
+        $pivotTable = config('permission.table_names.model_has_roles', 'model_has_roles');
+
+        return DB::table($pivotTable . ' as mhr')
+            ->join($roleTable . ' as r', 'r.id', '=', 'mhr.role_id')
+            ->where('r.name', 'teacher')
+            ->where('mhr.model_type', $morphKey)
+            ->orderBy('mhr.model_id')
+            ->pluck('mhr.model_id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
+    }
 
     protected function installSignalHandlers(): void
     {
@@ -600,50 +699,62 @@ class SeedLotrLessonsCommand extends Command
     }
 
     /**
-     * Быстрое удаление.
+     * Быстрое удаление уроков.
      *
-     * MySQL / SQLite: disable FK checks → truncate → enable.
-     * PostgreSQL:     TRUNCATE ... RESTART IDENTITY CASCADE (одним statement).
-     *                 Это единственный надёжный способ на PG — Laravel-овский
-     *                 `Schema::disableForeignKeyConstraints()` использует
-     *                 `SET CONSTRAINTS ALL DEFERRED`, что НЕ отключает
-     *                 проверки при TRUNCATE, и truncate упадёт с FK-ошибкой.
+     * ВАЖНО: TRUNCATE здесь неприменим.
+     *   - TRUNCATE не умеет WHERE — он сносит таблицу целиком.
+     *   - В lesson_blocks лежат И собственные блоки уроков (lesson_id = N),
+     *     И глобальные задания (lesson_id IS NULL). TRUNCATE lesson_blocks
+     *     уничтожит задания.
+     *   - TRUNCATE lessons CASCADE тоже не годится: CASCADE находит
+     *     lesson_blocks по FK и сносит её целиком — по той же причине.
+     *
+     * Поэтому удаляем явным DELETE в правильном порядке:
+     *   1. привязки заданий к урокам (lesson_lesson_block_as_test)
+     *   2. привязки уроков к таксономиям (lesson_taxonomy)
+     *   3. собственные блоки уроков (lesson_blocks WHERE lesson_id IS NOT NULL)
+     *   4. сами уроки (lessons)
+     *
+     * Глобальные задания (lesson_blocks WHERE lesson_id IS NULL) и их
+     * привязки (lesson_block_taxonomy) НЕ трогаются.
      */
     protected function deleteFast(): void
     {
-        $this->info('Fast delete (TRUNCATE)...');
+        $this->info('Fast delete (DELETE)...');
 
-        $driver = DB::connection()->getDriverName();
+        DB::transaction(function () {
+            $purged = [];
 
-        if ($driver === 'pgsql') {
-            $tables = [];
-            if (Schema::hasTable('lesson_taxonomy')) $tables[] = 'lesson_taxonomy';
-            if (Schema::hasTable('lesson_blocks'))   $tables[] = 'lesson_blocks';
-            if (Schema::hasTable('lessons'))         $tables[] = 'lessons';
-
-            if (!empty($tables)) {
-                $list = implode(', ', $tables);
-                DB::statement("TRUNCATE TABLE {$list} RESTART IDENTITY CASCADE");
+            if (Schema::hasTable('lesson_lesson_block_as_test')) {
+                $purged['lesson_lesson_block_as_test'] = DB::table('lesson_lesson_block_as_test')->delete();
             }
-        } else {
-            Schema::disableForeignKeyConstraints();
-            try {
-                if (Schema::hasTable('lesson_taxonomy')) {
-                    DB::table('lesson_taxonomy')->truncate();
-                }
-                if (Schema::hasTable('lesson_blocks')) {
-                    DB::table('lesson_blocks')->truncate();
-                }
-                if (Schema::hasTable('lessons')) {
-                    DB::table('lessons')->truncate();
-                }
-            } finally {
-                Schema::enableForeignKeyConstraints();
+
+            if (Schema::hasTable('lesson_taxonomy')) {
+                $purged['lesson_taxonomy'] = DB::table('lesson_taxonomy')->delete();
             }
-        }
+
+            // Только собственные блоки уроков. Глобальные задания
+            // (lesson_id IS NULL) сохраняются.
+            if (Schema::hasTable('lesson_blocks')) {
+                $purged['lesson_blocks'] = DB::table('lesson_blocks')
+                    ->whereNotNull('lesson_id')
+                    ->delete();
+            }
+
+            if (Schema::hasTable('lessons')) {
+                $purged['lessons'] = DB::table('lessons')->delete();
+            }
+
+            if (!empty($purged)) {
+                $summary = [];
+                foreach ($purged as $table => $count) {
+                    $summary[] = "{$table}={$count}";
+                }
+                $this->line('Удалено: ' . implode(', ', $summary));
+            }
+        });
 
         $this->cleanupOrphanFileSets();
-        $this->warn('Note: storage files may remain orphaned. Use --safe for full cleanup.');
     }
 
     /**
@@ -717,19 +828,56 @@ class SeedLotrLessonsCommand extends Command
     /**
      * Создаёт один чанк уроков в рамках одной транзакции.
      * Возвращает число реально созданных уроков (может быть < $n, если сработал стоп).
+     *
+     * Логика на урок:
+     *   1. leaf таксономии уже известен — с ним пришли сюда (вместе с признаком
+     *      наличия test_resolver у самой таксономии-листа).
+     *   2. Информационные блоки: random(minBlocks..maxBlocks), order 0..N-1.
+     *   3. Задания: random(minTests..maxTests). Если у листа есть resolver —
+     *      половина обычных + половина процедурных; иначе только обычные.
+     *   4. Обычные задания — из пула по листу (LessonBlock: lesson_id IS NULL,
+     *      is_proc = false, привязан к листу). Процедурные — любые глобальные
+     *      proc-задания. Берём сколько есть.
+     *   5. Привязка заданий — через lesson_lesson_block_as_test; order
+     *      продолжает нумерацию после информационных блоков.
+     *   6. user_id урока: LESSON_OWNER_IDS по кругу, поровну.
+     *   7. complexity урока — запекается сразу: avg(complexity заданий).
      */
     protected function createChunk(
         int $leafId,
+        bool $hasResolver,
         int $n,
-        int $userId,
         $blocks,
         int $minBlocks,
-        int $maxBlocks
+        int $maxBlocks,
+        int $minTests,
+        int $maxTests,
     ): int {
         $created = 0;
+        $ownerIds = $this->lessonOwnerIds;
+        $ownerCount = count($ownerIds);
+
+        // Обычные задания, доступные для этого листа.
+        $commonPool = $this->commonTestsByTaxonomy[$leafId] ?? [];
+        // Процедурные задания (общий пул).
+        $procPool = $this->procTests;
 
         try {
-            DB::transaction(function () use ($leafId, $n, $userId, $blocks, $minBlocks, $maxBlocks, &$created) {
+            DB::transaction(function () use (
+                $leafId,
+                $hasResolver,
+                $n,
+                $blocks,
+                $minBlocks,
+                $maxBlocks,
+                $minTests,
+                $maxTests,
+                $commonPool,
+                $procPool,
+                $ownerIds,
+                $ownerCount,
+                &$created
+            ) {
                 $now = now();
 
                 for ($i = 0; $i < $n; $i++) {
@@ -737,12 +885,34 @@ class SeedLotrLessonsCommand extends Command
                         break; // текущий урок ещё не начат — безопасно
                     }
 
+                    // --- владелец: по кругу ---
+                    $userId = $ownerIds[$i % $ownerCount];
+
                     $ts = $now->copy()->subMinutes(random_int(0, 60 * 24 * 90));
 
                     // Для timestamptz-колонок обязателен явный offset (P), иначе
                     // PG интерпретирует наивную строку в TZ сессии — «плавающее» время.
                     $tsStr = $ts->format('Y-m-d H:i:s P');
 
+                    // --- 1. Определяем состав заданий ---
+                    $testsTotal = random_int($minTests, $maxTests);
+                    if ($hasResolver) {
+                        // Поровну; на нечётном лишнее уходит процедурным.
+                        $commonWanted = intdiv($testsTotal, 2);
+                        $procWanted   = $testsTotal - $commonWanted;
+                    } else {
+                        $commonWanted = $testsTotal;
+                        $procWanted   = 0;
+                    }
+
+                    // Берём сколько есть, не добиваем из другого пула.
+                    $commonIds = $this->sampleUnique($commonPool, $commonWanted);
+                    $procIds   = $this->sampleUnique($procPool, $procWanted);
+
+                    // complexity урока — avg по всем привязанным заданиям.
+                    $complexity = $this->avgComplexity($commonIds, $procIds);
+
+                    // --- 2. Урок ---
                     $lessonId = DB::table('lessons')->insertGetId([
                         'user_id'     => $userId,
                         'locale'      => 'ru',
@@ -750,10 +920,12 @@ class SeedLotrLessonsCommand extends Command
                         'title'       => $this->pick($this->lessonTitles),
                         'description' => $this->pick($this->lessonDescriptions),
                         'published'   => true,
+                        'complexity'  => $complexity,
                         'created_at'  => $tsStr,
                         'updated_at'  => $tsStr,
                     ]);
 
+                    // --- 3. Информационные блоки ---
                     $blockCount = random_int($minBlocks, $maxBlocks);
 
                     for ($j = 0; $j < $blockCount; $j++) {
@@ -766,6 +938,7 @@ class SeedLotrLessonsCommand extends Command
                             'block_id'   => $block->id,
                             'lesson_id'  => $lessonId,
                             'order'      => $j,
+                            'is_proc'    => false,
                             'settings'   => json_encode(
                                 $settings,
                                 JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
@@ -779,14 +952,31 @@ class SeedLotrLessonsCommand extends Command
                         }
                     }
 
-                    $this->pendingPivots[] = [
+                    // --- 4. Задания (pivot order продолжает после info-блоков) ---
+                    $order = $blockCount;
+                    foreach (array_merge($commonIds, $procIds) as $testId) {
+                        $this->pendingPivots[] = [
+                            'lesson_id'       => $lessonId,
+                            'lesson_block_id' => $testId,
+                            'order'           => $order++,
+                            'created_at'      => $tsStr,
+                            'updated_at'      => $tsStr,
+                        ];
+
+                        if (count($this->pendingPivots) >= $this->pivotBufferLimit) {
+                            $this->flushBuffers();
+                        }
+                    }
+
+                    // --- 5. Таксономия урока ---
+                    $this->pendingLessonsTax[] = [
                         'lesson_id'   => $lessonId,
                         'taxonomy_id' => $leafId,
                         'created_at'  => $tsStr,
                         'updated_at'  => $tsStr,
                     ];
 
-                    if (count($this->pendingPivots) >= $this->pivotBufferLimit) {
+                    if (count($this->pendingLessonsTax) >= $this->pivotBufferLimit) {
                         $this->flushBuffers();
                     }
 
@@ -801,10 +991,56 @@ class SeedLotrLessonsCommand extends Command
             // «мусорные» строки в следующий чанк.
             $this->pendingBlocks = [];
             $this->pendingPivots = [];
+            $this->pendingLessonsTax = [];
             throw $e;
         }
 
         return $created;
+    }
+
+    /**
+     * Уникальная выборка до $want элементов из пула.
+     * Если в пуле меньше — возвращает сколько есть (без ошибки).
+     *
+     * @param array<int, int> $pool
+     * @return array<int, int>
+     */
+    protected function sampleUnique(array $pool, int $want): array
+    {
+        if ($want <= 0 || empty($pool)) {
+            return [];
+        }
+
+        if ($want >= count($pool)) {
+            return $pool;
+        }
+
+        $keys = (array) array_rand($pool, $want);
+
+        return array_map(static fn ($k) => $pool[$k], $keys);
+    }
+
+    /**
+     * Средняя complexity по всем заданиям, которые будут привязаны к уроку.
+     * Задания без complexity — игнорируются. Если нет ни одного значения — null.
+     *
+     * @param array<int, int> $commonIds
+     * @param array<int, int> $procIds
+     */
+    protected function avgComplexity(array $commonIds, array $procIds): ?float
+    {
+        $testIds = array_merge($commonIds, $procIds);
+        if (empty($testIds)) {
+            return null;
+        }
+
+        $values = LessonBlock::query()
+            ->whereIn('id', $testIds)
+            ->pluck('complexity')
+            ->filter(static fn ($v) => $v !== null)
+            ->map(static fn ($v) => (float) $v);
+
+        return $values->isEmpty() ? null : (float) $values->avg();
     }
 
     protected function flushBuffers(): void
@@ -814,8 +1050,12 @@ class SeedLotrLessonsCommand extends Command
             $this->pendingBlocks = [];
         }
         if (!empty($this->pendingPivots)) {
-            DB::table('lesson_taxonomy')->insert($this->pendingPivots);
+            DB::table('lesson_lesson_block_as_test')->insert($this->pendingPivots);
             $this->pendingPivots = [];
+        }
+        if (!empty($this->pendingLessonsTax)) {
+            DB::table('lesson_taxonomy')->insert($this->pendingLessonsTax);
+            $this->pendingLessonsTax = [];
         }
     }
 
@@ -927,11 +1167,19 @@ class SeedLotrLessonsCommand extends Command
     // Утилиты
     // ============================================================
 
-    protected function leafIds(int $userId): array
+    /**
+     * Листья таксономий (без живых детей).
+     * Возвращает [leafId => hasResolver].
+     *
+     * test_resolver ищется ТОЛЬКО у самой таксономии-листа — без подъёма
+     * по дереву. Владелец таксономии (user_id) роли не играет.
+     *
+     * @return array<int, bool>
+     */
+    protected function leafTaxonomies(): array
     {
         return DB::table('taxonomies')
             ->whereNull('deleted_at')
-            ->where('user_id', $userId)
             ->whereNotExists(function ($q) {
                 $q->select(DB::raw(1))
                     ->from('taxonomies as t_child')
@@ -939,7 +1187,64 @@ class SeedLotrLessonsCommand extends Command
                     ->whereNull('t_child.deleted_at');
             })
             ->orderBy('id')
+            ->get(['id', 'test_resolver'])
+            ->mapWithKeys(static fn ($row) => [
+                (int) $row->id => !empty($row->test_resolver),
+            ])
+            ->all();
+    }
+
+    /**
+     * Обычные (не процедурные) глобальные задания, сгруппированные по
+     * таксономии-листу: [leafId => [lessonBlockId, ...]].
+     *
+     * Учитываются только:
+     *   - lesson_blocks.lesson_id IS NULL (глобальное задание),
+     *   - lesson_blocks.is_proc = false,
+     *   - привязка через lesson_block_taxonomy именно к листу.
+     *
+     * @param array<int, int> $leafIds
+     * @return array<int, array<int, int>>
+     */
+    protected function loadCommonTestsByLeaf(array $leafIds): array
+    {
+        if (empty($leafIds)) {
+            return [];
+        }
+
+        $rows = DB::table('lesson_block_taxonomy as lbt')
+            ->join('lesson_blocks as lb', 'lb.id', '=', 'lbt.lesson_block_id')
+            ->whereNull('lb.lesson_id')
+            ->where('lb.is_proc', false)
+            ->whereNull('lb.deleted_at')
+            ->whereIn('lbt.taxonomy_id', $leafIds)
+            ->orderBy('lb.id')
+            ->get(['lbt.taxonomy_id', 'lb.id']);
+
+        $grouped = [];
+        foreach ($rows as $row) {
+            $grouped[(int) $row->taxonomy_id][] = (int) $row->id;
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * Пул процедурных глобальных заданий: любые LessonBlock с
+     * lesson_id IS NULL и is_proc = true. Таксономическая привязка
+     * у них не обязательна.
+     *
+     * @return array<int, int>
+     */
+    protected function loadProcTests(): array
+    {
+        return DB::table('lesson_blocks')
+            ->whereNull('lesson_id')
+            ->where('is_proc', true)
+            ->whereNull('deleted_at')
+            ->orderBy('id')
             ->pluck('id')
+            ->map(static fn ($id) => (int) $id)
             ->all();
     }
 

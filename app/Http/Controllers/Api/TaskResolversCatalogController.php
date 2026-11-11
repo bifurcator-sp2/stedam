@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Domain\Blocks\TestGenerator\TestGenerator;
+use App\Domain\Blocks\TestGenerator\Ports\GeneratorCatalogInterface;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 
@@ -44,7 +44,7 @@ use Illuminate\Http\JsonResponse;
  */
 final class TaskResolversCatalogController extends Controller
 {
-    public function __invoke(TestGenerator $testGenerator): JsonResponse
+    public function __invoke(GeneratorCatalogInterface $testGenerator): JsonResponse
     {
         $availablePaths = $testGenerator->availablePaths();
 

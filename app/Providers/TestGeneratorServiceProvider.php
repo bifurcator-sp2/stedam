@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Domain\Blocks\TestGenerator\Contracts\MathProblemGeneratorInterface;
-use App\Domain\Blocks\TestGenerator\Discovery\GeneratorDiscovery;
-use App\Domain\Blocks\TestGenerator\Resolvers\TestResolverMap;
-use App\Domain\Blocks\TestGenerator\Support\PathResolver;
-use App\Domain\Blocks\TestGenerator\TestGenerator;
+use App\Domain\Blocks\TestGenerator\Ports\GeneratorCatalogInterface;
+use App\Domain\Blocks\TestGenerator\Ports\ProblemGeneratorInterface;
+use App\Domain\Blocks\TestGenerator\Services\GenerateProblemService;
+use App\Infrastructure\Blocks\TestGenerator\Container\FilesystemGeneratorCatalog;
+use App\Infrastructure\Blocks\TestGenerator\Container\InMemoryProblemGenerator;
+use App\Infrastructure\Blocks\TestGenerator\Discovery\GeneratorDiscovery;
+use App\Infrastructure\Blocks\TestGenerator\Generators\GeneratorBase;
+use App\Infrastructure\Blocks\TestGenerator\Resolvers\TestResolverMap;
+use App\Infrastructure\Blocks\TestGenerator\Support\PathResolver;
 use Illuminate\Support\ServiceProvider;
 
 final class TestGeneratorServiceProvider extends ServiceProvider
@@ -17,8 +22,8 @@ final class TestGeneratorServiceProvider extends ServiceProvider
     {
         $this->app->singleton(GeneratorDiscovery::class, function (): GeneratorDiscovery {
             return new GeneratorDiscovery(
-                basePath:      app_path('Domain/Blocks/TestGenerator/Generators'),
-                baseNamespace: 'App\\Domain\\Blocks\\TestGenerator\\Generators',
+                basePath:      app_path('Infrastructure/Blocks/TestGenerator/Generators'),
+                baseNamespace: 'App\\Infrastructure\\Blocks\\TestGenerator\\Generators',
             );
         });
 
@@ -26,17 +31,35 @@ final class TestGeneratorServiceProvider extends ServiceProvider
             return new PathResolver($app->make(GeneratorDiscovery::class));
         });
 
-        $this->app->singleton(TestGenerator::class, function ($app): TestGenerator {
+        // Порт каталога: список доступных resolver-путей (для /api/catalog и т.п.).
+        $this->app->singleton(GeneratorCatalogInterface::class, function ($app): GeneratorCatalogInterface {
+            return new FilesystemGeneratorCatalog($app->make(GeneratorDiscovery::class));
+        });
+
+        // Порт генерации: индекс «путь => генератор». Путь проставляется здесь,
+        // поэтому генераторы больше не обращаются к контейнеру.
+        $this->app->singleton(ProblemGeneratorInterface::class, function ($app): ProblemGeneratorInterface {
             /** @var GeneratorDiscovery $discovery */
             $discovery = $app->make(GeneratorDiscovery::class);
 
             $instances = [];
-            foreach ($discovery->discover() as $class) {
+            foreach ($discovery->discover() as $path => $class) {
                 /** @var class-string<MathProblemGeneratorInterface> $class */
-                $instances[] = $app->make($class);
+                $generator = $app->make($class);
+
+                if ($generator instanceof GeneratorBase) {
+                    $generator->withPath($path);
+                }
+
+                $instances[$path] = $generator;
             }
 
-            return new TestGenerator($instances, $app->make(PathResolver::class));
+            return new InMemoryProblemGenerator($instances);
+        });
+
+        // Доменный сценарий генерации (валидация difficulty + нормализация пути).
+        $this->app->singleton(GenerateProblemService::class, function ($app): GenerateProblemService {
+            return new GenerateProblemService($app->make(ProblemGeneratorInterface::class));
         });
 
         $this->app->singleton(TestResolverMap::class, function ($app): TestResolverMap {

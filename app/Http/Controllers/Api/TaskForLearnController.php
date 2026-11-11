@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Domain\Blocks\TestGenerator\Resolvers\TestResolverMap;
-use App\Domain\Blocks\TestGenerator\TestGenerator;
+use App\Infrastructure\Blocks\TestGenerator\Resolvers\TestResolverMap;
+use App\Domain\Blocks\TestGenerator\Ports\ProblemGeneratorInterface;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MathProblemResource;
 use App\Models\Taxonomy;
@@ -49,7 +49,7 @@ final class TaskForLearnController extends Controller
 
     public function __invoke(
         Request $request,
-        TestGenerator $testGenerator,
+        ProblemGeneratorInterface $testGenerator,
         TestResolverMap $resolverMap,
     ): JsonResponse {
         $validated = $request->validate([

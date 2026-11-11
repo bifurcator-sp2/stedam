@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\TestGenerator;
 
-use App\Domain\Blocks\TestGenerator\Discovery\GeneratorDiscovery;
+use App\Infrastructure\Blocks\TestGenerator\Discovery\GeneratorDiscovery;
 use App\Domain\Blocks\TestGenerator\DTO\MathProblem;
 use App\Domain\Blocks\TestGenerator\Random\Seed;
-use App\Domain\Blocks\TestGenerator\Support\PathResolver;
+use App\Infrastructure\Blocks\TestGenerator\Support\PathResolver;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionMethod;
@@ -52,11 +52,11 @@ final class GeneratorSmokeTest extends TestCase
         // Строим GeneratorDiscovery напрямую из корня проекта.
         try {
             $app = require dirname(__DIR__, 3) . '/bootstrap/app.php';
-            $basePath = $app->path('Domain/Blocks/TestGenerator/Generators');
+            $basePath = $app->path('Infrastructure/Blocks/TestGenerator/Generators');
 
             $discovery = new GeneratorDiscovery(
                 basePath: $basePath,
-                baseNamespace: 'App\\Domain\\Blocks\\TestGenerator\\Generators',
+                baseNamespace: 'App\\Infrastructure\\Blocks\\TestGenerator\\Generators',
             );
 
             // discover() кэширует результат через cache() — в статическом
@@ -82,7 +82,7 @@ final class GeneratorSmokeTest extends TestCase
     {
         $this->assertTrue(class_exists($class), "Класс генератора не найден: $class");
 
-        $generator = app($class);
+        $generator = app($class)->withPath($path);
         $seed = Seed::fromInt(crc32($class . ':' . $difficulty));
 
         $problem = $generator->generate($difficulty, $seed);
@@ -105,11 +105,11 @@ final class GeneratorSmokeTest extends TestCase
     #[Test]
     public function same_seed_gives_same_problem(): void
     {
-        $map = app(PathResolver::class)->all();
+        $map = app(GeneratorDiscovery::class)->discover();
         $this->assertNotEmpty($map, 'Не найдено ни одного генератора');
 
         foreach ($map as $path => $class) {
-            $generator = app($class);
+            $generator = app($class)->withPath($path);
 
             // Один и тот же int-сид → один и тот же Randomizer → одно задание.
             // Передаём свежий Seed::fromInt() на каждый вызов: сам Randomizer
@@ -126,9 +126,11 @@ final class GeneratorSmokeTest extends TestCase
     #[Test]
     public function path_resolver_round_trip(): void
     {
-        foreach (app(PathResolver::class)->all() as $path => $class) {
-            $this->assertSame($class, app(PathResolver::class)->find($path));
-            $this->assertSame($path, app(PathResolver::class)->pathFor($class));
+        $resolver = app(PathResolver::class);
+
+        foreach ($resolver->all() as $path => $class) {
+            $this->assertSame($class, $resolver->find($path));
+            $this->assertSame($path, $resolver->pathFor($class));
         }
     }
 

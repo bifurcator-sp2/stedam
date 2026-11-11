@@ -1083,7 +1083,7 @@ class SettingsNormalizer
                     : $lesson->taxonomies()->value('taxonomies.id');
 
                 if ($taxonomyId) {
-                    $resolverMap = app(\App\Domain\Blocks\TestGenerator\Resolvers\TestResolverMap::class);
+                    $resolverMap = app(\App\Infrastructure\Blocks\TestGenerator\Resolvers\TestResolverMap::class);
                     $node = \App\Models\Taxonomy::query()->find($taxonomyId);
                     $guard = 0;
 
@@ -1114,7 +1114,7 @@ class SettingsNormalizer
             return $settings;
         }
 
-        $testGenerator = app(\App\Domain\Blocks\TestGenerator\TestGenerator::class);
+        $testGenerator = app(\App\Domain\Blocks\TestGenerator\Ports\ProblemGeneratorInterface::class);
 
         // 2. Берем сложность ТОЛЬКО из свойства блока
         $difficulty = (float) ($lessonBlock->complexity ?? 0.5);
@@ -1130,7 +1130,7 @@ class SettingsNormalizer
      */
     protected static function fillProcNodes(
         array                                          &$nodes,
-        \App\Domain\Blocks\TestGenerator\TestGenerator $testGenerator,
+        \App\Domain\Blocks\TestGenerator\Ports\ProblemGeneratorInterface $testGenerator,
         string                                         $topic,
         float                                          $difficulty
     ): void {
