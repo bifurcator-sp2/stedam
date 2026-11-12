@@ -48,7 +48,7 @@ final readonly class CreateTaskAction
             $data->taxonomyIds,
         );
 
-        $settings = $this->blocks->extractPublicDefaults(
+        $settings = $this->blocks->extractInstanceSettings(
             $data->settings,
             (array) $prototype['settings'],
         );

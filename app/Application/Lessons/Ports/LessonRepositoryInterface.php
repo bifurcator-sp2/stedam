@@ -62,4 +62,24 @@ interface LessonRepositoryInterface
      * @return list<int>
      */
     public function pluckUserOwnedLessonIds(UserId $userId, array $lessonIds): array;
+
+    // ===== Dev-/seeding-операции =====
+    //
+    // Используются консольными командами пересборки домена
+    // (SeedLessonsDomainCommand и т.п.). Это не часть публичного
+    // HTTP-API, но и не «сырой SQL»: действия остаются в доменном
+    // словаре (LessonId) и проходят через репозиторий.
+
+    /**
+     * Все id уроков в БД (включая soft-deleted). Для массового reseed.
+     *
+     * @return list<int>
+     */
+    public function pluckAllIds(): array;
+
+    /**
+     * Удалить урок по id вместе с собственными блоками и привязками.
+     * Отсутствие урока — не ошибка (idempotent delete).
+     */
+    public function delete(LessonId $id): void;
 }

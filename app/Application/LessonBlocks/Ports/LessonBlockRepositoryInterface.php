@@ -54,8 +54,11 @@ interface LessonBlockRepositoryInterface
     /**
      * Привязать задание к уроку на позицию order.
      * Если позиция уже занята — сдвигает всё, что >= order, на +1.
+     *
+     * @return bool true — привязано; false — задание отсутствует (устаревший id)
+     *              и привязка пропущена (FK-violation предотвращён).
      */
-    public function attachToLesson(LessonBlockId $taskId, LessonId $lessonId, int $order): void;
+    public function attachToLesson(LessonBlockId $taskId, LessonId $lessonId, int $order): bool;
 
     /**
      * Заменить весь набор привязанных заданий у урока.
@@ -116,6 +119,18 @@ interface LessonBlockRepositoryInterface
     public function extractPublicDefaults(array $settings, array $schema): array;
 
     /**
+     * Полная компактная форма настроек экземпляра блока (без потери узлов).
+     * Сохраняет ВСЕ узлы схемы (в т.ч. непубличные варианты block1/block2),
+     * оставляя только key/public/default/children. Используется для ХРАНЕНИЯ
+     * и для ОТДАЧИ экземпляра блока (см. SettingsNormalizer::extractInstanceSettings).
+     *
+     * @param array<string, mixed> $settings
+     * @param array<string, mixed> $schema
+     * @return array<string, mixed>
+     */
+    public function extractInstanceSettings(array $settings, array $schema): array;
+
+    /**
      * Синхронизировать FileSet'ы модели с настройками.
      * Заменяет прямую работу с SettingsNormalizer::syncFileSetsFromSettings.
      *
@@ -167,4 +182,26 @@ interface LessonBlockRepositoryInterface
      * Используется ли задание хоть в одном уроке?
      */
     public function isTaskUsedInLessons(LessonBlockId $taskId): bool;
+
+    // ===== Dev-/seeding-операции =====
+
+    /**
+     * id-шники прототипов Block по категории (шаблоны для создания блоков/заданий).
+     * $isTest / $isProc — фильтры; null = «любое значение».
+     *
+     * @return list<int>
+     */
+    public function pluckBlockPrototypeIds(?bool $isTest, ?bool $isProc): array;
+
+    /**
+     * id-шники «листьев» таксономий (узлов без живых детей), в порядке id.
+     *
+     * @return list<int>
+     */
+    public function pluckLeafTaxonomyIds(): array;
+
+    /**
+     * true, если у листа таксономии задан test_resolver.
+     */
+    public function taxonomyHasResolver(int $taxonomyId): bool;
 }

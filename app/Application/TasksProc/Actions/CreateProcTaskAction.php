@@ -46,7 +46,7 @@ final readonly class CreateProcTaskAction
             );
         }
 
-        $settings = $this->blocks->extractPublicDefaults(
+        $settings = $this->blocks->extractInstanceSettings(
             $data->settings,
             (array) $prototype['settings'],
         );

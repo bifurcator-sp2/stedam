@@ -1,62 +1,66 @@
 <?php
-// app/Console/Commands/SeedTasksCommand.php
+
+declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Http\Controllers\Api\TestsController;
-use App\Models\Block;
-use App\Models\User;
+use App\Application\LessonBlocks\Ports\LessonBlockRepositoryInterface;
+use App\Application\Tasks\Actions\CreateTaskAction;
+use App\Application\Tasks\DTOs\CreateTaskData;
+use App\Application\Tasks\Ports\TaskRepositoryInterface;
+use App\Domain\Lessons\ValueObjects\UserId;
 use Illuminate\Console\Command;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Сеялка обычных (не процедурных) заданий.
  *
- * Задание — это LessonBlock с lesson_id = NULL и is_proc = false,
- * привязанный к таксономии-листу через lesson_block_taxonomy.
- * Такие же задания использует SeedLotrLessonsCommand (пул
- * loadCommonTestsByLeaf) при генерации уроков.
+ * РЕАЛИЗАЦИЯ НА ДОМЕНЕ (DDD):
+ *   — создание — через CreateTaskAction (валидация прототипа, нормализация
+ *     settings, привязка таксономий, file-sets — всё инкапсулировано);
+ *   — выбор прототипов Block, листьев таксономий — через
+ *     LessonBlockRepositoryInterface (read-side порт).
  *
- * Механика: для каждого задания
- *   1. случайный пользователь из БД;
- *   2. случайный Block (published = true, is_test = true, is_proc = false);
- *   3. случайный лист таксономии;
- *   4. complexity = random 0.0 … 1.0;
- *   5. POST в TestsController::store() с синтетическим Request,
- *      у которого userResolver возвращает выбранного пользователя.
- *
- * settings в запрос НЕ передаются: store() прогонит пустой settings через
- * SettingsNormalizer::extractPublicDefaults() и подставит default-значения
- * из схемы самого блока.
- *
- * Запуск:
- *   ./vendor/bin/sail artisan tests:seed-tasks
- *   ./vendor/bin/sail artisan tests:seed-tasks --count=25
- *   ./vendor/bin/sail artisan tests:seed-tasks --count=10 --complexity-min=0.2 --complexity-max=0.8
+ * Никакого вызова HTTP-контроллера: сеялка работает с Application-слоем
+ * напрямую (Actions) — так же, как это сделал бы контроллер, но без
+ * сериализации Request/Response.
  */
-class SeedTasksCommand extends Command
+final class SeedTasksCommand extends Command
 {
     protected $signature = 'tests:seed-tasks
         {--count=10 : Сколько обычных заданий создать}
         {--complexity-min=0 : Минимальная complexity (0.0)}
         {--complexity-max=1 : Максимальная complexity (1.0)}
         {--template= : Явный code блока (если не задан — случайный published is_test not is_proc)}
+        {--chunk=100 : Батч-транзакции: один commit на N заданий (больше = быстрее)}
+        {--purge : Удалить все существующие обычные задания перед созданием (force)}
         {--force : Не спрашивать подтверждения}';
 
-    protected $description = 'Создаёт n обычных (не процедурных) заданий через TestsController::store()';
+    protected $description = 'Создаёт n обычных (не процедурных) заданий через домен CreateTaskAction';
+
+    public function __construct(
+        private readonly LessonBlockRepositoryInterface $blocks,
+        private readonly CreateTaskAction $createTask,
+        private readonly TaskRepositoryInterface $tasks,
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
-        $count     = (int) $this->option('count');
-        $minC      = (float) $this->option('complexity-min');
-        $maxC      = (float) $this->option('complexity-max');
-        $template  = $this->option('template') ? (string) $this->option('template') : null;
+        $count    = (int) $this->option('count');
+        $minC     = (float) $this->option('complexity-min');
+        $maxC     = (float) $this->option('complexity-max');
+        $template = $this->option('template') ? (string) $this->option('template') : null;
+        $chunk    = (int) $this->option('chunk');
 
         if ($count < 1) {
             $this->error('--count должен быть >= 1.');
+            return self::FAILURE;
+        }
+
+        if ($chunk < 1) {
+            $this->error('--chunk должен быть >= 1.');
             return self::FAILURE;
         }
 
@@ -65,35 +69,28 @@ class SeedTasksCommand extends Command
             return self::FAILURE;
         }
 
-        // --- Пул пользователей: все учителя + 1, 3 ---
         $userIds = $this->resolveOwnerIds();
-        if (empty($userIds)) {
-            $this->error('В таблице users нет пользователей.');
+        if ($userIds === []) {
+            $this->error('В таблице users нет подходящих пользователей (teacher / #1 / #3).');
             return self::FAILURE;
         }
 
-        // --- Пул шаблонов Block ---
-        $blockQuery = Block::query()
-            ->where('published', true)
-            ->where('is_test', true)
-            ->where('is_proc', false);
-
-        if ($template !== null) {
-            $blockQuery->where('code', $template);
-        }
-
-        $blockIds = $blockQuery->pluck('id')->all();
-        if (empty($blockIds)) {
+        $blockIds = $this->resolveBlockPrototypeIds($template);
+        if ($blockIds === []) {
             $this->error('Нет подходящих Block (published && is_test && !is_proc).'
                 . ($template ? " Фильтр по code=\"{$template}\" не дал результатов." : ''));
             return self::FAILURE;
         }
 
-        // --- Пул листьев таксономий ---
-        $leafIds = $this->leafTaxonomyIds();
-        if (empty($leafIds)) {
+        $leafIds = $this->blocks->pluckLeafTaxonomyIds();
+        if ($leafIds === []) {
             $this->error('Нет листьев таксономий (узлов без живых детей).');
             return self::FAILURE;
+        }
+
+        if ($this->option('purge')) {
+            $purged = $this->tasks->deleteAll();
+            $this->info(sprintf('Удалено обычных заданий (force): %d.', $purged));
         }
 
         if (!$this->option('force') && !$this->confirm(
@@ -103,42 +100,150 @@ class SeedTasksCommand extends Command
                 count($userIds),
                 count($blockIds),
                 count($leafIds),
-            )
+            ),
         )) {
             return self::SUCCESS;
         }
 
         $bar = $this->output->createProgressBar($count);
+        $bar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s% %memory:6s%');
         $bar->start();
 
-        $created = 0;
-        $failed  = 0;
-        $errors  = [];
+        $created   = 0;
+        $failed    = 0;
+        $errors    = [];
 
-        for ($i = 0; $i < $count; $i++) {
-            $userId  = $userIds[array_rand($userIds)];
-            $blockId = $blockIds[array_rand($blockIds)];
-            $leafId  = $leafIds[array_rand($leafIds)];
-            $complexity = $this->randomComplexity($minC, $maxC);
+        // Батч-транзакции: группируем создание заданий в одну транзакцию на
+        // каждые $chunk штук — снижает overhead коммитов. Вложенные
+        // DB::transaction внутри CreateTaskAction становятся savepoints.
+        $inChunk     = 0;
+        $chunkOpen   = true;
+        $chunksDone  = 0;
+        $runStart    = microtime(true);
+        $lastChunkAt = $runStart;
 
-            $ok = $this->createTaskViaController($userId, $blockId, $leafId, $complexity, $error);
+        DB::beginTransaction();
 
-            if ($ok) {
-                $created++;
-            } else {
-                $failed++;
-                $errors[] = $error;
+        try {
+            for ($i = 0; $i < $count; $i++) {
+                $userId = $userIds[array_rand($userIds)];
+                $actor  = new UserId($userId);
+
+                $data = new CreateTaskData(
+                    blockId: $blockIds[array_rand($blockIds)],
+                    taxonomyIds: [$leafIds[array_rand($leafIds)]],
+                    settings: [],
+                    complexity: $this->randomComplexity($minC, $maxC),
+                );
+
+                try {
+                    $task = ($this->createTask)($actor, $data, false);
+
+                    if ($task->id() !== null) {
+                        $created++;
+                    } else {
+                        $failed++;
+                        $errors[] = 'Action вернул Task без id';
+                    }
+                } catch (\Throwable $e) {
+                    $failed++;
+                    $errors[] = 'block #' . $data->blockId . ': ' . \Illuminate\Support\Str::limit($e->getMessage(), 200);
+                }
+
+                $inChunk++;
+                $bar->advance();
+
+                if ($inChunk >= $chunk) {
+                    DB::commit();
+                    $chunkOpen = false;
+                    $chunksDone++;
+                    $committed = $inChunk;
+                    $inChunk   = 0;
+
+                    $now         = microtime(true);
+                    $chunkSec    = max($now - $lastChunkAt, 0.0001);
+                    $lastChunkAt = $now;
+                    $elapsed     = $now - $runStart;
+                    $rate        = ($created + $failed) > 0 ? ($created + $failed) / max($elapsed, 0.0001) : 0.0;
+                    $remain      = max($count - ($created + $failed), 0);
+                    $etaSec      = $rate > 0 ? (int) round($remain / $rate) : 0;
+
+                    $bar->clear();
+                    $this->line(sprintf(
+                        '  чанк #%d: +%d заданий | всего %d/%d (ok %d, err %d) | чанк %.1fs | %.1f шт/с | прошло %s | осталось ~%s',
+                        $chunksDone,
+                        $committed,
+                        $created + $failed,
+                        $count,
+                        $created,
+                        $failed,
+                        $chunkSec,
+                        $rate,
+                        $this->humanDuration((int) $elapsed),
+                        $this->humanDuration($etaSec),
+                    ));
+                    $bar->display();
+
+                    if (($created + $failed) < $count) {
+                        DB::beginTransaction();
+                        $chunkOpen = true;
+                    }
+                }
             }
 
-            $bar->advance();
+            // Фиксируем остаток (если транзакция ещё открыта).
+            if ($chunkOpen) {
+                DB::commit();
+                $chunkOpen = false;
+
+                if ($inChunk > 0) {
+                    $chunksDone++;
+                    $bar->clear();
+                    $this->line(sprintf(
+                        '  чанк #%d (последний): +%d заданий | всего %d/%d (ok %d, err %d)',
+                        $chunksDone,
+                        $inChunk,
+                        $created + $failed,
+                        $count,
+                        $created,
+                        $failed,
+                    ));
+                    $bar->display();
+                }
+            }
+        } catch (\Throwable $e) {
+            // Откатываем только текущий незакоммиченный чанк.
+            if ($chunkOpen) {
+                DB::rollBack();
+                $chunkOpen = false;
+            }
+
+            $bar->finish();
+            $this->newLine(2);
+            $this->error(sprintf(
+                'Критическая ошибка (закоммичено чанков: %d, заданий: %d): %s',
+                $chunksDone,
+                $created,
+                $e->getMessage(),
+            ));
+
+            return self::FAILURE;
         }
 
         $bar->finish();
         $this->newLine(2);
 
-        $this->info(sprintf('Создано: %d, ошибок: %d.', $created, $failed));
+        $totalSec = (int) round(microtime(true) - $runStart);
 
-        if (!empty($errors)) {
+        $this->info(sprintf(
+            'Создано: %d, ошибок: %d (чанков: %d, время: %s).',
+            $created,
+            $failed,
+            $chunksDone,
+            $this->humanDuration($totalSec),
+        ));
+
+        if ($errors !== []) {
             $this->newLine();
             $this->warn('Ошибки (первые 10):');
             foreach (array_slice($errors, 0, 10) as $e) {
@@ -151,27 +256,22 @@ class SeedTasksCommand extends Command
 
     /**
      * Пул владельцев: все пользователи с ролью teacher (Spatie) + 1, 3.
-     * Дубликаты убираются.
      *
-     * @return array<int, int>
+     * @return list<int>
      */
-    protected function resolveOwnerIds(): array
+    private function resolveOwnerIds(): array
     {
         return array_values(array_unique(array_merge([1, 3], $this->teacherIds())));
     }
 
     /**
-     * ID пользователей с ролью teacher. Фильтр по morph-алиасу берём
-     * из самой модели User — так запрос не ломается, если в проекте
-     * включат Relation::enforceMorphMap().
-     *
      * @return array<int, int>
      */
     private function teacherIds(): array
     {
-        $model = new User();
-        $morphKey = $model->getMorphClass();
-        $roleTable = config('permission.table_names.roles', 'roles');
+        $model      = new \App\Models\User();
+        $morphKey   = $model->getMorphClass();
+        $roleTable  = config('permission.table_names.roles', 'roles');
         $pivotTable = config('permission.table_names.model_has_roles', 'model_has_roles');
 
         return DB::table($pivotTable . ' as mhr')
@@ -184,91 +284,55 @@ class SeedTasksCommand extends Command
     }
 
     /**
-     * Один вызов TestsController::store() с синтетическим Request.
+     * Пул прототипов: published && is_test && !is_proc.
+     * Порт pluckBlockPrototypeIds не фильтрует по published — добавляем
+     * фильтр по фактическому использованию: берём те, что уже опубликованы.
+     * Так как write-side не знает «published», читаем через тонкий запрос
+     * только ради фильтра — это read-side dev-операция.
      *
-     * @return bool true, если задание создано (HTTP 201)
+     * @return list<int>
      */
-    protected function createTaskViaController(
-        int $userId,
-        int $blockId,
-        int $leafId,
-        float $complexity,
-        ?string &$error = null,
-    ): bool {
-        $user = User::find($userId);
-        if ($user === null) {
-            $error = "Пользователь #{$userId} не найден";
-            return false;
-        }
-
-        $request = Request::create(
-            uri: '/api/tests',
-            method: 'POST',
-            parameters: [
-                'block_id'     => $blockId,
-                'taxonomy_ids' => [$leafId],
-                'complexity'   => $complexity,
-                'is_proc'      => false,
-                'is_test'      => true,
-            ],
-        );
-
-        // Подсовываем userResolver — контроллер берёт $request->user().
-        $request->setUserResolver(static fn () => $user);
-
-        try {
-            $response = app(TestsController::class)->store($request);
-        } catch (ValidationException $e) {
-            $msg = collect($e->errors())->flatten()->first() ?: $e->getMessage();
-            $error = "block #{$blockId} / tax #{$leafId}: validation: {$msg}";
-            return false;
-        } catch (\Throwable $e) {
-            $error = "block #{$blockId} / tax #{$leafId}: " . Str::limit($e->getMessage(), 200);
-            return false;
-        }
-
-        if ($response->getStatusCode() !== 201) {
-            $error = "block #{$blockId} / tax #{$leafId}: HTTP {$response->getStatusCode()} "
-                . Str::limit((string) $response->getContent(), 200);
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Листья таксономий (без живых детей). Владелец не важен.
-     *
-     * @return array<int, int>
-     */
-    protected function leafTaxonomyIds(): array
+    private function resolveBlockPrototypeIds(?string $template): array
     {
-        return DB::table('taxonomies')
-            ->whereNull('deleted_at')
-            ->whereNotExists(function ($q) {
-                $q->select(DB::raw(1))
-                    ->from('taxonomies as t_child')
-                    ->whereColumn('t_child.parent_id', 'taxonomies.id')
-                    ->whereNull('t_child.deleted_at');
-            })
-            ->orderBy('id')
+        $query = DB::table('blocks')
+            ->where('published', true)
+            ->where('is_test', true)
+            ->where('is_proc', false);
+
+        if ($template !== null) {
+            $query->where('code', $template);
+        }
+
+        return $query->orderBy('id')
             ->pluck('id')
-            ->map(static fn ($id) => (int) $id)
+            ->map(static fn ($v): int => (int) $v)
             ->all();
     }
 
     /**
-     * Случайная complexity в [min, max], округлённая до 4 знаков.
+     * Человекочитаемая длительность: 45s, 3m12s, 1h05m.
      */
-    protected function randomComplexity(float $min, float $max): float
+    private function humanDuration(int $seconds): string
+    {
+        if ($seconds < 60) {
+            return $seconds . 's';
+        }
+
+        if ($seconds < 3600) {
+            return sprintf('%dm%02ds', intdiv($seconds, 60), $seconds % 60);
+        }
+
+        return sprintf('%dh%02dm', intdiv($seconds, 3600), intdiv($seconds % 3600, 60));
+    }
+
+    private function randomComplexity(float $min, float $max): float
     {
         if ($min >= $max) {
             return round($min, 4);
         }
 
-        // random_int даёт равномерное распределение в целых — масштабируем.
         $steps = 10000;
-        $r = random_int(0, $steps) / $steps;
+        $r     = random_int(0, $steps) / $steps;
 
         return round($min + ($max - $min) * $r, 4);
     }

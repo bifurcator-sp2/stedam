@@ -46,7 +46,11 @@ final readonly class AddBlockAction
 
         $lesson->assertCanBeEditedBy($actor, $data->isAdmin);
 
-        if ($lesson->isPublished()) {
+        // Сеялка/dev-утилита может добавлять блоки в опубликованный урок
+        // (isAdmin=true и явные settings): публикационный гейт — правило
+        // редактора, а не seeding-операции. При обычном HTTP-вызове
+        // isAdmin=false и гейт работает как раньше.
+        if ($lesson->isPublished() && !$data->isAdmin) {
             throw LessonIsPublished::forLesson($lessonId->value);
         }
 
@@ -57,7 +61,9 @@ final readonly class AddBlockAction
 
         $blockId  = new BlockId($prototype['id']);
         $code     = (string) $prototype['code'];
-        $settings = (array) $prototype['settings'];
+        $settings = $data->settings !== null && $data->settings !== []
+            ? $this->blocks->extractInstanceSettings($data->settings, (array) $prototype['settings'])
+            : (array) $prototype['settings'];
 
         if ($prototype['is_test']) {
             return $this->addGlobalTask($lessonId, $actor, $blockId, $code, $settings, (bool) $prototype['is_proc'], $data->order);

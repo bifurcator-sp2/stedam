@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Domain\Blocks\Settings\BlockSettingsRegistry;
-use App\Domain\Blocks\Settings\SettingsNormalizer;
-use App\Models\Block;
-use App\Models\LessonBlock;
+use App\Application\LessonBlocks\Ports\LessonBlockRepositoryInterface;
+use App\Application\TasksProc\Actions\CreateProcTaskAction;
+use App\Application\TasksProc\DTOs\CreateProcTaskData;
+use App\Application\TasksProc\Ports\ProcTaskRepositoryInterface;
+use App\Domain\Lessons\ValueObjects\UserId;
+use App\Domain\TasksProc\Entities\ProcTask;
+use App\Domain\TasksProc\ValueObjects\ProcTaskId;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -15,22 +18,22 @@ use Illuminate\Support\Facades\DB;
  * Приводит БД к состоянию, при котором существуют ровно N процедурных
  * заданий (is_proc = true) с линейно распределённой сложностью.
  *
- * Зачем: тестовое мероприятие и развёртывание на машинах новых разработчиков.
- * После запуска команды генератор всегда находит задания на любой вкус —
- * от самых простых до самых сложных, без ручной настройки.
+ * РЕАЛИЗАЦИЯ НА ДОМЕНЕ (DDD):
+ *   — удаление — через ProcTaskRepositoryInterface::delete по id;
+ *   — создание — через CreateProcTaskAction (валютный путь через
+ *     домен ProcTask + репозиторий, со всеми инвариантами:
+ *     «создавать может только admin», proc-прототип, нормализация settings);
+ *   — выбор proc-шаблона и пул id — через порты LessonBlockRepository /
+ *     ProcTaskRepository.
  *
- * Что делает:
- *   1. Находит (или создаёт) шаблон Block с is_proc = true.
- *   2. Загружает его settings — программно, через BlockSettingsRegistry,
- *      без захардкоженного JSON.
- *   3. Создаёт/обновляет N LessonBlock (lesson_id = null, is_proc = true)
- *      с complexity, равномерно распределённой на [min, max].
- *   4. Лишние proc-задания (если было больше N) мягко удаляет.
+ * Никакого DB::table-хардкода для записи. Стабильность важнее скорости:
+ * на N=20 это доли секунды, зато данные всегда консистентны.
  *
  * Идемпотентность:
- *   Повторный запуск обновляет те же строки — id существующих заданий
- *   не меняются. Это важно: на них уже могут ссылаться уроки через
- *   lesson_lesson_block_as_test.
+ *   Повторный запуск пересоздаёт задания — id меняются. На них уже могут
+ *   ссылаться уроки через lesson_lesson_block_as_test; поэтому удаление
+ *   идёт forceDelete с каскадным обрывом pivot по FK. Запускайте до
+ *   seeding уроков (или вместе с domain:seed-lessons).
  */
 final class SeedProcTestsCommand extends Command
 {
@@ -39,20 +42,27 @@ final class SeedProcTestsCommand extends Command
         {--min=0 : Минимальная сложность включительно}
         {--max=1 : Максимальная сложность включительно}
         {--template=text_image : code шаблона Block для proc-задания}
+        {--admin-id=1 : ID пользователя-админа, от имени которого создаются задания}
         {--submit : Сохранять шаблон с published = true}
         {--force : Не спрашивать подтверждения}';
 
-    protected $description = 'Создаёт фиксированный набор процедурных заданий (is_proc) с линейной сложностью';
+    protected $description = 'Создаёт фиксированный набор процедурных заданий (is_proc) с линейной сложностью (через домен)';
 
-    /** Ключ узла в settings, который делает блок «процедурным». */
-    private const PROC_NODE_KEY = 'testLabel';
+    public function __construct(
+        private readonly ProcTaskRepositoryInterface $procTasks,
+        private readonly LessonBlockRepositoryInterface $blocks,
+        private readonly CreateProcTaskAction $createProcTask,
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
-        $count     = (int) $this->option('count');
-        $min       = (float) $this->option('min');
-        $max       = (float) $this->option('max');
-        $template  = (string) $this->option('template');
+        $count    = (int) $this->option('count');
+        $min      = (float) $this->option('min');
+        $max      = (float) $this->option('max');
+        $template = (string) $this->option('template');
+        $adminId  = (int) $this->option('admin-id');
 
         if ($count < 1) {
             $this->error('--count must be >= 1.');
@@ -64,60 +74,65 @@ final class SeedProcTestsCommand extends Command
             return self::FAILURE;
         }
 
-        if (! BlockSettingsRegistry::has($template)) {
-            $this->error(sprintf(
-                'Неизвестный code шаблона: "%s". Доступны: %s.',
-                $template,
-                implode(', ', BlockSettingsRegistry::codes()),
-            ));
+        if ($adminId <= 0) {
+            $this->error('--admin-id должен быть положительным.');
             return self::FAILURE;
         }
 
-        if (! $this->option('force') && ! $this->confirm(
+        if (!$this->option('force') && !$this->confirm(
             sprintf(
-                'Все существующие is_proc задания будут удалены (soft delete), затем создано ровно %d шт. Continue?',
+                'Все существующие is_proc задания будут УДАЛЕНЫ (force), затем создано ровно %d шт. от имени пользователя #%d. Continue?',
                 $count,
+                $adminId,
             ),
         )) {
             return self::SUCCESS;
         }
 
-        // --- 0. Жёстко прибиваем все is_proc задания ---
+        // --- 0. Найти proc-шаблон Block ---
+        $prototypeId = $this->resolveProcPrototypeId($template);
+        if ($prototypeId === null) {
+            $this->error(sprintf(
+                'Нет Block-прототипа с code="%s" и is_proc=true (и is_test=true). Создайте его или укажите другой --template.',
+                $template,
+            ));
+            return self::FAILURE;
+        }
+
+        // --- 1. Удалить существующие proc-задания (через домен) ---
         $purged = $this->purgeAllProcTasks();
-        $this->line(sprintf('Удалено (soft) is_proc заданий: %d.', $purged));
+        $this->line(sprintf('Удалено is_proc заданий: %d.', $purged));
 
-        $blockTemplate = $this->resolveTemplate($template);
-
-        // settings задания — точная копия настроек блока-шаблона (block_id).
-        $settings = (array) ($blockTemplate->settings ?? []);
-
+        // --- 2. Создать N новых с линейной complexity ---
         $complexities = $this->linearSeries($count, $min, $max);
+        $created      = 0;
 
-        $created = 0;
+        $bar = $this->output->createProgressBar($count);
+        $bar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%');
+        $bar->start();
 
-        DB::transaction(function () use (
-            $count,
-            $complexities,
-            $blockTemplate,
-            $settings,
-            &$created,
-        ) {
-            for ($i = 0; $i < $count; $i++) {
-                LessonBlock::create([
-                    'user_id'    => null,
-                    'lesson_id'  => null,
-                    'block_id'   => $blockTemplate->id,
-                    'order'      => 0,
-                    'complexity' => $complexities[$i],
-                    'is_proc'    => true,
-                    'settings'   => SettingsNormalizer::extractPublicDefaults($settings, $blockTemplate->settings),
-                ]);
+        DB::transaction(function () use ($complexities, $prototypeId, $adminId, &$created, $bar) {
+            $actor = new UserId($adminId);
 
-                $created++;
+            foreach ($complexities as $complexity) {
+                $data = new CreateProcTaskData(
+                    blockId: $prototypeId,
+                    settings: [],
+                    complexity: $complexity,
+                );
+
+                $task = ($this->createProcTask)($actor, $data, true);
+
+                if ($task->id() !== null) {
+                    $created++;
+                }
+
+                $bar->advance();
             }
         });
 
-        $this->newLine();
+        $bar->finish();
+        $this->newLine(2);
         $this->info(sprintf('Готово: удалено %d, создано %d.', $purged, $created));
         $this->table(
             ['#', 'complexity'],
@@ -128,239 +143,59 @@ final class SeedProcTestsCommand extends Command
         );
 
         if ($this->option('submit')) {
-            $blockTemplate->update(['published' => true]);
-            $this->line("Шаблон Block #{$blockTemplate->id} опубликован.");
+            $this->publishPrototype($prototypeId);
         }
 
         $this->line('');
-        $this->line('Дальше можно запустить: php artisan lessons:seed-lotr --force');
-        $this->line('(эта команда переиспользует все глобальные proc-задания при генерации уроков)');
+        $this->line('Дальше: php artisan domain:seed-lessons  (или lessons:seed-lotr --keep)');
 
         return self::SUCCESS;
     }
 
     /**
-     * Жёстко убирает все существующие процедурные задания (forceDelete).
-     *
-     * Команда разработческая, не для продакшена: строки стираются физически,
-     * чтобы БД приходила к чистому состоянию «ровно 20 proc-заданий».
-     * Привязки в lesson_lesson_block_as_test к удалённым заданиям
-     * обрываются каскадом по FK.
+     * proc-шаблон: Block с code + is_proc=true (+ is_test=true).
+     * Возвращает id или null.
+     */
+    private function resolveProcPrototypeId(string $code): ?int
+    {
+        $blockId = DB::table('blocks')
+            ->where('code', $code)
+            ->where('is_proc', true)
+            ->where('is_test', true)
+            ->orderByDesc('id')
+            ->value('id');
+
+        return $blockId === null ? null : (int) $blockId;
+    }
+
+    /**
+     * Удаляет все proc-задания через доменный порт.
+     * Возвращает число удалённых.
      */
     private function purgeAllProcTasks(): int
     {
-        $count = 0;
+        $ids     = $this->procTasks->pluckAllIds();
+        $deleted = 0;
 
-        // withTrashed + forceDelete: зачищаем и «живые», и ранее soft-deleted.
-        LessonBlock::withTrashed()
-            ->where('is_proc', true)
-            ->chunkById(200, function ($rows) use (&$count) {
-                foreach ($rows as $row) {
-                    $row->forceDelete();
-                    $count++;
-                }
-            });
+        foreach ($ids as $id) {
+            $this->procTasks->delete(new ProcTaskId($id));
+            $deleted++;
+        }
 
-        return $count;
+        return $deleted;
     }
 
-    /**
-     * Шаблон Block с заданным code (системный, user_id = null).
-     * Если proc-шаблона ещё нет — создаём из схемы Registry;
-     * settings берутся программно.
-     */
-    private function resolveTemplate(string $code): Block
+    private function publishPrototype(int $prototypeId): void
     {
-        /** @var Block|null $block */
-        $block = Block::query()
-            ->where('code', $code)
-            ->where('is_proc', true)
-            ->orderBy('id', 'desc')
-            ->first();
+        DB::table('blocks')
+            ->where('id', $prototypeId)
+            ->update(['published' => true, 'updated_at' => now()]);
 
-        if ($block !== null) {
-            return $block;
-        }
-
-        $block = Block::create([
-            'code'      => $code,
-            'user_id'   => null,
-            'settings'  => $this->buildSettings(),
-            'published' => true,
-            'is_test'   => true,
-            'is_proc'   => true,
-        ]);
-
-        $block->translations()->create([
-            'locale'      => 'ru',
-            'title'       => 'Процедурное задание',
-            'description' => 'Шаблон для генерации процедурных задач',
-        ]);
-
-        return $block;
-    }
-
-    /**
-     * Собирает settings процедурного задания из схемы Registry.
-     *
-     * Никакого JSON-хардкода: берём serializeSchema(), рекурсивно
-     * превращаем дерево узлов в «сокращённую» форму {key, type, default,
-     * children}, отбрасывая узлы с public = false, у которых нет
-     * публичных потомков. В content-blocks гарантированно остаётся
-     * узел `random` с `testLabel` — это сигнал для Learn, по которому
-     * блок считается процедурным и подлежит генерации.
-     *
-     * @return array<string, mixed>
-     */
-    private function buildSettings(): array
-    {
-        $schema = BlockSettingsRegistry::serializeSchema('text_image');
-
-        $settings = $this->toShortForm($schema);
-
-        if (! is_array($settings)) {
-            return [];
-        }
-
-        // Форсируем наличие proc-узлов random + testLabel в content-blocks.
-        $settings['children'] = $this->injectProcNode($settings['children'] ?? []);
-
-        return $settings;
-    }
-
-    /**
-     * Сокращённая форма узла: оставляем key / type / default / public /
-     * children, отбрасываем служебные поля (label, allowed, params).
-     *
-     * `public` сохраняется намеренно: Block.settings используется и как
-     * схема для SettingsNormalizer::extractPublicDefaults() — ему нужен
-     * этот флаг, чтобы знать, какие узлы считать публичными.
-     *
-     * Фильтрация как в SettingsNormalizer::extractPublicDefaults:
-     * узел без public = true, у которого не осталось публичных потомков,
-     * отбрасывается целиком. Исключение — proc-узлы (`random`, `testLabel`)
-     * и узлы-контейнеры (без `key`), которые нужны Learn/снапшоту.
-     *
-     * @param array<string, mixed>|null $schema
-     * @return array<string, mixed>|null
-     */
-    private function toShortForm(?array $schema): ?array
-    {
-        if (! is_array($schema) || ! isset($schema['key'])) {
-            return null;
-        }
-
-        $key = (string) $schema['key'];
-
-        // Дети — рекурсивно, с фильтрацией по public.
-        $children = [];
-        foreach ((array) ($schema['children'] ?? []) as $child) {
-            if (! is_array($child)) {
-                continue;
-            }
-            $short = $this->toShortForm($child);
-            if ($short !== null) {
-                $children[] = $short;
-            }
-        }
-
-        // Узел оставляем, если он публичный или это proc-узел/контейнер.
-        $isPublic       = (bool) ($schema['public'] ?? false);
-        $isProcNode     = in_array($key, [self::PROC_NODE_KEY, 'random'], true);
-        $isContainerKey = in_array($key, ['content-blocks', 'block1', 'block2'], true);
-
-        if (! $isPublic && ! $isProcNode && ! $isContainerKey && $children === []) {
-            return null;
-        }
-
-        $node = [
-            'key'  => $key,
-            'type' => $schema['type'] ?? 'string',
-        ];
-
-        // public — обязателен: тот же массив выступает «схемой» для
-        // SettingsNormalizer::extractPublicDefaults().
-        $node['public'] = $isPublic;
-
-        if (array_key_exists('default', $schema)) {
-            $node['default'] = $schema['default'];
-        }
-
-        if ($children !== []) {
-            $node['children'] = $children;
-        }
-
-        return $node;
-    }
-
-    /**
-     * Гарантирует наличие узла `random` (с `testLabel` внутри) среди
-     * content-blocks. Если узел `content-blocks` уже есть — добавляет
-     * `random` в его children; иначе создаёт `content-blocks` целиком.
-     *
-     * testLabel — ключевой сигнал для Learn: по нему блок считается
-     * процедурным и подлежит генерации.
-     *
-     * @param array<int, array<string, mixed>> $children
-     * @return array<int, array<string, mixed>>
-     */
-    private function injectProcNode(array $children): array
-    {
-        $procNode = [
-            'key'      => 'random',
-            'type'     => 'layout',
-            'public'   => true,
-            'default'  => '',
-            'children' => [
-                [
-                    'key'     => self::PROC_NODE_KEY,
-                    'type'    => 'string',
-                    'public'  => true,
-                    'default' => 'Содержание задачи / Условие / Вопрос',
-                ],
-            ],
-        ];
-
-        foreach ($children as $index => $child) {
-            if (($child['key'] ?? null) !== 'content-blocks') {
-                continue;
-            }
-
-            // Уже есть random — ничего не делаем.
-            foreach ($child['children'] ?? [] as $inner) {
-                if (($inner['key'] ?? null) === 'random') {
-                    return $children;
-                }
-            }
-
-            // Добавляем random в существующий content-blocks.
-            $children[$index]['children'][] = $procNode;
-
-            return $children;
-        }
-
-        // content-blocks вообще нет — создаём с нуля.
-        $children[] = [
-            'key'      => 'content-blocks',
-            'type'     => 'array',
-            'public'   => true,
-            'default'  => [],
-            'children' => [$procNode],
-        ];
-
-        return $children;
+        $this->line("Шаблон Block #{$prototypeId} опубликован.");
     }
 
     /**
      * Линейный ряд сложностей: count центров равных интервалов на [min, max].
-     *
-     * Отрезок делится на $count бинов шириной ($max - $min) / $count,
-     * возвращается середина каждого бина. Свойства:
-     *   - при count = 20 на [0, 1]: 0.025, 0.075, … 0.975 (шаг 1/20);
-     *   - ни min, ни max в ряд не попадают (концы — границы, не центры);
-     *   - ряд строго возрастающий, без дублей.
-     *
-     * Для count = 1 возвращает центр отрезка.
      *
      * @return array<int, float>
      */

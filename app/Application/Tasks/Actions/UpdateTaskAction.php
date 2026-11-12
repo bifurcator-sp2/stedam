@@ -41,7 +41,7 @@ final readonly class UpdateTaskAction
         } else {
             $proto  = $this->blocks->findBlockPrototype($task->blockId()->value);
             $schema = (array) ($proto['settings'] ?? []);
-            $settings = $this->blocks->extractPublicDefaults($settings, $schema);
+            $settings = $this->blocks->extractInstanceSettings($settings, $schema);
         }
 
         $taxonomyIds = null;

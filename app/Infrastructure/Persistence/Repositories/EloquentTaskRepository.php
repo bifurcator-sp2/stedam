@@ -188,4 +188,58 @@ final class EloquentTaskRepository implements TaskRepositoryInterface
 
         $model->taxonomies()->sync($ids);
     }
+
+    // ===== Dev-/seeding-операции =====
+
+    public function pluckAllIds(): array
+    {
+        return LessonBlockModel::query()
+            ->whereNull('lesson_id')
+            ->where('is_proc', false)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(static fn ($v): int => (int) $v)
+            ->all();
+    }
+
+    public function pluckIdsGroupedByTaxonomy(array $taxonomyIds): array
+    {
+        if ($taxonomyIds === []) {
+            return [];
+        }
+
+        $rows = DB::table('lesson_block_taxonomy as lbt')
+            ->join('lesson_blocks as lb', 'lb.id', '=', 'lbt.lesson_block_id')
+            ->whereNull('lb.lesson_id')
+            ->where('lb.is_proc', false)
+            ->whereNull('lb.deleted_at')
+            ->whereIn('lbt.taxonomy_id', $taxonomyIds)
+            ->orderBy('lb.id')
+            ->get(['lbt.taxonomy_id', 'lb.id']);
+
+        $grouped = [];
+        foreach ($rows as $row) {
+            $grouped[(int) $row->taxonomy_id][] = (int) $row->id;
+        }
+
+        return $grouped;
+    }
+
+    public function deleteAll(): int
+    {
+        $deleted = 0;
+
+        LessonBlockModel::query()
+            ->whereNull('lesson_id')
+            ->where('is_proc', false)
+            ->orderBy('id')
+            ->chunkById(200, function ($rows) use (&$deleted) {
+                foreach ($rows as $row) {
+                    $row->forceDelete();
+                    $deleted++;
+                }
+            });
+
+        return $deleted;
+    }
 }

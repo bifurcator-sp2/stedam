@@ -616,6 +616,12 @@ class SettingsNormalizer
      * у которого в поддереве есть хотя бы один публичный узел.
      * Так контейнеры без public сохраняются как путь к публичным листьям.
      *
+     * ВНИМАНИЕ: этот метод — снимок «только публичные ветки». Для ХРАНЕНИЯ
+     * настроек экземпляра блока он НЕ подходит: он выкидывает непубличные
+     * узлы-варианты (например `block1` без публичных листьев), из-за чего
+     * редактор/layout теряет узлы. Для хранения/отдачи экземпляра используйте
+     * {@see self::extractInstanceSettings()}.
+     *
      * Формат выхода совпадает по shape с $schema:
      *   single-root (есть key на верхнем уровне) → single-узел или []
      *   list узлов                                → list узлов
@@ -625,6 +631,199 @@ class SettingsNormalizer
     public static function extractPublicDefaults(?array $settings, ?array $schema): array
     {
         return self::extractPublicDefaultsAt($settings, $schema, []);
+    }
+
+    /**
+     * Чистая компактная форма УЖЕ СОХРАНЁННЫХ настроек — без добора из схемы.
+     *
+     * Применяется на ОТДАЧЕ (API-ресурсы): берёт то, что реально лежит в БД,
+     * и оставляет только key / public / default / children. Ничего не
+     * синтезирует и не добирает из прототипа — поэтому объём ровно равен
+     * объёму сохранённых значений (десятки КБ вместо мегабайт).
+     *
+     * Недостающие в старых записях узлы (напр. block1, вырезанный прежним
+     * extractPublicDefaults) намеренно НЕ восстанавливаются здесь: полноту
+     * гарантирует запись через {@see self::extractInstanceSettings()}.
+     *
+     * @param array<string, mixed>|null $settings
+     * @return array<string, mixed>
+     */
+    public static function compactStoredSettings(?array $settings): array
+    {
+        if (!is_array($settings)) {
+            return [];
+        }
+
+        return self::compactStoredNodes($settings);
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     * @return array<mixed>
+     */
+    protected static function compactStoredNodes(array $nodes): array
+    {
+        // Единичный узел
+        if (isset($nodes['key'])) {
+            $out = ['key' => $nodes['key']];
+
+            if (!empty($nodes['public'])) {
+                $out['public'] = true;
+            }
+
+            if (array_key_exists('default', $nodes)) {
+                $out['default'] = $nodes['default'];
+            }
+
+            if (!empty($nodes['children']) && is_array($nodes['children'])) {
+                $out['children'] = self::compactStoredNodes($nodes['children']);
+            }
+
+            return $out;
+        }
+
+        // Список узлов / произвольный массив значений
+        $out = [];
+
+        foreach ($nodes as $key => $value) {
+            if (is_array($value)) {
+                $out[$key] = self::compactStoredNodes($value);
+            } else {
+                $out[$key] = $value;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Полная (без потери узлов) компактная форма настроек экземпляра блока.
+     *
+     * Отличается от {@see self::extractPublicDefaults()} тем, что:
+     *   - сохраняет ВСЕ узлы схемы (не отбрасывает непубличные ветки);
+     *   - для каждого узла оставляет только key / public / default / children;
+     *   - default берётся из $settings (значение экземпляра), а если его там
+     *     нет — из $schema (default прототипа).
+     *
+     * Это форма ДЛЯ ХРАНЕНИЯ и для ОТДАЧИ экземпляра блока по API: полная
+     * структура вариантов (block1, block2, ...), без служебных полей схемы
+     * (type/label/allowed/params/required/description), поэтому объём
+     * сопоставим с суммой реальных значений, а не с полной схемой.
+     *
+     * @param array<string, mixed>|null $settings сохранённые значения экземпляра
+     * @param array<string, mixed>|null $schema   схема прототипа (эталон структуры)
+     * @return array<string, mixed>
+     */
+    public static function extractInstanceSettings(?array $settings, ?array $schema): array
+    {
+        return self::extractInstanceSettingsAt(
+            is_array($settings) ? $settings : [],
+            is_array($schema) ? $schema : [],
+        );
+    }
+
+    /**
+     * Рекурсивная сборка полной компактной формы по эталону $schema.
+     *
+     * Значение `default` берётся из соответствующего узла $settings, если он
+     * там есть; иначе — из узла $schema (прототипный default). Все узлы схемы
+     * сохраняются, независимо от public.
+     */
+    protected static function extractInstanceSettingsAt(array $settings, array $schema): array
+    {
+        // ── Единичный корневой узел ──
+        if (isset($schema['key'])) {
+            if (isset($settings['key'])) {
+                // ок — single-node на обеих сторонах
+            } elseif (array_is_list($settings)) {
+                $settings = (count($settings) === 1 && is_array($settings[0]) && isset($settings[0]['key']))
+                    ? $settings[0]
+                    : [];
+            } else {
+                $settings = [];
+            }
+
+            $node = self::extractInstanceSettingsNode($schema, $settings);
+
+            return $node ?? [];
+        }
+
+        // ── Список узлов ──
+        if (isset($settings['key'])) {
+            $settings = [$settings];
+        }
+
+        if (!is_array($settings) || !array_is_list($settings)) {
+            $settings = [];
+        }
+
+        $settingsByKey = [];
+        foreach ($settings as $item) {
+            if (is_array($item) && !empty($item['key'])) {
+                $settingsByKey[$item['key']] = $item;
+            }
+        }
+
+        $result = [];
+
+        foreach ($schema as $schemaItem) {
+            if (!is_array($schemaItem) || !isset($schemaItem['key'])) {
+                continue;
+            }
+
+            $settingsItem = $settingsByKey[$schemaItem['key']] ?? [];
+            $node = self::extractInstanceSettingsNode($schemaItem, $settingsItem);
+            if ($node !== null) {
+                $result[] = $node;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Обрабатывает один узел схемы, сохраняя узел целиком (без отбрасывания
+     * непубличных веток) в компактной форме key/public/default/children.
+     */
+    protected static function extractInstanceSettingsNode(array $schemaNode, array $settingsNode): ?array
+    {
+        $key = $schemaNode['key'] ?? null;
+        if ($key === null) {
+            return null;
+        }
+
+        $isPublic = !empty($schemaNode['public']);
+
+        $schemaChildren   = $schemaNode['children'] ?? null;
+        $hasSchemaChildren = is_array($schemaChildren) && !empty($schemaChildren);
+
+        $settingsChildren = $settingsNode['children'] ?? null;
+
+        $result = ['key' => $key];
+
+        if ($isPublic) {
+            $result['public'] = true;
+        }
+
+        // default: значение экземпляра, иначе — прототипный default схемы
+        $result['default'] = array_key_exists('default', $settingsNode)
+            ? $settingsNode['default']
+            : ($schemaNode['default'] ?? null);
+
+        if ($hasSchemaChildren) {
+            $childSettings = is_array($settingsChildren) ? $settingsChildren : [];
+            $children = self::extractInstanceSettingsAt($childSettings, $schemaChildren);
+
+            if (!empty($children)) {
+                $result['children'] = $children;
+            }
+        } elseif (is_array($settingsChildren) && !empty($settingsChildren)) {
+            // Схема-лист, но у экземпляра есть дети (например, gallery-массив,
+            // у которого в схеме детей нет). Сохраняем значения как есть.
+            $result['children'] = $settingsChildren;
+        }
+
+        return $result;
     }
 
     /**
@@ -1047,8 +1246,22 @@ class SettingsNormalizer
     /**
      * Кэш резолверов (topic) по ID урока, чтобы не делать
      * лишние запросы для каждого блока одного и того же урока.
+     *
+     * Ограничен по размеру: в долгоживущих воркерах (Octane/queue)
+     * без ограничения кэш растёт бесконечно. При переполнении — полный
+     * сброс (простая и безопасная политика).
      */
     protected static array $resolvedTopics = [];
+
+    private const RESOLVED_TOPICS_LIMIT = 512;
+
+    /**
+     * Сбросить кэш резолверов (например, при старте обработки запроса).
+     */
+    public static function resetProcTopicCache(): void
+    {
+        self::$resolvedTopics = [];
+    }
 
     /**
      * Заполняет процедурные задания (random) сгенерированными задачами.
@@ -1103,6 +1316,9 @@ class SettingsNormalizer
                         $node = \App\Models\Taxonomy::query()->find($node->parent_id);
                     }
                 }
+            }
+            if (count(self::$resolvedTopics) >= self::RESOLVED_TOPICS_LIMIT) {
+                self::$resolvedTopics = [];
             }
             self::$resolvedTopics[$lessonId] = $topicFromTaxonomy;
         }

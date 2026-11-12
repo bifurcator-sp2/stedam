@@ -5,30 +5,30 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
  * Полный ресид домена «уроки и задания» одной командой.
  *
- * Шаги:
- *   1. TRUNCATE lesson-таблиц (lessons, lesson_blocks и все pivots).
- *      CASCADE сносит и зависимые learns / learn_statuses / file_sets —
- *      иначе PostgreSQL не даст усечь lessons из-за FK restrictOnDelete.
- *   2. taxonomy:seed-resolvers — каждому листу таксономии ставится
- *      реально существующий test_resolver.
- *   3. tests:seed-tasks --count=N — обычные задания через
- *      TestsController::store() (нативный путь валидации + нормализации).
- *   4. tests:seed-proc --count=20 — процедурные задания с линейной
- *      complexity.
- *   5. lessons:seed-lotr --count=N --keep — уроки. --keep обязателен:
- *      уроки мы уже усекли, повторное удаление не нужно, а собственная
- *      deleteFast() команды снесла бы ещё раз file_sets.
+ * РЕАЛИЗАЦИЯ НА ДОМЕНЕ (DDD):
+ *   Вместо TRUNCATE-хардкода все шаги идут через подкоманды, которые,
+ *   в свою очередь, работают через Application-слой (Actions) и порты:
  *
- * Владельцы заданий и уроков внутри подкоманд — все пользователи с
- * ролью teacher плюс пользователи 1 и 3 (см. resolveOwnerIds /
- * resolveLessonOwnerIds в соответствующих командах).
+ *   1. taxonomy:seed-resolvers       — листьям таксономий ставится resolver;
+ *   2. lessons:seed-lotr --delete-only — удаление уроков через DeleteLessonAction
+ *                                       (+чистка сирот file_sets);
+ *   3. tests:seed-tasks --purge       — force-удаление обычных заданий +
+ *                                       создание через CreateTaskAction;
+ *   4. tests:seed-proc                — пересоздание proc-заданий через
+ *                                       CreateProcTaskAction;
+ *   5. lessons:seed-lotr --keep        — создание уроков через
+ *                                       CreateLessonAction / AddBlockAction /
+ *                                       UpdateLessonAction.
+ *
+ * Это медленнее, чем TRUNCATE+bulk-INSERT, но КАЖДАЯ строка проходит
+ * доменные инварианты: settings нормализованы, file-sets синхронизированы,
+ * order-ы уникальны, complexity пересчитана. Стабильность важнее скорости.
  *
  * Запуск:
  *   ./vendor/bin/sail artisan domain:seed-lessons
@@ -42,46 +42,40 @@ final class SeedLessonsDomainCommand extends Command
     protected $signature = 'domain:seed-lessons
         {--tasks=10000 : Сколько обычных заданий создать}
         {--lessons=10000 : Сколько уроков создать}
-        {--proc=20 : Сколько процедурных заданий создать}';
+        {--proc=20 : Сколько процедурных заданий создать}
+        {--chunk=100 : Батч-транзакции: один commit на N уроков (больше = быстрее, но крупнее транзакция)}';
 
-    protected $description = 'DANGER: truncate уроков/заданий и полный ресид домена (таксономия → задания → уроки)';
-
-    /**
-     * Таблицы, которые нужно усечь. Порядок не важен — TRUNCATE ... CASCADE
-     * сам обходит FK-граф.
-     */
-    private const TRUNCATE_TABLES = [
-        'lessons',
-        'lesson_blocks',
-        'lesson_block_taxonomy',
-        'lesson_lesson_block_as_test',
-        'lesson_taxonomy',
-    ];
+    protected $description = 'DANGER: доменный ресид (таксономия → удалить уроки → задания → уроки)';
 
     public function handle(): int
     {
         $tasksCount   = (int) $this->option('tasks');
         $lessonsCount = (int) $this->option('lessons');
         $procCount    = (int) $this->option('proc');
+        $chunk        = (int) $this->option('chunk');
 
         if ($tasksCount < 0 || $lessonsCount < 0 || $procCount < 0) {
             $this->error('Все счётчики должны быть >= 0.');
             return self::FAILURE;
         }
 
-        // --- Подтверждение (без --force намеренно) ---
+        if ($chunk < 1) {
+            $this->error('--chunk должен быть >= 1.');
+            return self::FAILURE;
+        }
+
         $lessonsExisting = Schema::hasTable('lessons') ? DB::table('lessons')->count() : 0;
         $blocksExisting  = Schema::hasTable('lesson_blocks') ? DB::table('lesson_blocks')->count() : 0;
 
-        $this->warn('DANGER: будут удалены ВСЕ уроки и задания.');
+        $this->warn('DANGER: будут удалены ВСЕ уроки и задания (через домен).');
         $this->line(sprintf('Сейчас в БД: lessons=%d, lesson_blocks=%d.', $lessonsExisting, $blocksExisting));
         $this->newLine();
         $this->line('План:');
-        $this->line('  1. TRUNCATE ' . implode(', ', self::TRUNCATE_TABLES) . ' (CASCADE)');
-        $this->line('  2. taxonomy:seed-resolvers');
-        $this->line("  3. tests:seed-tasks --count={$tasksCount} --force");
+        $this->line('  1. taxonomy:seed-resolvers');
+        $this->line('  2. lessons:seed-lotr --delete-only --force');
+        $this->line("  3. tests:seed-tasks --purge --count={$tasksCount} --force");
         $this->line("  4. tests:seed-proc  --count={$procCount} --force");
-        $this->line("  5. lessons:seed-lotr --count={$lessonsCount} --keep");
+        $this->line('  5. lessons:seed-lotr --keep --count=' . $lessonsCount . ' --chunk=' . $chunk);
         $this->newLine();
 
         if (!$this->confirm('Продолжить? Это необратимо.', false)) {
@@ -89,27 +83,32 @@ final class SeedLessonsDomainCommand extends Command
             return self::SUCCESS;
         }
 
-        // --- 1. TRUNCATE ---
-        $this->section('1/5 TRUNCATE lesson-таблиц');
-        $this->truncateLessonDomain();
-        $this->info('OK: таблицы очищены.');
-
-        // --- 2. taxonomy:seed-resolvers ---
-        $this->section('2/5 taxonomy:seed-resolvers');
-        $code = Artisan::call('taxonomy:seed-resolvers', ['--force' => true]);
-        $this->output->write(Artisan::output());
+        // --- 1. taxonomy:seed-resolvers ---
+        $this->section('1/5 taxonomy:seed-resolvers');
+        $code = $this->call('taxonomy:seed-resolvers', ['--force' => true]);
         if ($code !== self::SUCCESS) {
             return $this->abortStep('taxonomy:seed-resolvers', $code);
         }
 
-        // --- 3. tests:seed-tasks ---
-        $this->section("3/5 tests:seed-tasks --count={$tasksCount}");
+        // --- 2. Удалить уроки (через домен) ---
+        $this->section('2/5 lessons:seed-lotr --delete-only');
+        $code = $this->call('lessons:seed-lotr', [
+            '--delete-only' => true,
+            '--force'       => true,
+        ]);
+        if ($code !== self::SUCCESS) {
+            return $this->abortStep('lessons:seed-lotr --delete-only', $code);
+        }
+
+        // --- 3. tests:seed-tasks (purge + create) ---
+        $this->section("3/5 tests:seed-tasks --purge --count={$tasksCount}");
         if ($tasksCount > 0) {
-            $code = Artisan::call('tests:seed-tasks', [
+            $code = $this->call('tests:seed-tasks', [
                 '--count' => $tasksCount,
+                '--chunk' => $chunk,
+                '--purge' => true,
                 '--force' => true,
             ]);
-            $this->output->write(Artisan::output());
             if ($code !== self::SUCCESS) {
                 return $this->abortStep('tests:seed-tasks', $code);
             }
@@ -120,11 +119,10 @@ final class SeedLessonsDomainCommand extends Command
         // --- 4. tests:seed-proc ---
         $this->section("4/5 tests:seed-proc --count={$procCount}");
         if ($procCount > 0) {
-            $code = Artisan::call('tests:seed-proc', [
+            $code = $this->call('tests:seed-proc', [
                 '--count' => $procCount,
                 '--force' => true,
             ]);
-            $this->output->write(Artisan::output());
             if ($code !== self::SUCCESS) {
                 return $this->abortStep('tests:seed-proc', $code);
             }
@@ -133,13 +131,14 @@ final class SeedLessonsDomainCommand extends Command
         }
 
         // --- 5. lessons:seed-lotr --keep ---
-        $this->section("5/5 lessons:seed-lotr --count={$lessonsCount} --keep");
+        $this->section("5/5 lessons:seed-lotr --keep --count={$lessonsCount} --chunk={$chunk}");
         if ($lessonsCount > 0) {
-            $code = Artisan::call('lessons:seed-lotr', [
+            $code = $this->call('lessons:seed-lotr', [
                 '--count' => $lessonsCount,
+                '--chunk' => $chunk,
                 '--keep'  => true,
+                '--force' => true,
             ]);
-            $this->output->write(Artisan::output());
             if ($code !== self::SUCCESS) {
                 return $this->abortStep('lessons:seed-lotr', $code);
             }
@@ -151,39 +150,6 @@ final class SeedLessonsDomainCommand extends Command
         $this->info('Готово: домен «уроки и задания» пересобран.');
 
         return self::SUCCESS;
-    }
-
-    /**
-     * TRUNCATE ... RESTART IDENTITY CASCADE по всем lesson-таблицам.
-     *
-     * CASCADE нужен по двум причинам:
-     *   - PostgreSQL не усекает таблицу, на которую ссылаются по FK,
-     *     даже с ON DELETE CASCADE — нужен именно TRUNCATE CASCADE;
-     *   - learn_statuses.lesson_id имеет restrictOnDelete, и без CASCADE
-     *     TRUNCATE lessons упадёт.
-     *
-     * Сносимые боком таблицы (learns, learn_statuses, file_sets) — это
-     * ровно те данные, которые без уроков/заданий всё равно повисли бы
-     * сиротами.
-     */
-    private function truncateLessonDomain(): void
-    {
-        $existing = array_values(array_filter(
-            self::TRUNCATE_TABLES,
-            static fn (string $t): bool => Schema::hasTable($t),
-        ));
-
-        if ($existing === []) {
-            $this->warn('Ни одной из целевых таблиц нет в БД — пропускаю TRUNCATE.');
-            return;
-        }
-
-        $quoted = array_map(static fn (string $t): string => '"' . str_replace('"', '""', $t) . '"', $existing);
-        $sql = 'TRUNCATE TABLE ' . implode(', ', $quoted) . ' RESTART IDENTITY CASCADE';
-
-        $this->line('SQL: ' . $sql);
-
-        DB::statement($sql);
     }
 
     private function section(string $title): void

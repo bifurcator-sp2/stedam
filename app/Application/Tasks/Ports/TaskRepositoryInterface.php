@@ -57,4 +57,31 @@ interface TaskRepositoryInterface
      * @return list<LessonId>
      */
     public function detachFromAllLessons(TaskId $id): array;
+
+    // ===== Dev-/seeding-операции =====
+
+    /**
+     * id-шники всех обычных (is_proc = false) глобальных заданий.
+     *
+     * @return list<int>
+     */
+    public function pluckAllIds(): array;
+
+    /**
+     * Пул обычных заданий, сгруппированный по таксономии-листу:
+     * [taxonomyId => [taskId, ...]]. Включает только задания, у которых
+     * есть привязка хотя бы к одной из запрошенных таксономий.
+     *
+     * @param list<int> $taxonomyIds
+     * @return array<int, list<int>>
+     */
+    public function pluckIdsGroupedByTaxonomy(array $taxonomyIds): array;
+
+    /**
+     * Полностью удалить (force) все обычные задания вместе с обрывом
+     * привязок в pivot. Используется dev-командой reseed.
+     *
+     * @return int число удалённых
+     */
+    public function deleteAll(): int;
 }

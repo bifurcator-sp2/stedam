@@ -168,6 +168,16 @@ class UserDataController extends Controller
             'settings.ink.bgOpacity' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'settings.ink.bgScale' => ['nullable', 'numeric', 'min:0.1', 'max:5'],
             'settings.ink.bgColor' => ['nullable', 'string', 'regex:/^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$/i'],
+
+            // Поведение пера (давление / сглаживание / стабилизатор)
+            // boolean принимает true/false/1/0 — JSON от Whiteboard шлёт настоящие bool
+            'settings.ink.pressureEnabled' => ['nullable', 'boolean'],
+            // множители толщины: дробные (шаг 0.05 в UI), поэтому numeric, не integer
+            'settings.ink.minPressureWidth' => ['nullable', 'numeric', 'min:0.1', 'max:1'],
+            'settings.ink.maxPressureWidth' => ['nullable', 'numeric', 'min:1', 'max:3'],
+            'settings.ink.smoothingEnabled' => ['nullable', 'boolean'],
+            // стабилизатор: целое 0..100 (слайдер шагает по 5)
+            'settings.ink.stabilizer' => ['nullable', 'integer', 'min:0', 'max:100'],
         ]);
 
         return $validator->validate();

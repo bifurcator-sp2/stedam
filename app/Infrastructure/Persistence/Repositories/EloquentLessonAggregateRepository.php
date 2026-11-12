@@ -156,4 +156,27 @@ final class EloquentLessonAggregateRepository implements LessonRepositoryInterfa
 
         $model->taxonomies()->sync($ids);
     }
+
+    // ===== Dev-/seeding-операции =====
+
+    public function pluckAllIds(): array
+    {
+        return LessonModel::withTrashed()
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(static fn ($v): int => (int) $v)
+            ->all();
+    }
+
+    public function delete(LessonId $id): void
+    {
+        $model = LessonModel::withTrashed()->find($id->value);
+
+        if ($model === null) {
+            return;
+        }
+
+        // FK/pivot-чистку делает модель через booted()-события и БД-каскады.
+        $model->forceDelete();
+    }
 }

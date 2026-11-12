@@ -24,4 +24,19 @@ interface ProcTaskRepositoryInterface
      * @return list<int>
      */
     public function recalculateComplexityOfUsages(ProcTaskId $id): array;
+
+    // ===== Dev-/seeding-операции =====
+
+    /**
+     * id-шники всех процедурных заданий.
+     *
+     * @return list<int>
+     */
+    public function pluckAllIds(): array;
+
+    /**
+     * Удалить процедурное задание по id вместе с его привязками к урокам.
+     * Отсутствие — не ошибка (idempotent delete).
+     */
+    public function delete(ProcTaskId $id): void;
 }

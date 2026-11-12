@@ -4,16 +4,28 @@ declare(strict_types=1);
 
 namespace App\Application\Lessons\Actions;
 
+use App\Application\Lessons\Ports\LessonRepositoryInterface;
+use App\Domain\Lessons\ValueObjects\LessonId;
+
 /**
- * Удалить урок.
+ * Удалить урок по id.
  *
- * Примечание: публичный API пока не имеет эндпоинта удаления урока.
- * Action оставлен заглушкой, чтобы порядок симметрии соблюдался
- * и чтобы было куда положить реализацию, когда такой эндпоинт
- * появится (сеялки и dev-утилиты уже сейчас нуждаются в «удалить
- * один урок по id»).
+ * Публичного HTTP-эндпоинта удаления урока пока нет, но сеялки
+ * (SeedLessonsDomain / SeedLotrLessons) удаляют уроки перед reseed —
+ * теперь через домен, а не сырым SQL. Отсутствие урока — не ошибка
+ * (idempotent delete).
+ *
+ * Чистка собственных блоков и pivot-привязок — забота репозитория
+ * (см. EloquentLessonAggregateRepository::delete + model-события).
  */
 final readonly class DeleteLessonAction
 {
-    // Реализация появится вместе с эндпоинтом. Пока нулевой контракт.
+    public function __construct(
+        private LessonRepositoryInterface $lessons,
+    ) {}
+
+    public function __invoke(LessonId $id): void
+    {
+        $this->lessons->delete($id);
+    }
 }

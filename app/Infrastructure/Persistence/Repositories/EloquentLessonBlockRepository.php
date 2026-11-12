@@ -134,8 +134,16 @@ final class EloquentLessonBlockRepository implements LessonBlockRepositoryInterf
 
     // ===== Порядок / привязки =====
 
-    public function attachToLesson(LessonBlockId $taskId, LessonId $lessonId, int $order): void
+    public function attachToLesson(LessonBlockId $taskId, LessonId $lessonId, int $order): bool
     {
+        // Защита от устаревших id: пул заданий мог быть загружен раньше, а само
+        // задание — удалено/пересоздано между загрузкой и привязкой. Без этой
+        // проверки INSERT в pivot падает по FK и роняет весь сид.
+        // withTrashed(): soft-deleted строки физически существуют и FK пройдёт.
+        if (!LessonBlockModel::withTrashed()->whereKey($taskId->value)->exists()) {
+            return false;
+        }
+
         DB::transaction(function () use ($taskId, $lessonId, $order) {
             // Фаза 1: сдвиг «всё >= order» в зону SAFE_OFFSET.
             $this->shiftFrom($lessonId, $order, BlockOrderPlanner::SAFE_OFFSET);
@@ -152,6 +160,8 @@ final class EloquentLessonBlockRepository implements LessonBlockRepositoryInterf
             // Фаза 3: возврат сдвинутых на +1.
             $this->shiftFrom($lessonId, BlockOrderPlanner::SAFE_OFFSET, -1 * (BlockOrderPlanner::SAFE_OFFSET - 1));
         });
+
+        return true;
     }
 
     public function replaceAttachments(LessonId $lessonId, array $attachments): void
@@ -250,6 +260,11 @@ final class EloquentLessonBlockRepository implements LessonBlockRepositoryInterf
         return SettingsNormalizer::extractPublicDefaults($settings, $schema);
     }
 
+    public function extractInstanceSettings(array $settings, array $schema): array
+    {
+        return SettingsNormalizer::extractInstanceSettings($settings, $schema);
+    }
+
     public function syncFileSetsFromSettings(LessonBlockId $blockId, array $settings, string $blockCode): array
     {
         $model = LessonBlockModel::query()->find($blockId->value);
@@ -326,6 +341,50 @@ final class EloquentLessonBlockRepository implements LessonBlockRepositoryInterf
             'is_test'  => (bool) $block->is_test,
             'is_proc'  => (bool) $block->is_proc,
         ];
+    }
+
+    // ===== Dev-/seeding-операции =====
+
+    public function pluckBlockPrototypeIds(?bool $isTest, ?bool $isProc): array
+    {
+        $query = Block::query();
+
+        if ($isTest !== null) {
+            $query->where('is_test', $isTest);
+        }
+        if ($isProc !== null) {
+            $query->where('is_proc', $isProc);
+        }
+
+        return $query->orderBy('id')
+            ->pluck('id')
+            ->map(static fn ($v): int => (int) $v)
+            ->all();
+    }
+
+    public function pluckLeafTaxonomyIds(): array
+    {
+        return DB::table('taxonomies')
+            ->whereNull('deleted_at')
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('taxonomies as t_child')
+                    ->whereColumn('t_child.parent_id', 'taxonomies.id')
+                    ->whereNull('t_child.deleted_at');
+            })
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(static fn ($v): int => (int) $v)
+            ->all();
+    }
+
+    public function taxonomyHasResolver(int $taxonomyId): bool
+    {
+        $resolver = DB::table('taxonomies')
+            ->where('id', $taxonomyId)
+            ->value('test_resolver');
+
+        return !empty($resolver);
     }
 
     // ===== Агрегаты по задачам =====

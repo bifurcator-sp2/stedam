@@ -111,4 +111,25 @@ final class EloquentProcTaskRepository implements ProcTaskRepositoryInterface
 
         return $lessonIds;
     }
+
+    // ===== Dev-/seeding-операции =====
+
+    public function pluckAllIds(): array
+    {
+        return LessonBlockModel::query()
+            ->whereNull('lesson_id')
+            ->where('is_proc', true)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(static fn ($v): int => (int) $v)
+            ->all();
+    }
+
+    public function delete(ProcTaskId $id): void
+    {
+        // Привязки к урокам рвутся каскадом по FK pivot-таблицы.
+        $model = LessonBlockModel::withTrashed()->find($id->value);
+
+        $model?->forceDelete();
+    }
 }

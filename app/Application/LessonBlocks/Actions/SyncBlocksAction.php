@@ -114,6 +114,6 @@ final readonly class SyncBlocksAction
 
         $synced = $this->blocks->syncFileSetsFromSettings($blockId, $settings, (string) $proto['code']);
 
-        return $this->blocks->extractPublicDefaults($synced, (array) $proto['settings']);
+        return $this->blocks->extractInstanceSettings($synced, (array) $proto['settings']);
     }
 }

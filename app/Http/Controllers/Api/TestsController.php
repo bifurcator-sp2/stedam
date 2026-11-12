@@ -183,8 +183,8 @@ class TestsController
         }
 
         $test = DB::transaction(function () use ($user, $validated, $block, $isProc) {
-            $newSettings    = $validated['settings'] ?? [];
-            $publicSettings = SettingsNormalizer::extractPublicDefaults($newSettings, $block->settings);
+            $newSettings     = $validated['settings'] ?? [];
+            $publicSettings  = SettingsNormalizer::extractInstanceSettings($newSettings, $block->settings);
 
             $test = LessonBlock::create([
                 'user_id'    => $user->id,
@@ -275,7 +275,7 @@ class TestsController
 
         DB::transaction(function () use ($lessonBlock, $validated, $isProc) {
             $newSettings    = $validated['settings'] ?? [];
-            $publicSettings = SettingsNormalizer::extractPublicDefaults($newSettings, $lessonBlock->block->settings);
+            $publicSettings = SettingsNormalizer::extractInstanceSettings($newSettings, $lessonBlock->block->settings);
 
             if (!empty($publicSettings)) {
                 SettingsNormalizer::syncFileSetsFromSettings($publicSettings, $lessonBlock, $lessonBlock->block->code);
