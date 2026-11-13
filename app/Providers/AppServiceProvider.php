@@ -31,6 +31,12 @@ class AppServiceProvider extends ServiceProvider
             \App\Infrastructure\Shared\SystemClock::class,
         );
 
+        // Границы транзакций для Application-слоя.
+        $this->app->bind(
+            \App\Application\Shared\TransactionManagerInterface::class,
+            \App\Infrastructure\Shared\EloquentTransactionManager::class,
+        );
+
         // Порты контекста Learn → инфраструктурные реализации.
         $this->app->bind(
             \App\Application\Learn\Ports\LearnRepositoryInterface::class,

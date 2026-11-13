@@ -182,6 +182,26 @@ final class EloquentLearnRepository implements LearnRepositoryInterface
         return $model === null ? null : $this->toEntity($model);
     }
 
+    /**
+     * Удаление ТОЛЬКО неначатого прохождения (§17.2).
+     *
+     * Одним DELETE без предварительного SELECT: между чтением и удалением
+     * ученик мог нажать «Пройти», и мы бы стёрли начатую работу вместе
+     * с ответами. started_at IS NULL — главная защита.
+     */
+    public function deleteUnstarted(UserId $userId, LessonId $lessonId): bool
+    {
+        $deleted = LearnModel::query()
+            ->where('user_id', $userId->value)
+            ->where('lesson_id', $lessonId->value)
+            ->whereIn('status', [LearnStatus::Created->value, LearnStatus::Scheduled->value])
+            ->whereNull('started_at')
+            ->whereNull('archived_at')
+            ->delete();
+
+        return $deleted > 0;
+    }
+
     public function pluckArchivableIds(
         LearnStatus $status,
         \DateTimeImmutable $cutoff,

@@ -71,6 +71,18 @@ interface LearnRepositoryInterface
     public function reserveId(): LearnId;
 
     /**
+     * Удаляет активное прохождение, если оно ЕЩЁ НЕ НАЧАТО (§17.2).
+     *
+     * Критерий: status ∈ {created, scheduled} И started_at IS NULL.
+     * Один DELETE без предварительного чтения агрегата — иначе между
+     * SELECT и DELETE ученик успеет нажать «Пройти», и мы сотрём начатое
+     * прохождение вместе с ответами.
+     *
+     * @return bool true, если строка была удалена
+     */
+    public function deleteUnstarted(UserId $userId, LessonId $lessonId): bool;
+
+    /**
      * Ids прохождений в заданном статусе, не архивированных, чья «опорная»
      * дата для этого статуса строго раньше $cutoff.
      *

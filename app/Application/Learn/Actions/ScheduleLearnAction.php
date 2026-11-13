@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Learn\Actions;
 
+use App\Application\Learn\Concerns\DrainsLearnEvents;
 use App\Application\Learn\Context\ContextResolverInterface;
 use App\Application\Learn\DTOs\ScheduleLearnData;
 use App\Application\Learn\Exceptions\LearnAccessDenied;
@@ -30,6 +31,8 @@ use App\Domain\Learn\ValueObjects\ScheduleDate;
  */
 final readonly class ScheduleLearnAction
 {
+    use DrainsLearnEvents;
+
     public function __construct(
         private LearnRepositoryInterface $learns,
         private LessonRepositoryInterface $lessons,
@@ -70,7 +73,7 @@ final readonly class ScheduleLearnAction
                 : Learn::assign($data->targetUserId, $data->lessonId, $now);
 
             $learn = $this->learns->save($learn);
-            $this->logInitial($learn);
+            $this->drainInitialStatus($learn);
 
             return $learn;
         }
@@ -89,7 +92,7 @@ final readonly class ScheduleLearnAction
             case LearnStatus::Created:
                 if ($data->scheduleDate === null) {
                     // assign на уже назначенное — no-op (идемпотентность).
-                    return $existing;
+                return $existing;
                 }
                 $existing->scheduleAt($data->scheduleDate, $now);
                 break;
@@ -101,32 +104,8 @@ final readonly class ScheduleLearnAction
         }
 
         $existing = $this->learns->save($existing);
-        $this->drainEvents($existing);
+        $this->drainLearnEvents($existing);
 
         return $existing;
-    }
-
-    private function logInitial(Learn $learn): void
-    {
-        $this->statusLogger->log(
-            learnId: $learn->id(),
-            lessonId: $learn->lessonId(),
-            status: $learn->status(),
-            statusDate: $learn->statusDate(),
-            scheduleDate: $learn->scheduleDate()?->value,
-        );
-    }
-
-    private function drainEvents(Learn $learn): void
-    {
-        foreach ($learn->pullEvents() as $event) {
-            $this->statusLogger->log(
-                learnId: $event->learnId,
-                lessonId: $event->lessonId,
-                status: $event->status,
-                statusDate: $event->statusDate,
-                scheduleDate: $event->scheduleDate?->value,
-            );
-        }
     }
 }

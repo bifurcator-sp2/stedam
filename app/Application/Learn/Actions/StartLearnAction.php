@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Learn\Actions;
 
+use App\Application\Learn\Concerns\DrainsLearnEvents;
 use App\Application\Learn\Context\ContextResolverInterface;
 use App\Application\Learn\DTOs\LearnSeed;
 use App\Application\Learn\DTOs\StartLearnData;
@@ -20,6 +21,8 @@ use App\Domain\Learn\ValueObjects\LearnQuestions;
 
 final readonly class StartLearnAction
 {
+    use DrainsLearnEvents;
+
     public function __construct(
         private LearnRepositoryInterface $learns,
         private LessonRepositoryInterface $lessons,
@@ -72,7 +75,7 @@ final readonly class StartLearnAction
             );
 
             $existing = $this->learns->save($existing);
-            $this->drainEvents($existing);
+            $this->drainLearnEvents($existing);
 
             return $existing;
         }
@@ -99,19 +102,14 @@ final readonly class StartLearnAction
         // 8. Синхронный INSERT с предвыделенным id.
         $learn = $this->learns->insert($learn);
 
-        // 9. Начальный статус нового прохождения — в очередь через порт.
-        //    Домен порождает события только на переходах; здесь фиксируем
-        //    первичную запись статуса in_progress.
-        $this->statusLogger->log(
-            learnId: $learn->id(),
-            lessonId: $learn->lessonId(),
-            status: $learn->status(),
-            statusDate: $learn->statusDate(),
-            scheduleDate: $learn->scheduleDate()?->value,
-        );
+        // 9. Начальный статус нового прохождения: домен его не порождает
+        //    (id появляется только после insert), поэтому отправляем вручную
+        //    через тот же трейт — аудит и затем шина (§17.5).
+        $this->drainInitialStatus($learn);
 
-        // 10. Доменные события — единообразно во внешние порты.
-        $this->drainEvents($learn);
+        // 10. Доменные события перехода (created/scheduled → in_progress).
+        //     У нового агрегата буфер пуст, но вызов оставлен для симметрии.
+        $this->drainLearnEvents($learn);
 
         return $learn;
     }
@@ -122,18 +120,5 @@ final readonly class StartLearnAction
             new LearnSeed(userId: $data->userId, learnId: $learnId),
             $data->lessonId,
         );
-    }
-
-    private function drainEvents(Learn $learn): void
-    {
-        foreach ($learn->pullEvents() as $event) {
-            $this->statusLogger->log(
-                learnId: $event->learnId,
-                lessonId: $event->lessonId,
-                status: $event->status,
-                statusDate: $event->statusDate,
-                scheduleDate: $event->scheduleDate?->value,
-            );
-        }
     }
 }

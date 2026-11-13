@@ -54,8 +54,35 @@ final class InMemoryLearnRepository implements LearnRepositoryInterface
         return new LearnId($this->nextId++);
     }
 
+    /**
+     * §17.2: удаляет только НЕначатое прохождение.
+     * Критерий тот же, что в БД: created/scheduled И started_at IS NULL.
+     */
+    public function deleteUnstarted(UserId $userId, LessonId $lessonId): bool
+    {
+        foreach ($this->items as $id => $learn) {
+            $isUnstarted = in_array(
+                $learn->status(),
+                [\App\Domain\Learn\Enums\LearnStatus::Created, \App\Domain\Learn\Enums\LearnStatus::Scheduled],
+                true,
+            ) && $learn->startedAt() === null && !$learn->isArchived();
+
+            if ($learn->userId()->equals($userId)
+                && $learn->lessonId()->value === $lessonId->value
+                && $isUnstarted
+            ) {
+                unset($this->items[$id]);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function findActiveByUserAndLesson(UserId $userId, LessonId $lessonId): ?Learn
-    {        foreach ($this->items as $learn) {
+    {
+        foreach ($this->items as $learn) {
             if ($learn->userId()->equals($userId)
                 && $learn->lessonId()->value === $lessonId->value
                 && !$learn->status()->isTerminal()

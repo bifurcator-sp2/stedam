@@ -231,8 +231,12 @@ final class Learn
 
     public function cancel(DateTimeImmutable $now): void
     {
-        $this->transitionTo(LearnStatus::Created, $now);
+        // scheduleDate обнуляем ДО transitionTo: событие о смене статуса
+        // должно нести уже итоговое состояние (создано — значит без даты),
+        // иначе подписчики получат пару «created + scheduleDate», которой
+        // не существует (reconstitute такую комбинацию отвергает).
         $this->scheduleDate = null;
+        $this->transitionTo(LearnStatus::Created, $now);
     }
 
     public function markDone(LearnAnswers $answers, DateTimeImmutable $now): void
@@ -394,6 +398,8 @@ final class Learn
     {
         // Событие осмысленно только для уже сохранённого агрегата:
         // у нового Learn ещё нет id, и логгер некуда писать.
+        // Первичный статус нового прохождения фиксируется вручную в
+        // Application-слое (см. Learn::recordInitialStatus()).
         if ($this->id === null) {
             return;
         }
@@ -457,6 +463,34 @@ final class Learn
         $clone->events = [];
 
         return $clone;
+    }
+
+    /**
+     * Записать событие о ПЕРВИЧНОМ статусе после save()/insert().
+     *
+     * Зачем отдельный метод: домен не может породить событие, пока у
+     * агрегата нет id (Learn::recordStatusChange), поэтому первичная запись
+     * статуса нового прохождения делается Application-слоем вручную — сразу
+     * после того, как репозиторий присвоил id.
+     *
+     * Возвращает событие, чтобы вызывающий код мог отправить его ровно в те
+     * же порты, что и остальные (трейт DrainsLearnEvents): аудит, затем шину.
+     *
+     * @throws LogicException если id ещё не присвоен
+     */
+    public function recordInitialStatus(): LearnStatusChanged
+    {
+        if ($this->id === null) {
+            throw new LogicException('Cannot record initial status: learn has no id');
+        }
+
+        return new LearnStatusChanged(
+            learnId: $this->id,
+            lessonId: $this->lessonId,
+            status: $this->status,
+            statusDate: $this->statusDate,
+            scheduleDate: $this->scheduleDate,
+        );
     }
 
     // === Геттеры ===

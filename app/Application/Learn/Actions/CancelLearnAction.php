@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Learn\Actions;
 
+use App\Application\Learn\Concerns\DrainsLearnEvents;
 use App\Application\Learn\Context\ContextResolverInterface;
 use App\Application\Learn\Exceptions\LearnAccessDenied;
 use App\Application\Learn\Ports\LearnRepositoryInterface;
@@ -20,6 +21,8 @@ use App\Domain\Learn\ValueObjects\UserId;
  */
 final readonly class CancelLearnAction
 {
+    use DrainsLearnEvents;
+
     public function __construct(
         private LearnRepositoryInterface $learns,
         private ContextResolverInterface $contextResolver,
@@ -51,15 +54,7 @@ final readonly class CancelLearnAction
         $learn->cancel($this->clock->now());
         $learn = $this->learns->save($learn);
 
-        foreach ($learn->pullEvents() as $event) {
-            $this->statusLogger->log(
-                learnId: $event->learnId,
-                lessonId: $event->lessonId,
-                status: $event->status,
-                statusDate: $event->statusDate,
-                scheduleDate: $event->scheduleDate?->value,
-            );
-        }
+        $this->drainLearnEvents($learn);
 
         return $learn;
     }

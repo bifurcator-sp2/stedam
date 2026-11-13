@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             UsersSeeder::class,
             CountrySeeder::class,
             RolesSeeder::class,
+            LessonTypeSeeder::class,
             RussianSchoolCurriculumSeeder::class,
             RussianHigherEducationCurriculumSeeder::class,
 
