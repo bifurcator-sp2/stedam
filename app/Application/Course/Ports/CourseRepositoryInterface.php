@@ -47,6 +47,10 @@ interface CourseRepositoryInterface
      * флага null означал бы «только системные» и админ не видел бы чужих
      * курсов.
      *
+     * Фильтры $taxId и $search:
+     *   - $taxId — узел таксономии ВМЕСТЕ со всеми потомками;
+     *   - $search — подстрока без учёта регистра по title и description.
+     *
      * @param bool $allOwners снять фильтр по владельцу полностью
      * @return list<Course>
      */
@@ -61,9 +65,16 @@ interface CourseRepositoryInterface
     /**
      * Курсы, назначенные ученику.
      *
+     * Фильтры те же, что у listForOwner(): $taxId — с потомками,
+     * $search — по title и description без учёта регистра.
+     *
      * @return list<Course>
      */
-    public function listForStudent(UserId $studentId): array;
+    public function listForStudent(
+        UserId $studentId,
+        ?TaxonomyId $taxId = null,
+        ?string $search = null,
+    ): array;
 
     /**
      * Пороги типов уроков из справочника lesson_types:

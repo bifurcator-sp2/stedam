@@ -9,6 +9,12 @@ use Tests\TestCase;
 // Feature — с TestCase (для HTTP и БД).
 uses(TestCase::class)->in('Feature');
 
+// beforeEach() Pest выполняет раньше setUp(), поэтому подготавливаем тестовые
+// диски здесь: Storage::fake() не должен натыкаться на каталоги другого uid.
+uses()->beforeEach(function (): void {
+    TestCase::prepareFakeDisks();
+})->in('Feature');
+
 if (!function_exists('domainNow')) {
     /**
      * Фиксированный «сейчас» — 2025-01-01 12:00:00 UTC.

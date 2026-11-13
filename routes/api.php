@@ -215,3 +215,47 @@ Route::middleware('auth:sanctum')->prefix('files')->group(function () {
 
 Route::get('/countries', [\App\Http\Controllers\Api\CountryController::class, 'index']);
 Route::get('/countries/{country}', [\App\Http\Controllers\Api\CountryController::class, 'show']);
+
+// --- Курсы (контракт: docs/course-api-spec.md) ---
+Route::middleware('auth:sanctum')->prefix('courses')->group(function () {
+    $c = \App\Http\Controllers\Api\CoursesController::class;
+
+    // Курс
+    Route::get('/', [$c, 'index']);
+    Route::post('/', [$c, 'store']);
+    Route::get('/{courseId}', [$c, 'show'])->whereNumber('courseId');
+    Route::match(['put', 'patch'], '/{courseId}', [$c, 'update'])->whereNumber('courseId');
+    Route::delete('/{courseId}', [$c, 'destroy'])->whereNumber('courseId');
+
+    // Темы
+    Route::post('/{courseId}/themes', [$c, 'storeTheme'])->whereNumber('courseId');
+    Route::match(['put', 'patch'], '/{courseId}/themes/{themeId}', [$c, 'updateTheme'])
+        ->whereNumber('courseId')->whereNumber('themeId');
+    Route::delete('/{courseId}/themes/{themeId}', [$c, 'destroyTheme'])
+        ->whereNumber('courseId')->whereNumber('themeId');
+    Route::put('/{courseId}/themes/{themeId}/position', [$c, 'moveTheme'])
+        ->whereNumber('courseId')->whereNumber('themeId');
+
+    // Уроки в теме
+    Route::post('/{courseId}/themes/{themeId}/lessons', [$c, 'storeLesson'])
+        ->whereNumber('courseId')->whereNumber('themeId');
+    Route::delete('/{courseId}/themes/{themeId}/lessons/{lessonId}', [$c, 'destroyLesson'])
+        ->whereNumber('courseId')->whereNumber('themeId')->whereNumber('lessonId');
+    Route::put('/{courseId}/themes/{themeId}/lessons/{lessonId}/position', [$c, 'moveLesson'])
+        ->whereNumber('courseId')->whereNumber('themeId')->whereNumber('lessonId');
+    Route::patch('/{courseId}/themes/{themeId}/lessons/{lessonId}/type', [$c, 'updateLessonType'])
+        ->whereNumber('courseId')->whereNumber('themeId')->whereNumber('lessonId');
+    Route::patch('/{courseId}/themes/{themeId}/lessons/{lessonId}/time-gap', [$c, 'updateLessonTimeGap'])
+        ->whereNumber('courseId')->whereNumber('themeId')->whereNumber('lessonId');
+
+    // Назначения
+    Route::get('/{courseId}/assignments', [$c, 'assignments'])->whereNumber('courseId');
+    Route::post('/{courseId}/assignments', [$c, 'assign'])->whereNumber('courseId');
+    Route::delete('/{courseId}/assignments/{studentId}', [$c, 'unassign'])
+        ->whereNumber('courseId')->whereNumber('studentId');
+
+    // Пересчёт
+    Route::post('/{courseId}/assignments/{studentId}/recalculate', [$c, 'recalculate'])
+        ->whereNumber('courseId')->whereNumber('studentId');
+    Route::post('/{courseId}/recalculate', [$c, 'recalculateAll'])->whereNumber('courseId');
+});

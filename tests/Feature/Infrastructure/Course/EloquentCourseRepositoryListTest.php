@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use App\Application\Course\Ports\CourseRepositoryInterface;
+use App\Domain\Course\ValueObjects\TaxonomyId;
 use App\Domain\Course\ValueObjects\UserId;
 use App\Models\Course as CourseModel;
+use App\Models\Taxonomy;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -32,6 +35,35 @@ function repoCourse(string $title, ?int $userId): CourseModel
         'locale' => 'ru',
         'next_lesson_threshold' => 0.6,
         'user_id' => $userId,
+    ]);
+}
+
+function repoTaxonomy(string $title, int $parentId): Taxonomy
+{
+    return Taxonomy::query()->create(['parent_id' => $parentId]);
+}
+
+function repoCourseIn(string $title, ?int $taxId): CourseModel
+{
+    return CourseModel::query()->create([
+        'title' => $title,
+        'description' => 'Описание',
+        'locale' => 'ru',
+        'next_lesson_threshold' => 0.6,
+        'user_id' => null,
+        'tax_id' => $taxId,
+    ]);
+}
+
+function repoCourseWithDescription(string $title, string $description, ?int $taxId): CourseModel
+{
+    return CourseModel::query()->create([
+        'title' => $title,
+        'description' => $description,
+        'locale' => 'ru',
+        'next_lesson_threshold' => 0.6,
+        'user_id' => null,
+        'tax_id' => $taxId,
     ]);
 }
 
@@ -88,6 +120,76 @@ it('ownerId задан, includeSystem = true — свои + системные',
     $titles = array_map(static fn ($c) => $c->title()->value, $result);
 
     expect($titles)->toEqualCanonicalizing(['Мой', 'Системный']);
+});
+
+it('tax_id фильтрует курсы вместе с поддеревом', function () {
+    $root = repoTaxonomy('Математика', -1);
+    $child = repoTaxonomy('Алгебра', $root->id);
+    $grandchild = repoTaxonomy('Линейные уравнения', $child->id);
+    $foreign = repoTaxonomy('Биология', -1);
+
+    repoCourseIn('Алгебра', $child->id);
+    repoCourseIn('Уравнения', $grandchild->id);
+    repoCourseIn('Биология', $foreign->id);
+    repoCourseIn('Без раздела', null);
+
+    $titles = static fn (array $courses): array => array_map(
+        static fn ($c) => $c->title()->value,
+        $courses,
+    );
+
+    expect($titles(repo()->listForOwner(null, new TaxonomyId($root->id), null, true, allOwners: true)))
+        ->toEqualCanonicalizing(['Алгебра', 'Уравнения'])
+        ->and($titles(repo()->listForOwner(null, new TaxonomyId($child->id), null, true, allOwners: true)))
+        ->toEqualCanonicalizing(['Алгебра', 'Уравнения'])
+        ->and($titles(repo()->listForOwner(null, new TaxonomyId($grandchild->id), null, true, allOwners: true)))
+        ->toEqualCanonicalizing(['Уравнения']);
+});
+
+it('search ищет по названию и описанию без учёта регистра', function () {
+    repoCourse('Основы Python', null);
+    repoCourseWithDescription('Курс для 8 класса', 'Готовимся к олимпиаде по PYTHON', null);
+    repoCourse('Алгоритмы', null);
+
+    $titles = static fn (array $courses): array => array_map(
+        static fn ($c) => $c->title()->value,
+        $courses,
+    );
+
+    expect($titles(repo()->listForOwner(null, null, 'python', true, allOwners: true)))
+        ->toEqualCanonicalizing(['Основы Python', 'Курс для 8 класса'])
+        ->and($titles(repo()->listForOwner(null, null, 'олимпиаде', true, allOwners: true)))
+        ->toEqualCanonicalizing(['Курс для 8 класса'])
+        ->and($titles(repo()->listForOwner(null, null, 'kotlin', true, allOwners: true)))
+        ->toBe([]);
+});
+
+it('listForStudent учитывает фильтры и отдаёт только назначенные', function () {
+    $student = repoUser('ученик');
+    $assigned = repoCourseIn('Назначенный', null);
+    repoCourseIn('Неназначенный', null);
+
+    DB::table('course_assignments')->insert([
+        'course_id' => $assigned->id,
+        'student_id' => $student->id,
+        'assigned_by' => $student->id,
+        'completion' => 0,
+        'grade' => 0,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $titles = static fn (array $courses): array => array_map(
+        static fn ($c) => $c->title()->value,
+        $courses,
+    );
+
+    expect($titles(repo()->listForStudent(new UserId($student->id))))
+        ->toBe(['Назначенный'])
+        ->and($titles(repo()->listForStudent(new UserId($student->id), null, 'назнач')))
+        ->toBe(['Назначенный'])
+        ->and($titles(repo()->listForStudent(new UserId($student->id), null, 'неназн')))
+        ->toBe([]);
 });
 
 it('allOwners = true — отдаёт всё, включая чужие', function () {

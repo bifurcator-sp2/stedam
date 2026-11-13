@@ -15,9 +15,15 @@ use App\Domain\Course\ValueObjects\UserId;
  * Правила видимости (§13.2):
  *  - admin / methodologist / headteacher — всё;
  *  - teacher — свои курсы + системные;
- *  - student — курсы, назначенные ему, + системные (в каталоге);
+ *  - student — ТОЛЬКО назначенные ему (в `ListCoursesAction` системные
+ *    ему НЕ подмешиваются: каталог ученика — это его назначения);
  *  - parent — курсы, назначенные его детям (наблюдение, без изменения);
  *  - гость (userId = null) — только системные.
+ *
+ * Системные курсы и student. Листинг студента системные НЕ отдаёт: каталог
+ * ученика — это его назначения. Чтобы детальный GET не был дырой, вызывающая
+ * сторона обязана передать `isAssigned` (см. `CoursesController`): без
+ * назначения системный курс студенту по прямой ссылке НЕ откроется.
  */
 final readonly class CourseViewerContext
 {
@@ -103,6 +109,45 @@ final readonly class CourseViewerContext
     }
 
     /**
+     * Может ли смотрящий ВИДЕТЬ курс.
+     *
+     * Видимость шире права правки (§13.2):
+     *  - admin/methodologist/headteacher — всё;
+     *  - teacher — свои + системные;
+     *  - student — только назначенные (проверяется отдельно, по назначению);
+     *  - parent — курсы детей (проверяется отдельно);
+     *  - guest — только системные.
+     *
+     * Контекст не знает про назначения, поэтому сам решает про системные
+     * курсы так:
+     *  - student — только если курс ему назначен ($isAssigned): в каталоге
+     *    системных нет, и по прямой ссылке без назначения курс закрыт;
+     *  - teacher/guest — системные видны всегда;
+     *  - parent — системные не видны (только курсы детей, через назначение).
+     */
+    public function canView(?UserId $courseOwnerId, bool $isAssigned = false): bool
+    {
+        if ($this->role->seesEverything()) {
+            return true;
+        }
+
+        if ($courseOwnerId === null) {
+            // Системный курс: у student и parent доступ только по назначению.
+            if ($this->role === CourseViewerRole::Student || $this->role === CourseViewerRole::Parent) {
+                return $isAssigned;
+            }
+
+            return $this->seesSystemCourses();
+        }
+
+        if ($isAssigned) {
+            return true;
+        }
+
+        return $this->userId?->equals($courseOwnerId) === true;
+    }
+
+    /**
      * Может ли смотрящий РЕДАКТИРОВАТЬ существующий курс.
      *
      * Правило (§13.1): редактирует только тот, кто курс создал.
@@ -161,6 +206,33 @@ final readonly class CourseViewerContext
     public function isStudentView(): bool
     {
         return $this->role === CourseViewerRole::Student;
+    }
+
+    /**
+     * Наблюдает ли смотрящий за учеником (родитель — за своими детьми).
+     *
+     * Нужен HTTP-слою: курс, назначенный ребёнку, виден родителю, хотя
+     * назначение заведено не на него. Проверку «назначен ли курс ученику»
+     * делает вызывающая сторона, здесь — только состав наблюдаемых детей.
+     */
+    public function observes(UserId $studentId): bool
+    {
+        return $this->canSeeProgressOf($studentId) && !$this->seesEverything();
+    }
+
+    /**
+     * Все ученики, чьи назначения дают смотрящему доступ к курсу:
+     * student — сам, parent — его дети, остальные роли — пусто.
+     *
+     * @return list<UserId>
+     */
+    public function studentScopeIds(): array
+    {
+        if ($this->role === CourseViewerRole::Parent) {
+            return $this->childStudentIds;
+        }
+
+        return $this->isStudentView() && $this->userId !== null ? [$this->userId] : [];
     }
 
     /**

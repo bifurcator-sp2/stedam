@@ -8,6 +8,8 @@
 > источника правды и документа — исправлять документ и код вместе.
 >
 > Смежные документы:
+> - `docs/course-api-spec.md` — **HTTP-контракт** (маршруты, форматы,
+>   коды ошибок, матрица прав для UI);
 > - `docs/learn-domain-spec.md` — прохождения уроков (`Learn`), источник
 >   события «урок оценён»;
 > - `docs/lessons/lessons-domain-spec.md` — авторский контент уроков;
@@ -33,7 +35,7 @@
 | 7 | Actions | `app/Application/Course/Actions` |
 | 8 | Инфраструктура: репозитории, запросы, слушатели событий | `app/Infrastructure`, `app/Listeners/Course` |
 | 9 | Биндинги `AppServiceProvider` + `config/course.php` | `app/Providers`, `config` |
-| 10 | HTTP: контроллеры, ресурсы, маршруты | `app/Http`, `routes/api.php` |
+| 10 | HTTP: контроллеры, ресурсы, маршруты (`docs/course-api-spec.md`) | `app/Http`, `routes/api.php` |
 | 11 | Тесты | `tests/Feature/Course`, `tests/Unit/Course` |
 
 ---
@@ -688,16 +690,20 @@ final readonly class CourseViewerContext
 | `parent` | `[]` (`studentIds = дети(self)`) | `false` | no | no | no |
 
 `canSeeSystem`: курсы с `user_id = null` видны `teacher`, `methodologist`,
-`headteacher`, `student` — но **не** `parent` (у него только назначенные детям).
+`headteacher` в листинге. Для `student` и `parent` системный курс доступен
+**только при назначении** — и в листинге, и по прямой ссылке (см. вопрос 22).
+`parent` системные курсы в каталог не получает вовсе: его каталог — курсы детей.
 
 Права:
 
 | Право | Условие |
 |-------|---------|
-| `canEdit(Course)` | `course.userId === viewerId`; для системного (`userId = null`) — только `admin` |
+| `canView(Course, isAssigned)` | `seesEverything()` → да; системный → для `student`/`parent` только `isAssigned`, для остальных `seesSystemCourses()`; иначе владелец, либо `isAssigned` |
+| `canEdit(Course)` | только `course.userId === viewerId`; для системного (`userId = null`) — только `admin` |
 | `canCreateCourse(ownerId)` | `ownerId === viewerId` И роль ≥ teacher; системный (`ownerId = null`) — **только `admin`** |
 | `canDelete(Course)` | `canEdit` |
-| `canAssign` | курс виден + роль ≥ teacher |
+| `canAssign` | роль ≥ teacher |
+| `canSeeProgressOf(studentId)` | `seesEverything()`; student — свой; parent — детей |
 
 > **Редактирование ≠ видимость.** `headteacher`, `methodologist`, `admin`
 > видят все курсы, но правят только те, что создали сами. У системных курсов
@@ -707,6 +713,69 @@ final readonly class CourseViewerContext
 > Чтобы `admin` правил свой авторский курс, ему нужна роль `teacher` и курс
 > должен быть создан именно им. Чужие авторские курсы не правит никто, кроме
 > их автора.
+
+> **Почему `canView` отдельно от `canEdit`.** Actions проверяют права на
+> МУТАЦИЮ (`canEdit`/`canCreate`/`canAssign`). Детальный GET не мутирует —
+> ему нужно «виден ли курс». Без отдельного метода эта проверка дублировалась
+> бы в контроллере на каждом эндпоинте. Контекст не знает про назначения,
+> поэтому для `student`/`parent` вызывающая сторона передаёт `isAssigned`
+> (или проверяет `assignments->exists()` сама).
+
+### 13.1.1. Резолвер контекста в HTTP-слое
+
+`CourseViewerContext` для HTTP собирает
+`App\Infrastructure\Course\Context\EloquentCourseContextResolver`.
+
+Роль выбирается по приоритету — **высшая выигрывает**:
+
+`admin` → `methodologist` → `headteacher` → `teacher` → `parent` → `student`
+
+Алиасы имён Spatie-ролей: `admin`/`super_admin`/`administrator`,
+`methodologist`/`methodist`, `headteacher`/`head_teacher`/`zavuch`,
+`teacher`, `parent`, `student`/`pupil`. Роль не найдена → `student`
+(наименее привилегированная: ошибка конфигурации ролей не должна давать
+лишний доступ). Гость (нет пользователя) → `guest`.
+
+### 13.1.2. HTTP-контракт и коды ошибок
+
+HTTP-слой описан отдельно: **`docs/course-api-spec.md`**. Там маршруты,
+форматы запросов/ответов, схемы объектов и матрица прав для UI.
+
+Доменные и Application-исключения транслируются в `bootstrap/app.php`
+в единый формат `{message, code}`:
+
+| Исключение | HTTP | `code` |
+|-----------|------|--------|
+| `Application\Course\Exceptions\CourseAccessDenied` | 403 | `course_access_denied` |
+| `Application\Course\Exceptions\CourseNotFound` | 404 | `course_not_found` |
+| `Domain\Course\Exceptions\CourseNotFound` | 404 | `course_not_found` |
+| `CourseThemeNotFound` | 404 | `course_theme_not_found` |
+| `CourseLessonNotInTheme` | 404 | `course_lesson_not_in_theme` |
+| `CourseAlreadyAssigned` | 409 | `course_already_assigned` |
+| `CourseLessonAlreadyInCourse` | 409 | `course_lesson_already_in_course` |
+| `CourseLocaleChangeDenied` | 422 | `course_locale_change_denied` |
+| `CourseTaxonomyChangeDenied` | 422 | `course_taxonomy_change_denied` |
+| `InvalidCourseOrder` | 422 | `invalid_course_order` |
+| `InvalidCourseGrade` | 422 | `invalid_course_grade` |
+| `InvalidCompletion` | 422 | `invalid_completion` |
+| `InvalidNextLessonThreshold` | 422 | `invalid_next_lesson_threshold` |
+| `InvalidTimeGap` | 422 | `invalid_time_gap` |
+| `InvalidLocale` (VO `Locale`) | 422 | `invalid_locale` |
+| `InvalidCourseTitle` (VO `CourseTitle`) | 422 | `invalid_course_title` |
+
+> **Почему `code`, а не только `message`.** Текст сообщения — для
+> разработчика и логов; фронт не должен его парсить, чтобы показать
+> локализованную ошибку. `code` стабилен и не зависит от языка.
+
+### 13.1.3. Формат ответа HTTP
+
+- `CourseResource` — полный курс с составом (`themes`, `lessons`).
+- `withThemes: false` — схема листинга: **поле `themes` не отдаётся вовсе**
+  (не пустой массив). Пустой массив читался бы как «курс без тем», хотя это
+  значит «состав не запрашивали».
+- `CourseAssignmentResource` — назначение (`completion`, `grade` в `0..1`).
+- Детальный GET добавляет блок `can: {edit, delete, assign, see_progress}`,
+  чтобы фронт не дублировал матрицу прав.
 
 ### 13.2. `GetList(?tax_id, ?search)`
 
@@ -719,7 +788,7 @@ final readonly class CourseViewerContext
    - `parent` — `EXISTS(... WHERE student_id IN students(children))`;
    - `teacher` / `methodologist` — `user_id IN authorIds` ИЛИ
      (`user_id IS NULL` при `canSeeSystem`);
-   - `headteacher` — все.
+   - `headteacher` / `admin` — все.
 2. **`tax_id`**: узел таксономии + **все его потомки** (WHY: пользователь
    смотрит программу своей ветки). Дерево раскрывается через
    `WITH RECURSIVE` по `taxonomies.parent_id`.
@@ -728,67 +797,96 @@ final readonly class CourseViewerContext
    > т.е. каждый урок принадлежит **ровно одному** узлу таксономии.
    > Значит фильтр курс→ветка можно строить и через уроки курса
    > (`course.themes.lessons.lesson.taxonomies`), но `courses.tax_id`
-   > остаётся : он задаёт ветку **курса** целиком и позволяет фильтровать
+   > остаётся: он задаёт ветку **курса** целиком и позволяет фильтровать
    > листинг без джойнов на уроки.
-2. **`search`**: `ILIKE '%q%'` по `title` и `description`.
 3. **`search`**: `ILIKE '%q%'` по `title` и `description`.
 4. Исключаются `deleted_at IS NOT NULL`.
 5. Сортировка: `updated_at DESC, id DESC`.
 
-### 13.3. `CourseListItem` (VO листинга)
+> **`search` и `tax_id` фильтруются в репозитории.**
+> Оба метода листинга (`listForOwner()`, `listForStudent()`) применяют
+> `applyFilters()`: `tax_id` раскрывается в поддерево через
+> `WITH RECURSIVE` по `taxonomies.parent_id`, `search` — `ILIKE '%q%'`
+> по `title` и `description`. Значение уходит параметром запроса, не
+> конкатенацией. Покрытие — `EloquentCourseRepositoryListTest`.
 
-```php
-final readonly class CourseListItem
-{
-    public function __construct(
-        public int $id,
-        public ?int $userId,
-        public string $title,
-        public ?string $description,
-        public ?float $complexity,
-        public ?int $taxonomyId,
-        public string $locale,
-        public DateTimeImmutable $createdAt,
-    ) {}
-}
-```
+> **`parent` в листинге.** Порт отдаёт курсы одного ученика, поэтому
+> `ListCoursesAction` перебирает `childStudentIds()` и склеивает результат
+> без дублей (курс, назначенный двум детям, встречается один раз).
+> Список детей загружает `EloquentCourseContextResolver` из `user_relations`
+> (действующие связи: `active_to IS NULL OR active_to > now()`).
 
-Полей тем/уроков **нет** — листинг лёгкий. Детали — `GetCourseAction`.
+### 13.3. `CourseListItem` — **не реализован**
 
-### 13.4. Детальный `Course` в VO `CourseDetails`
+> **Расхождение со спекой.** Этот раздел раньше описывал VO
+> `CourseListItem` как существующий. В коде его **нет**:
+> `ListCoursesAction` возвращает `list<Course>` (доменный агрегат), а
+> лёгкую схему для листинга формирует `CourseResource` с
+> `withThemes: false` (§13.1.3).
+>
+> Почему так вышло: сначала листинг отдавал агрегат целиком, VO не
+> понадобился. Если появится N+1 на составе — ввести VO и переписать
+> `listForOwner()`, чтобы не гидрать темы.
 
-`GetCourseAction(CourseId, CourseViewerContext): CourseDetails` — агрегат + темы
-+ уроки с ссылками и параметрами планирования. Read-only.
+Проекция листинга (фактическая, см. §13.1.3):
 
-### 13.5. Actions (полный список)
+`id`, `user_id`, `is_system`, `title`, `description`, `locale`,
+`next_lesson_threshold`, `tax_id`, `updated_at`, `lessons_count`.
 
-| Action | Сигнатура (упрощённо) | Права |
-|--------|-----------------------|-------|
-| `GetListCoursesAction` | `(CourseViewerContext, ?TaxonomyId, ?string, int, int)` | scope §13.2 |
-| `GetCourseAction` | `(CourseId, CourseViewerContext)` | видим |
-| `CreateCourseAction` | `(UserId, CreateCourseData)` | `canCreate` (системный — только `admin`) |
-| `UpdateCourseAction` | `(CourseId, UpdateCourseData, CourseViewerContext)` | `canEdit` |
-| `DeleteCourseAction` | `(CourseId, CourseViewerContext)` | `canDelete` |
-| `AddThemeAction` | `(CourseId, AddThemeData, CourseViewerContext)` | `canEdit` |
-| `UpdateThemeAction` | `(CourseId, CourseThemeId, UpdateThemeData, CourseViewerContext)` | `canEdit` |
-| `RemoveThemeAction` | `(CourseId, CourseThemeId, CourseViewerContext)` | `canEdit` |
-| `ReorderThemesAction` | `(CourseId, list<int>, CourseViewerContext)` | `canEdit` |
-| `AddLessonToThemeAction` | `(CourseId, CourseThemeId, AddLessonData, CourseViewerContext)` | `canEdit` |
-| `RemoveLessonFromThemeAction` | `(CourseId, CourseThemeId, LessonId, CourseViewerContext)` | `canEdit` |
-| `ReorderLessonsAction` | `(CourseId, CourseThemeId, list<int>, CourseViewerContext)` | `canEdit` |
-| `AssignCourseAction` | `(CourseId, studentId, CourseViewerContext)` | `canAssign` |
-| `UnassignCourseAction` | `(CourseId, studentId, CourseViewerContext)` | `canAssign` |
-| `GetLessonCanBeLearnedAction` | `(UserId, LessonId, CourseId): bool` | — |
-| `GetLessonAccessAction` | `(UserId, LessonId, CourseId): CourseAccessRule` | — |
+Полей тем/уроков **нет** — листинг лёгкий.
 
-DTO (readonly, `Application\Course\DTOs`): `CreateCourseData`, `UpdateCourseData`,
-`AddThemeData`, `UpdateThemeData`, `AddLessonData`, `ReorderData`.
+### 13.4. Детальный курс — **без отдельного VO**
+
+> **Расхождение со спекой.** `GetCourseAction` и VO `CourseDetails`
+> в коде **не существуют**. Детальный курс отдаёт метод контроллера
+> `CoursesController::show()`: берёт агрегат через
+> `CourseRepositoryInterface::findById()`, проверяет `canView()` и
+> сериализует `CourseResource` (+ блок `can`).
+>
+> Отдельный Action не понадобился: чтение не содержит бизнес-правил,
+> кроме проверки видимости. Если появятся другие потребители (CLI,
+> отчёты) — вынести в Action, чтобы проверка не разъехалась.
+
+### 13.5. Actions (полный список) — **фактический**
+
+> **Расхождение со спекой.** Раньше здесь был список из 16 Actions с DTO
+> `CreateCourseData` и т.п. В коде **нет** ни этих имён, ни DTO-папки
+> (`app/Application/Course/DTOs` отсутствует). Ниже — то, что реально
+> существует и вызывается из `CoursesController`. VO собирает контроллер
+> из провалидированных полей.
+
+| Action | Метод и сигнатура | Права |
+|--------|-------------------|-------|
+| `ListCoursesAction` | `execute(viewer, ?TaxonomyId, ?string)` | scope §13.2 |
+| `CreateCourseAction` | `execute(viewer, ?UserId ownerId, title, description, locale, threshold, ?taxId)` | `canCreate` (системный — только `admin`) |
+| `EditCourseHeaderAction` | `execute(viewer, courseId, ?title, ?description, ?locale, ?threshold, ?taxId, bool changeTaxonomy)` | `canEdit` |
+| `DeleteCourseAction` | `execute(viewer, courseId)` | `canEdit` |
+| `EditCourseThemeAction` | `add(viewer, courseId, string title)` / `rename(...)` / `remove(...)` / `move(..., int toPosition)` | `canEdit`, публикует `CourseChanged` |
+| `EditCourseLessonAction` | `add(viewer, courseId, themeId, lessonId, ?typeId, ?timeGap)` / `remove(...)` / `move(..., int toPosition)` / `changeType(..., ?typeId)` / `changeTimeGap(..., TimeGap)` | `canEdit`, публикует `CourseChanged` |
+| `AssignCourseAction` | `execute(viewer, courseId, UserId studentId): CourseAssignment` | `canAssign`, транзакция |
+| `UnassignCourseAction` | `execute(viewer, courseId, UserId studentId): void` | `canAssign`, транзакция |
+| `RecalculateCourseAction` | `execute(viewer, courseId, UserId studentId): CourseAssignment` | `canEdit` ИЛИ `canSeeProgressOf` |
+| `RecalculateCourseForAllAction` | `execute(viewer, courseId): int` — **синхронно**, возвращает число пересчитанных | `canEdit` |
+
+Все Actions принимают `CourseViewerContext` **первым** параметром и
+`?DateTimeImmutable $now = null` последним (точка времени для тестов).
+
+**Почему `recalculateAll` синхронен и отдаёт `200 {processed: N}`:**
+Action выполняет работу целиком до ответа. `202` сообщал бы клиенту
+«задача поставлена», хотя она уже сделана; число пересчитанных назначений
+даёт вызывающей стороне подтверждение объёма (§20, вопрос 20).
 
 ### 13.6. DTO → домен
 
-Application **не** создаёт VO «на месте» из сырых int — валидация значений
-(например `NextLessonThreshold`) выполняется конструктором VO, а исключения
-`InvalidArgumentException` транслируются в HTTP 422 на уровне контроллера.
+Application **не** имеет DTO-классов: HTTP-слой валидирует вход,
+собирает VO (`CourseTitle`, `CourseDescription`, `Locale`,
+`NextLessonThreshold`, `TimeGap`, `LessonTypeId`) и передаёт их в Action.
+
+`InvalidArgumentException` (пустой `CourseTitle` и т.п.) пока **не
+транслируется** в 422 — ловится заранее через правила валидации в
+контроллере (`min:1`, `max:255`). Это дублирование границ: при
+расхождении ограничений VO и правил валидации пользователь получит 500
+вместо 422.
 
 ---
 
@@ -1192,6 +1290,7 @@ AND started_at IS NULL` + `delete()`. Race-условие: между `SELECT` �
 | 13 | `deleteUnstarted` на реальной БД: `started_at` защищает от стирания | `tests/Feature/Infrastructure/Learn/EloquentLearnRepositoryDeleteUnstartedTest` |
 | 14 | `started_at` round-trip Eloquent → домен → БД | `tests/Feature/Infrastructure/Learn/EloquentLearnRepositoryStartedAtRoundTripTest` |
 | 15 | `RecalculateOnLessonGraded`: пересчёт, фильтр `graded`, отсутствие курса, чужие ученики | `tests/Feature/Listeners/Course/RecalculateOnLessonGradedTest` |
+| 16 | HTTP-контракт §13.1.2–13.1.3: 19 маршрутов, коды ошибок, `can`-флаги, отсутствие `themes` в листинге | `tests/Feature/Api/CoursesApiTest` |
 
 ---
 
@@ -1218,6 +1317,25 @@ AND started_at IS NULL` + `delete()`. Race-условие: между `SELECT` �
 | 17 | Кто создаёт системные курсы (`user_id = null`) | **только `admin`** | требование заказчика; методист/завуч системные курсы не создают |
 | 18 | Кто редактирует авторский курс | **только его создатель** | требование заказчика: `admin`/`methodologist`/`headteacher` видят все курсы, но правят только свои. `seesEverything()` больше не даёт прав на правку |
 | 19 | `admin` и авторские курсы | правит только свои, и только если создал их сам | системные — его исключительная зона; чужой авторский курс недоступен никому, кроме автора |
+| 20 | `RecalculateCourseForAllAction` синхронен | HTTP `200 {processed: N}` | `202` без очереди лгал бы клиенту; число обработанных назначений подтверждает, что работа выполнена |
+| 21 | Родитель и курсы детей | дети загружаются в `EloquentCourseContextResolver` из `user_relations` (действующие связи), доступ — по назначению ребёнку | контекст остаётся чистой проверкой по данным; `studentScopeIds()` даёт и ученику, и родителю единый список |
+| 22 | `student` и системные курсы | `canView(ownerId = null, isAssigned)` для student/parent отвечает `true` ТОЛЬКО при назначении | симметрия с листингом: чего нет в каталоге, того нет и по прямой ссылке |
+| 23 | `search` / `tax_id` в листинге | реализованы в `EloquentCourseRepository::applyFilters` для обоих методов | `tax_id` — узел вместе с поддеревом (`WITH RECURSIVE`), поиск — `ILIKE` по `title` и `description` |
+| 24 | VO `InvalidArgumentException` → HTTP | `InvalidLocale` и `InvalidCourseTitle` мапятся в `422` в `bootstrap/app.php` | контроллер дублирует ограничения ради красивых ошибок валидации, но VO могут сработать и в обход контроллера (Actions, CLI, очереди) |
+
+### 20.1. Закрытые вопросы (история)
+
+Таблица ранее фиксировала пять нерешённых вопросов; все они закрыты в коде и покрыты тестами:
+
+| # | Было | Стало |
+|---|------|-------|
+| 20 | Action синхронный, HTTP отдавал `202 {message}` | `200 {processed: N}`; тест «пересчёт по всем ученикам синхронный и возвращает 200 с числом» |
+| 21 | `parent($userId, [])`, `assertCanView` проверял только свой `userId` | `childStudentIds()` из `user_relations`, `isAssignedToScope()` перебирает `studentScopeIds()` (для родителя — дети) |
+| 22 | `canView()` пускал student в любой системный курс | системный курс для student/parent — только по назначению |
+| 23 | `tax_id` сравнивался равенством, поиск только по `title` через `LIKE` | поддерево таксономии + `ILIKE` по `title` и `description`, в обоих методах листинга |
+| 24 | голый `InvalidArgumentException` → `500` | `InvalidLocale` / `InvalidCourseTitle` → `422` с `code` |
+
+Единственная сохраняющаяся асимметрия — `parent` не видит системные курсы вообще (§20, п. 9: так и задумано), в том числе назначенные его детям: системные курсы назначаются редко, и при необходимости правило меняется одной веткой `canView()`.
 
 
 ---
@@ -1232,12 +1350,18 @@ AND started_at IS NULL` + `delete()`. Race-условие: между `SELECT` �
 | `CourseLessonNotInTheme` | Domain | урок не найден в теме |
 | `CourseThemeNotFound` | Domain | тема не найдена в агрегате |
 | `CourseAlreadyAssigned` | Domain | повторное назначение пары |
+| `CourseLessonAlreadyInCourse` | Domain | урок уже входит в другую тему курса |
 | `InvalidCourseGrade` | Domain | оценка вне `[0..1]` |
 | `InvalidCompletion` | Domain | пройденность вне `[0..1]` |
 | `InvalidNextLessonThreshold` | Domain | порог не в `(0..1]` |
 | `InvalidTimeGap` | Domain | отрицательный разрыв |
 | `CourseAccessDenied` | Application | нет права (create/edit/assign) |
 | `CourseNotFound` | Application | курс не найден или soft-deleted |
+| `CourseNotFound` | Domain | курс не найден при поиске темы в агрегате |
+
+HTTP-коды и машиночитаемые `code` — в §13.1.2. Application и Domain
+`CourseNotFound` оба отдают `404 course_not_found`: снаружи это одно и то
+же событие, и фронту не нужен признак слоя.
 
 ---
 
@@ -1392,7 +1516,7 @@ AND started_at IS NULL` + `delete()`. Race-условие: между `SELECT` �
       `tests/Support/Fakes/`.
 - [x] `php artisan test --filter=Course` зелёный.
 - [x] `php artisan test --filter=Learn` зелёный (не сломали рефакторингом).
-      Весь набор: 904 теста (7272 assert).
+      Весь набор: 928 тестов (7350 assert).
 
 > **Найденный баг (исправлен).** `EloquentCourseRepository::listForOwner()`
 > при `ownerId = null` НЕ ставил фильтр по владельцу — гость видел все чужие
@@ -1406,7 +1530,34 @@ AND started_at IS NULL` + `delete()`. Race-условие: между `SELECT` �
       тест `DispatchLearnEventsTest`, `deleteUnstarted`, `started_at`
       (round-trip покрыт `EloquentLearnRepositoryStartedAtRoundTripTest`).
 - [x] Права доступа §13.1 переработаны (см. §13.1 и запись ниже).
-- [ ] HTTP: ресурс курса (шапка + темы + уроки), листинг, назначение.
+- [x] HTTP: `CoursesController` — 19 маршрутов (курс, темы, уроки,
+      назначения, пересчёт), `CourseResource` / `CourseAssignmentResource`,
+      `EloquentCourseContextResolver`, маппинг исключений в `bootstrap/app.php`.
+      Контракт — `docs/course-api-spec.md`. Тесты —
+      `tests/Feature/Api/CoursesApiTest.php` (24 теста).
+
+> **HTTP-слой: чем закончился.** Все 19 маршрутов зарегистрированы
+> (`php artisan route:list --path=courses`). Ключевые решения:
+>
+> - **Контекст собирается резолвером, а не в контроллере.** Роль выбирается
+>   по приоритету (высшая выигрывает); неизвестная роль → `student`, а не
+>   `guest` — ошибка конфигурации ролей не должна давать доступ.
+> - **`canView()` добавлен в контекст.** Actions проверяют права на мутацию,
+>   а детальному GET нужно «виден ли курс». Без отдельного метода проверка
+>   дублировалась бы в каждом методе контроллера.
+> - **Список исключений → HTTP-код в одном месте.** Цикл по таблице
+>   `класс => [статус, code]` в `bootstrap/app.php`; формат тела
+>   `{message, code}`, чтобы фронт не парсил текст.
+> - **`withThemes` в `CourseResource`.** Листинг не отдаёт `themes` вовсе.
+>   Пустой массив читался как «курс без тем» — тест это поймал.
+> - **`user_id` в теле создания различает «себе» и «системный».** Ключа нет →
+>   курс себе; ключ есть и `null` → запрос системного (только `admin`).
+>   Логика вынесена в докблок, потому что разница невидима в коде.
+>
+> **Что осталось открытым:** пересчёт всех учеников синхронный — на больших
+> курсах это блокирующий запрос; при росте курсов его нужно унести в очередь
+> (тогда HTTP станет честным `202`). Родитель видит курсы детей с закрытия
+> вопроса 21 (§20.1).
 
 > **Переработаны права доступа (§13.1).** Требование: системные курсы
 > (`user_id = null`) создаёт только `admin`; редактирование доступно только

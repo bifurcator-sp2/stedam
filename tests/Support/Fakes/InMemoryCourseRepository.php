@@ -108,31 +108,40 @@ final class InMemoryCourseRepository implements CourseRepositoryInterface
                 }
             }
 
-            if ($taxId !== null && $course->taxId()?->value !== $taxId->value) {
+            if (!$this->matchesTaxonomy($course, $taxId)) {
                 continue;
             }
 
-            if ($search !== null && $search !== '' && mb_stripos($course->title()->value, $search) === false) {
+            if (!$this->matchesSearch($course, $search)) {
                 continue;
             }
 
             $result[] = $course;
         }
 
-        return $result;
+        return $this->sortedByUpdate($result);
     }
 
-    public function listForStudent(UserId $studentId): array
-    {
+    public function listForStudent(
+        UserId $studentId,
+        ?TaxonomyId $taxId = null,
+        ?string $search = null,
+    ): array {
         $result = [];
 
         foreach ($this->items as $course) {
-            if ($this->assignedStudentIds[$course->id()->value][$studentId->value] ?? false) {
-                $result[] = $course;
+            if (!($this->assignedStudentIds[$course->id()->value][$studentId->value] ?? false)) {
+                continue;
             }
+
+            if (!$this->matchesTaxonomy($course, $taxId) || !$this->matchesSearch($course, $search)) {
+                continue;
+            }
+
+            $result[] = $course;
         }
 
-        return $result;
+        return $this->sortedByUpdate($result);
     }
 
     /**
@@ -143,9 +152,51 @@ final class InMemoryCourseRepository implements CourseRepositoryInterface
         $this->assignedStudentIds[$courseId->value][$studentId->value] = true;
     }
 
+    /**
+     * Таксономия с потомками: в фейке дерева нет, поэтому совпадение только
+     * по самому узлу. Дерево проверяется в тестах Eloquent-репозитория.
+     */
+    private function matchesTaxonomy(Course $course, ?TaxonomyId $taxId): bool
+    {
+        return $taxId === null || $course->taxId()?->value === $taxId->value;
+    }
+
+    /**
+     * Поиск без учёта регистра по названию и описанию — как ILIKE в БД.
+     */
+    private function matchesSearch(Course $course, ?string $search): bool
+    {
+        if ($search === null || trim($search) === '') {
+            return true;
+        }
+
+        $needle = trim($search);
+
+        return mb_stripos($course->title()->value, $needle) !== false
+            || mb_stripos($course->description()->value, $needle) !== false;
+    }
+
     public function typeThresholds(array $typeIds): array
     {
         return [];
+    }
+
+    /**
+     * Порядок как в Eloquent-репозитории: updated_at DESC, затем id DESC.
+     *
+     * @param list<Course> $courses
+     * @return list<Course>
+     */
+    private function sortedByUpdate(array $courses): array
+    {
+        usort($courses, static function (Course $a, Course $b): int {
+            $left = $a->updatedAt()?->getTimestamp() ?? 0;
+            $right = $b->updatedAt()?->getTimestamp() ?? 0;
+
+            return [$right, $b->id()?->value ?? 0] <=> [$left, $a->id()?->value ?? 0];
+        });
+
+        return $courses;
     }
 
     /**

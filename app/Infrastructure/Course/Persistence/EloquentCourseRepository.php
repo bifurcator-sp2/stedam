@@ -24,6 +24,7 @@ use App\Models\CourseTheme as ThemeModel;
 use App\Models\CourseThemeLesson as ThemeLessonModel;
 use App\Models\LessonType;
 use DateTimeImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -101,24 +102,22 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
             return [];
         }
 
-        if ($taxId !== null) {
-            $query->where('tax_id', $taxId->value);
-        }
-
-        if ($search !== null && $search !== '') {
-            $query->where('title', 'like', '%' . $search . '%');
-        }
+        $this->applyFilters($query, $taxId, $search);
 
         return $query
-            ->orderBy('title')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
             ->get()
             ->map(fn (CourseModel $model) => $this->toDomain($model))
             ->all();
     }
 
-    public function listForStudent(UserId $studentId): array
-    {
-        $models = CourseModel::query()
+    public function listForStudent(
+        UserId $studentId,
+        ?TaxonomyId $taxId = null,
+        ?string $search = null,
+    ): array {
+        $query = CourseModel::query()
             ->with([
                 'themes' => fn ($q) => $q->orderBy('order'),
                 'themes.lessons' => fn ($q) => $q->orderBy('order'),
@@ -127,13 +126,67 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
                 $sub->select('course_id')
                     ->from('course_assignments')
                     ->where('student_id', $studentId->value);
-            })
-            ->orderBy('title')
-            ->get();
+            });
 
-        return $models
+        $this->applyFilters($query, $taxId, $search);
+
+        return $query
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->get()
             ->map(fn (CourseModel $model) => $this->toDomain($model))
             ->all();
+    }
+
+    /**
+     * Общие фильтры листинга (§13.2): таксономия с потомками и поиск.
+     *
+     * Поиск — ILIKE по title и description: подстрока без учёта регистра,
+     * иначе «Python» не находил бы «python». Подстановка «%q%» безопасна:
+     * значение уходит параметром запроса, а не конкатенацией.
+     */
+    private function applyFilters(
+        Builder $query,
+        ?TaxonomyId $taxId,
+        ?string $search,
+    ): void {
+        if ($taxId !== null) {
+            $query->whereIn('tax_id', $this->taxonomySubtreeIds($taxId->value));
+        }
+
+        if ($search !== null && trim($search) !== '') {
+            $pattern = '%' . trim($search) . '%';
+
+            $query->where(fn (Builder $q) => $q
+                ->where('title', 'ilike', $pattern)
+                ->orWhere('description', 'ilike', $pattern));
+        }
+    }
+
+    /**
+     * Узел таксономии и все его потомки (PostgreSQL: WITH RECURSIVE).
+     *
+     * В моделях курсов хранится только сам узел — фильтр «курсы раздела
+     * вместе с подразделами» раскрывается здесь. Корень дерева — parent_id
+     * = -1, поэтому отсечения по NULL не требуется.
+     *
+     * @return list<int>
+     */
+    private function taxonomySubtreeIds(int $taxonomyId): array
+    {
+        $rows = DB::select(
+            'WITH RECURSIVE descendants AS (
+                SELECT id FROM taxonomies WHERE id = ?
+                UNION
+                SELECT t.id
+                FROM taxonomies t
+                JOIN descendants d ON t.parent_id = d.id
+            )
+            SELECT DISTINCT id FROM descendants',
+            [$taxonomyId],
+        );
+
+        return array_map(static fn ($row): int => (int) $row->id, $rows);
     }
 
     public function typeThresholds(array $typeIds): array
