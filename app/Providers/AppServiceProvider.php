@@ -62,6 +62,11 @@ class AppServiceProvider extends ServiceProvider
             \App\Application\Lessons\Ports\LessonRepositoryInterface::class,
             \App\Infrastructure\Persistence\Repositories\EloquentLessonAggregateRepository::class,
         );
+        // Read-side: списки/каталог + PostgreSQL-full-text по урокам.
+        $this->app->bind(
+            \App\Application\Lessons\Ports\LessonsQueryInterface::class,
+            \App\Infrastructure\Persistence\Queries\EloquentLessonsQuery::class,
+        );
         $this->app->bind(
             \App\Application\LessonBlocks\Ports\LessonBlockRepositoryInterface::class,
             \App\Infrastructure\Persistence\Repositories\EloquentLessonBlockRepository::class,

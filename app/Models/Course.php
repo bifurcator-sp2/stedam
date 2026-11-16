@@ -24,6 +24,7 @@ class Course extends Model
         'title',
         'description',
         'next_lesson_threshold',
+        'threshold_multipler',
         'locale',
         'tax_id',
         'complexity',
@@ -33,6 +34,7 @@ class Course extends Model
         'user_id' => 'integer',
         'tax_id' => 'integer',
         'next_lesson_threshold' => 'float',
+        'threshold_multipler' => 'float',
         'complexity' => 'float',
     ];
 

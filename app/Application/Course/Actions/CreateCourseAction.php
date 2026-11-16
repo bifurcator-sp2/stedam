@@ -13,6 +13,7 @@ use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\UserId;
 
 /**
@@ -41,7 +42,7 @@ final readonly class CreateCourseAction
         CourseTitle $title,
         CourseDescription $description,
         Locale $locale,
-        NextLessonThreshold $threshold,
+        ThresholdMultiplier $thresholdMultiplier,
         ?TaxonomyId $taxId = null,
     ): Course {
         if (!$viewer->canCreate($ownerId)) {
@@ -54,7 +55,10 @@ final readonly class CreateCourseAction
                 title: $title,
                 description: $description,
                 locale: $locale,
-                nextLessonThreshold: $threshold,
+                // Порог курса не часть API и не берётся из ввода: значение
+                // живёт в БД как дефолт колонки (course-api-spec §1.1).
+                nextLessonThreshold: new NextLessonThreshold(1.0),
+                thresholdMultiplier: $thresholdMultiplier,
                 taxId: $taxId,
             ),
         );

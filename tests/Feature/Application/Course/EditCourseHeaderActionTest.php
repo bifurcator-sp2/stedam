@@ -18,6 +18,7 @@ use App\Domain\Course\ValueObjects\LessonId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
 use App\Domain\Course\ValueObjects\UserId;
 use Tests\Support\CourseScene;
@@ -48,6 +49,7 @@ function savedCourse(
             description: new CourseDescription('Описание курса для теста'),
             locale: new Locale('ru'),
             nextLessonThreshold: new NextLessonThreshold(0.6),
+            thresholdMultiplier: ThresholdMultiplier::default(),
             taxId: $taxId,
             themes: [],
             updatedAt: null,
@@ -87,25 +89,11 @@ it('null означает «не менять»', function () {
         title: null,
         description: null,
         locale: null,
-        threshold: null,
     );
 
     expect($updated->title()->value)->toBe($course->title()->value)
         ->and($updated->description()->value)->toBe($course->description()->value)
         ->and($updated->locale()->value)->toBe($course->locale()->value);
-});
-
-it('меняет порог допуска', function () {
-    $scene = new CourseScene();
-    $course = savedCourse($scene, ownerId: new UserId(1));
-
-    $updated = makeEditHeaderAction($scene)->execute(
-        CourseViewerContext::teacher(new UserId(1)),
-        $course->id(),
-        threshold: new NextLessonThreshold(0.9),
-    );
-
-    expect($updated->nextLessonThreshold()->value)->toBe(0.9);
 });
 
 it('разрешает сменить язык у курса без уроков', function () {
@@ -203,7 +191,7 @@ it('отказывает, если курс не найден', function () {
     )->toThrow(CourseNotFound::class);
 });
 
-it('меняет описание и порог разом', function () {
+it('меняет название и описание разом', function () {
     $scene = new CourseScene();
     $course = savedCourse($scene, ownerId: new UserId(1));
 
@@ -212,10 +200,8 @@ it('меняет описание и порог разом', function () {
         $course->id(),
         title: new CourseTitle('Курс 2'),
         description: new CourseDescription('Новое описание'),
-        threshold: new NextLessonThreshold(0.75),
     );
 
     expect($updated->title()->value)->toBe('Курс 2')
-        ->and($updated->description()->value)->toBe('Новое описание')
-        ->and($updated->nextLessonThreshold()->value)->toBe(0.75);
+        ->and($updated->description()->value)->toBe('Новое описание');
 });

@@ -42,7 +42,7 @@ final class CourseResource extends JsonResource
             'title' => $course->title()->value,
             'description' => $course->description()->value,
             'locale' => $course->locale()->value,
-            'next_lesson_threshold' => $course->nextLessonThreshold()->value,
+            'threshold_multipler' => $course->thresholdMultiplier()->value,
             'tax_id' => $course->taxId()?->value,
             'updated_at' => $course->updatedAt()?->format(DATE_ATOM),
             'lessons_count' => $course->countLessons(),

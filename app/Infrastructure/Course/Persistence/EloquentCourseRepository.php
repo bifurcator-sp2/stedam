@@ -17,6 +17,7 @@ use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
 use App\Domain\Course\ValueObjects\UserId;
 use App\Models\Course as CourseModel;
@@ -24,7 +25,9 @@ use App\Models\CourseTheme as ThemeModel;
 use App\Models\CourseThemeLesson as ThemeLessonModel;
 use App\Models\LessonType;
 use DateTimeImmutable;
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\Paginator as ConcretePaginator;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -76,12 +79,10 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
         ?string $search,
         bool $includeSystem,
         bool $allOwners = false,
-    ): array {
-        $query = CourseModel::query()
-            ->with([
-                'themes' => fn ($q) => $q->orderBy('order'),
-                'themes.lessons' => fn ($q) => $q->orderBy('order'),
-            ]);
+        int $page = 1,
+        int $perPage = 20,
+    ): Paginator {
+        $query = CourseModel::query();
 
         if ($allOwners) {
             // Смотрящий видит всё (admin/methodologist/headteacher) — без фильтра.
@@ -99,29 +100,22 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
             $query->whereNull('user_id');
         } else {
             // Ни владельца, ни системных — показывать нечего.
-            return [];
+            return $this->emptyPage($page, $perPage);
         }
 
         $this->applyFilters($query, $taxId, $search);
 
-        return $query
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (CourseModel $model) => $this->toDomain($model))
-            ->all();
+        return $this->paginate($query, $page, $perPage);
     }
 
     public function listForStudent(
         UserId $studentId,
         ?TaxonomyId $taxId = null,
         ?string $search = null,
-    ): array {
+        int $page = 1,
+        int $perPage = 20,
+    ): Paginator {
         $query = CourseModel::query()
-            ->with([
-                'themes' => fn ($q) => $q->orderBy('order'),
-                'themes.lessons' => fn ($q) => $q->orderBy('order'),
-            ])
             ->whereIn('id', function ($sub) use ($studentId) {
                 $sub->select('course_id')
                     ->from('course_assignments')
@@ -130,12 +124,41 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
 
         $this->applyFilters($query, $taxId, $search);
 
+        return $this->paginate($query, $page, $perPage);
+    }
+
+    /**
+     * Simple-пагинация листинга — та же, что в LessonController::list().
+     *
+     * Состава (themes) не грузим: листинг отдаёт только шапку.
+     * Порядок — updated_at DESC, id DESC. Без уникального ключа в конце
+     * порядка LIMIT/OFFSET между страницами может повторить или потерять
+     * строку.
+     *
+     * @return Paginator<int, Course>
+     */
+    private function paginate(Builder $query, int $page, int $perPage): Paginator
+    {
         return $query
             ->orderByDesc('updated_at')
             ->orderByDesc('id')
-            ->get()
-            ->map(fn (CourseModel $model) => $this->toDomain($model))
-            ->all();
+            ->simplePaginate(
+                perPage: $perPage,
+                columns: ['*'],
+                pageName: 'page',
+                page: $page,
+            )
+            ->through(fn (CourseModel $model): Course => $this->toDomain($model));
+    }
+
+    /**
+     * Пустая страница: «показывать нечего» без обращения к БД.
+     *
+     * @return Paginator<int, Course>
+     */
+    private function emptyPage(int $page, int $perPage): Paginator
+    {
+        return new ConcretePaginator([], $perPage, $page);
     }
 
     /**
@@ -219,6 +242,7 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
             description: new CourseDescription((string) ($model->description ?? '')),
             locale: new Locale($model->locale),
             nextLessonThreshold: new NextLessonThreshold((float) $model->next_lesson_threshold),
+            thresholdMultiplier: new ThresholdMultiplier((float) $model->threshold_multipler),
             taxId: $model->tax_id === null ? null : new TaxonomyId((int) $model->tax_id),
             themes: $themes,
             updatedAt: $model->updated_at === null
@@ -264,7 +288,9 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
         $model->title = $course->title()->value;
         $model->description = $course->description()->value;
         $model->locale = $course->locale()->value;
-        $model->next_lesson_threshold = $course->nextLessonThreshold()->value;
+        // next_lesson_threshold курса не пишем: значение задаётся БД-дефолтом,
+        // в API его нет (docs/course-api-spec.md §1.1, §2.3–2.4).
+        $model->threshold_multipler = $course->thresholdMultiplier()->value;
         $model->tax_id = $course->taxId()?->value;
         $model->save();
 

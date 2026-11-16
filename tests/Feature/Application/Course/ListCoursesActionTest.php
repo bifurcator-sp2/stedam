@@ -12,11 +12,22 @@ use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
 use App\Domain\Course\ValueObjects\UserId;
+use Illuminate\Contracts\Pagination\Paginator;
 use Tests\Support\CourseScene;
 
 function makeListAction(CourseScene $scene): ListCoursesAction
 {
     return new ListCoursesAction($scene->courses);
+}
+
+/**
+ * Курсы страницы в виде доменных объектов.
+ *
+ * @return list<Course>
+ */
+function pageItems(Paginator $result): array
+{
+    return $result->items();
 }
 
 /**
@@ -56,7 +67,7 @@ it('учитель видит свои курсы и системные', functi
 
     $result = makeListAction($scene)->execute(CourseViewerContext::teacher(new UserId(1)));
 
-    expect(titles($result))->toEqualCanonicalizing(['Мой', 'Системный']);
+    expect(titles(pageItems($result)))->toEqualCanonicalizing(['Мой', 'Системный']);
 });
 
 it('админ видит все курсы', function () {
@@ -67,7 +78,7 @@ it('админ видит все курсы', function () {
 
     $result = makeListAction($scene)->execute(CourseViewerContext::admin(new UserId(9)));
 
-    expect(titles($result))->toEqualCanonicalizing(['Мой', 'Чужой', 'Системный']);
+    expect(titles(pageItems($result)))->toEqualCanonicalizing(['Мой', 'Чужой', 'Системный']);
 });
 
 it('гость видит только системные', function () {
@@ -77,7 +88,7 @@ it('гость видит только системные', function () {
 
     $result = makeListAction($scene)->execute(CourseViewerContext::guest());
 
-    expect(titles($result))->toBe(['Системный']);
+    expect(titles(pageItems($result)))->toBe(['Системный']);
 });
 
 it('ученик видит только назначенные курсы', function () {
@@ -89,7 +100,7 @@ it('ученик видит только назначенные курсы', fun
 
     $result = makeListAction($scene)->execute(CourseViewerContext::student(new UserId(5)));
 
-    expect(titles($result))->toBe(['Назначен']);
+    expect(titles(pageItems($result)))->toBe(['Назначен']);
 });
 
 it('ученик без назначений получает пустой список', function () {
@@ -98,7 +109,8 @@ it('ученик без назначений получает пустой сп�
 
     $result = makeListAction($scene)->execute(CourseViewerContext::student(new UserId(5)));
 
-    expect($result)->toBe([]);
+    expect(pageItems($result))->toBe([])
+        ->and($result->hasMorePages())->toBeFalse();
 });
 
 it('фильтрует по таксономии', function () {
@@ -112,7 +124,7 @@ it('фильтрует по таксономии', function () {
         taxId: new TaxonomyId(7),
     );
 
-    expect(titles($result))->toBe(['Ветка 7']);
+    expect(titles(pageItems($result)))->toBe(['Ветка 7']);
 });
 
 it('ищет по названию', function () {
@@ -126,7 +138,7 @@ it('ищет по названию', function () {
         search: '7 класс',
     );
 
-    expect(titles($result))->toEqualCanonicalizing(['Алгебра 7 класс', 'Геометрия 7 класс']);
+    expect(titles(pageItems($result)))->toEqualCanonicalizing(['Алгебра 7 класс', 'Геометрия 7 класс']);
 });
 
 it('поиск нечувствителен к регистру', function () {
@@ -138,7 +150,7 @@ it('поиск нечувствителен к регистру', function () {
         search: 'алгебра',
     );
 
-    expect(titles($result))->toBe(['АЛГЕБРА']);
+    expect(titles(pageItems($result)))->toBe(['АЛГЕБРА']);
 });
 
 it('фильтры по таксономии и поиску работают вместе', function () {
@@ -153,6 +165,48 @@ it('фильтры по таксономии и поиску работают в
         search: 'Алгебра',
     );
 
-    expect($result)->toHaveCount(1)
-        ->and($result[0]->taxId()?->value)->toBe(7);
+    expect(pageItems($result))->toHaveCount(1)
+        ->and(pageItems($result)[0]->taxId()?->value)->toBe(7);
+});
+
+it('листает по страницам и сообщает has_more_pages', function () {
+    $scene = new CourseScene();
+
+    foreach (['Первый', 'Второй', 'Третий'] as $title) {
+        ownedCourse($scene, new UserId(1), $title);
+    }
+
+    $first = makeListAction($scene)->execute(
+        CourseViewerContext::teacher(new UserId(1)),
+        page: 1,
+        perPage: 2,
+    );
+
+    expect(pageItems($first))->toHaveCount(2)
+        ->and($first->hasMorePages())->toBeTrue();
+
+    $second = makeListAction($scene)->execute(
+        CourseViewerContext::teacher(new UserId(1)),
+        page: 2,
+        perPage: 2,
+    );
+
+    expect(pageItems($second))->toHaveCount(1)
+        ->and($second->hasMorePages())->toBeFalse();
+});
+
+it('родитель получает объединённую страницу детей без дублей', function () {
+    $scene = new CourseScene();
+
+    $shared = ownedCourse($scene, new UserId(1), 'Общий');
+    ownedCourse($scene, new UserId(1), 'Только у первого');
+
+    $scene->courses->markAssignedTo($shared->id(), new UserId(5));
+    $scene->courses->markAssignedTo($shared->id(), new UserId(6));
+
+    $result = makeListAction($scene)->execute(
+        CourseViewerContext::parent(new UserId(2), [new UserId(5), new UserId(6)]),
+    );
+
+    expect(titles(pageItems($result)))->toBe(['Общий']);
 });

@@ -12,6 +12,7 @@ use App\Application\Learn\Actions\ListLearnsAction;
 use App\Application\Learn\Actions\ListParentChildrenAction;
 use App\Application\Learn\Actions\ListParentLearnsAction;
 use App\Application\Learn\Actions\ListTeacherStudentsAction;
+use App\Application\Lessons\Actions\ListLessonsAction;
 use App\Application\Learn\Actions\MarkDoneAction;
 use App\Application\Learn\Actions\SaveAnswersAction;
 use App\Application\Learn\Actions\ScheduleLearnAction;
@@ -33,7 +34,6 @@ use App\Domain\Learn\ValueObjects\ScheduleDate;
 use App\Domain\Learn\ValueObjects\UserId;
 use App\Http\Resources\LearnResource;
 use App\Http\Resources\LessonListResource;
-use App\Models\Lesson;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -41,53 +41,54 @@ use Illuminate\Support\Carbon;
 class LearnController
 {
     /**
-     * Каталог опубликованных уроков (для всех ролей).
+     * Каталог опубликованных уроков (для всех ролей): таксономия + поиск.
+     *
+     * GET /lessons/learn?tax=<id>&search=<...>&page=1&per_page=20
      */
-    public function getLessonsListQuery(Request $request): \Illuminate\Database\Eloquent\Builder
-    {
-        $query = Lesson::query()
-            ->withCount('blocks')
-            ->with(['taxonomies:id']);
-
-        return $query->orderByDesc('id');
-    }
-
-    public function list_learn(Request $request): JsonResponse
+    public function list_learn(Request $request, ListLessonsAction $listLessons): JsonResponse
     {
         $user = $request->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $perPage = max(1, min((int)$request->integer('per_page', 20), 100));
+        $page = max(1, (int) $request->integer('page', 1));
+        $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
 
-        $paginator = $this->getLessonsListQuery($request)
-            ->where('published', true)
-            ->simplePaginate($perPage);
+        $result = $listLessons->paginate(
+            $request->query() + ['only_published' => true],
+            $page,
+            $perPage,
+        );
 
         return response()->json([
-            'data' => LessonListResource::collection($paginator->getCollection())->resolve($request),
+            'data' => LessonListResource::collection($result->items)->resolve($request),
             'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'per_page' => $paginator->perPage(),
-                'has_more_pages' => $paginator->hasMorePages(),
-                'from' => $paginator->firstItem(),
-                'to' => $paginator->lastItem(),
+                'current_page' => $result->page,
+                'per_page' => $result->perPage,
+                'has_more_pages' => $result->hasMorePages(),
+                'from' => $result->items === [] ? null : ($result->page - 1) * $result->perPage + 1,
+                'to' => $result->items === [] ? null : ($result->page - 1) * $result->perPage + count($result->items),
             ],
         ]);
     }
 
-    public function getActualLessons(Request $request): JsonResponse
+    /**
+     * Три опубликованных урока (витрина), с учётом таксономии/поиска.
+     *
+     * GET /lessons/actual?tax=<id>&search=<...>
+     */
+    public function getActualLessons(Request $request, ListLessonsAction $listLessons): JsonResponse
     {
         $user = $request->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $lessons = $this->getLessonsListQuery($request)
-            ->where('published', true)
-            ->take(3)
-            ->get();
+        $lessons = $listLessons->all(
+            $request->query() + ['only_published' => true],
+            limit: 3,
+        );
 
         return response()->json(LessonListResource::collection($lessons)->resolve($request));
     }

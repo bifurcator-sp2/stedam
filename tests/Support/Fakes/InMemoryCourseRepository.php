@@ -11,6 +11,8 @@ use App\Domain\Course\ValueObjects\CourseId;
 use App\Domain\Course\ValueObjects\CourseThemeId;
 use App\Domain\Course\ValueObjects\TaxonomyId;
 use App\Domain\Course\ValueObjects\UserId;
+use Illuminate\Contracts\Pagination\Paginator;
+use Illuminate\Pagination\Paginator as ConcretePaginator;
 
 /**
  * Репозиторий курсов в памяти — для тестов Application-слоя.
@@ -80,7 +82,9 @@ final class InMemoryCourseRepository implements CourseRepositoryInterface
         ?string $search,
         bool $includeSystem,
         bool $allOwners = false,
-    ): array {
+        int $page = 1,
+        int $perPage = 20,
+    ): Paginator {
         $result = [];
 
         foreach ($this->items as $course) {
@@ -119,14 +123,16 @@ final class InMemoryCourseRepository implements CourseRepositoryInterface
             $result[] = $course;
         }
 
-        return $this->sortedByUpdate($result);
+        return $this->paginate($this->sortedByUpdate($result), $page, $perPage);
     }
 
     public function listForStudent(
         UserId $studentId,
         ?TaxonomyId $taxId = null,
         ?string $search = null,
-    ): array {
+        int $page = 1,
+        int $perPage = 20,
+    ): Paginator {
         $result = [];
 
         foreach ($this->items as $course) {
@@ -141,7 +147,28 @@ final class InMemoryCourseRepository implements CourseRepositoryInterface
             $result[] = $course;
         }
 
-        return $this->sortedByUpdate($result);
+        return $this->paginate($this->sortedByUpdate($result), $page, $perPage);
+    }
+
+    /**
+     * Simple-пагинация поверх массива: как simplePaginate в БД — слайс
+     * per_page элементов, hasMorePages() считается по наличию строк.
+     *
+     * @param list<Course> $courses
+     * @return Paginator
+     */
+    private function paginate(array $courses, int $page, int $perPage): Paginator
+    {
+        $offset = ($page - 1) * $perPage;
+
+        // Paginator не принимает «готовый» hasMore в конструкторе: он сам
+        // выводит его как «элементов больше, чем per_page». Явно сообщаем,
+        // есть ли строки за пределами текущей страницы.
+        return (new ConcretePaginator(
+            array_slice($courses, $offset, $perPage),
+            $perPage,
+            $page,
+        ))->hasMorePagesWhen(count($courses) > $offset + $perPage);
     }
 
     /**

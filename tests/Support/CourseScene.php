@@ -14,6 +14,7 @@ use App\Domain\Course\ValueObjects\LessonId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
 use App\Domain\Course\ValueObjects\UserId;
 use Tests\Support\Fakes\FakeTransactionManager;
@@ -146,6 +147,7 @@ final class CourseScene
             description: new CourseDescription('Описание курса для теста'),
             locale: new Locale('ru'),
             nextLessonThreshold: new NextLessonThreshold($threshold),
+            thresholdMultiplier: ThresholdMultiplier::default(),
             taxId: $taxId,
             themes: $builtThemes,
             updatedAt: null,

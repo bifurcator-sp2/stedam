@@ -20,6 +20,7 @@ use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
 use App\Domain\Course\ValueObjects\UserId;
 use DateTimeImmutable;
@@ -56,6 +57,7 @@ final class Course
         private CourseDescription $description,
         private Locale $locale,
         private NextLessonThreshold $nextLessonThreshold,
+        private ThresholdMultiplier $thresholdMultiplier,
         private ?TaxonomyId $taxId,
         private array $themes,
         private ?DateTimeImmutable $updatedAt,
@@ -73,6 +75,7 @@ final class Course
         CourseDescription $description,
         Locale $locale,
         NextLessonThreshold $nextLessonThreshold,
+        ThresholdMultiplier $thresholdMultiplier,
         ?TaxonomyId $taxId = null,
     ): self {
         return new self(
@@ -82,6 +85,7 @@ final class Course
             description: $description,
             locale: $locale,
             nextLessonThreshold: $nextLessonThreshold,
+            thresholdMultiplier: $thresholdMultiplier,
             taxId: $taxId,
             themes: [],
             updatedAt: null,
@@ -100,6 +104,7 @@ final class Course
         CourseDescription $description,
         Locale $locale,
         NextLessonThreshold $nextLessonThreshold,
+        ThresholdMultiplier $thresholdMultiplier,
         ?TaxonomyId $taxId,
         array $themes,
         ?DateTimeImmutable $updatedAt,
@@ -119,6 +124,7 @@ final class Course
             description: $description,
             locale: $locale,
             nextLessonThreshold: $nextLessonThreshold,
+            thresholdMultiplier: $thresholdMultiplier,
             taxId: $taxId,
             themes: self::renumberThemes($themes),
             updatedAt: $updatedAt,
@@ -160,6 +166,11 @@ final class Course
         return $this->nextLessonThreshold;
     }
 
+    public function thresholdMultiplier(): ThresholdMultiplier
+    {
+        return $this->thresholdMultiplier;
+    }
+
     public function taxId(): ?TaxonomyId
     {
         return $this->taxId;
@@ -187,6 +198,7 @@ final class Course
             $this->description,
             $this->locale,
             $this->nextLessonThreshold,
+            $this->thresholdMultiplier,
             $this->taxId,
             $this->themes,
             $this->updatedAt,
@@ -213,6 +225,15 @@ final class Course
     public function changeNextLessonThreshold(NextLessonThreshold $threshold): self
     {
         return $this->copy(nextLessonThreshold: $threshold);
+    }
+
+    /**
+     * Множитель базового порога типа урока. На состав курса не влияет,
+     * поэтому применяется без ограничений — в отличие от locale/tax_id.
+     */
+    public function changeThresholdMultiplier(ThresholdMultiplier $multiplier): self
+    {
+        return $this->copy(thresholdMultiplier: $multiplier);
     }
 
     /**
@@ -516,6 +537,7 @@ final class Course
         ?CourseDescription $description = null,
         ?Locale $locale = null,
         ?NextLessonThreshold $nextLessonThreshold = null,
+        ?ThresholdMultiplier $thresholdMultiplier = null,
         ?TaxonomyId $taxId = null,
         bool $taxIdIsSet = false,
         ?array $themes = null,
@@ -528,6 +550,7 @@ final class Course
             $description ?? $this->description,
             $locale ?? $this->locale,
             $nextLessonThreshold ?? $this->nextLessonThreshold,
+            $thresholdMultiplier ?? $this->thresholdMultiplier,
             $taxIdIsSet ? $taxId : $this->taxId,
             $themes ?? $this->themes,
             $updatedAt ?? $this->updatedAt,

@@ -8,6 +8,7 @@ use App\Domain\Course\Entities\Course;
 use App\Domain\Course\ValueObjects\CourseId;
 use App\Domain\Course\ValueObjects\TaxonomyId;
 use App\Domain\Course\ValueObjects\UserId;
+use Illuminate\Contracts\Pagination\Paginator;
 
 /**
  * Репозиторий агрегата Course.
@@ -35,7 +36,7 @@ interface CourseRepositoryInterface
     public function delete(CourseId $courseId): void;
 
     /**
-     * Листинг для смотрящего (§13.2).
+     * Листинг для смотрящего (§13.2) с постраничной выборкой.
      *
      * $ownerId — чьи курсы показывать:
      *   - UserId  → курсы этого владельца (+ системные, если $includeSystem);
@@ -51,8 +52,14 @@ interface CourseRepositoryInterface
      *   - $taxId — узел таксономии ВМЕСТЕ со всеми потомками;
      *   - $search — подстрока без учёта регистра по title и description.
      *
+     * Пагинация — simple (как у листинга уроков): без COUNT, страница
+     * определяется наличием следующей строки. Агрегат отдаётся БЕЗ состава
+     * (themes): листингу нужна только шапка.
+     *
      * @param bool $allOwners снять фильтр по владельцу полностью
-     * @return list<Course>
+     * @param int  $page      1-based
+     * @param int  $perPage   размер страницы
+     * @return Paginator
      */
     public function listForOwner(
         ?UserId $ownerId,
@@ -60,21 +67,22 @@ interface CourseRepositoryInterface
         ?string $search,
         bool $includeSystem,
         bool $allOwners = false,
-    ): array;
+        int $page = 1,
+        int $perPage = 20,
+    ): Paginator;
 
     /**
-     * Курсы, назначенные ученику.
+     * Курсы, назначенные ученику. Пагинация и фильтры — как у listForOwner().
      *
-     * Фильтры те же, что у listForOwner(): $taxId — с потомками,
-     * $search — по title и description без учёта регистра.
-     *
-     * @return list<Course>
+     * @return Paginator
      */
     public function listForStudent(
         UserId $studentId,
         ?TaxonomyId $taxId = null,
         ?string $search = null,
-    ): array;
+        int $page = 1,
+        int $perPage = 20,
+    ): Paginator;
 
     /**
      * Пороги типов уроков из справочника lesson_types:

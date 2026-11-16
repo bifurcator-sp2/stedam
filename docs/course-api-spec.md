@@ -31,7 +31,11 @@ Bearer-токен), все маршруты ниже требуют автори
 
 ### 0.2. Пагинация
 
-Листинг возвращает объект с `data` и `meta`:
+Листинги отдают объект с `data` и `meta`. Формат `meta` **единый для всех
+списков проекта** — ровно как в `GET /api/lessons` (`LessonController::list`):
+simple-пагинация без подсчёта общего количества. В курсах она выполняется в
+БД тем же методом (`simplePaginate`), что у уроков, — страница выбирается
+через `LIMIT/OFFSET`, без `COUNT`.
 
 ```json
 {
@@ -39,13 +43,29 @@ Bearer-токен), все маршруты ниже требуют автори
   "meta": {
     "current_page": 1,
     "per_page": 20,
-    "total": 137,
-    "last_page": 7
+    "has_more_pages": true,
+    "from": 1,
+    "to": 20
   }
 }
 ```
 
-Query-параметры: `page` (1-based), `per_page` (1..100, по умолчанию 20).
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `current_page` | int | Номер страницы, 1-based |
+| `per_page` | int | Размер страницы после ограничения (`1..100`) |
+| `has_more_pages` | bool | Есть ли следующая страница |
+| `from` | int \| null | № первого элемента на странице; `null`, если список пуст |
+| `to` | int \| null | № последнего элемента на странице; `null`, если список пуст |
+
+Query-параметры: `page` (1-based), `per_page` (по умолчанию 20, ограничивается
+диапазоном 1..100).
+
+> `total` и `last_page` **не отдаются** — их подсчёт был бы лишним запросом
+> `COUNT`. Условие «есть ли ещё» — `has_more_pages`. Номер последней страницы
+> клиент не знает и не должен вычислять.
+>
+> Применяется к `GET /api/courses` (§2.1) и `GET /api/lessons`.
 
 ### 0.3. Разрешение пользователя в контекст
 
@@ -64,6 +84,23 @@ Query-параметры: `page` (1-based), `per_page` (1..100, по умолч�
   (например `0.6`), НЕ проценты.
 - `time_gap` — **целые часы** (не минуты).
 
+### 0.6. Множитель порога допуска (`threshold_multipler`)
+
+Базовый порог допуска к следующему уроку специфичен для **типа урока**
+(`lesson_types.next_lesson_threshold`, `course-domain-spec` §8.2). Курс
+масштабирует его **множителем** `threshold_multipler`:
+
+```
+итоговый порог = base(type) × threshold_multipler      -- не выше 1.0
+```
+
+- Тип — `float`, **строго положительный** (`> 0`); дефолт `1.0` («не менять
+  требование типа»). Не путать с `next_lesson_threshold` курса (его в API нет).
+- Результат умножения ограничивается сверху `1.0` (доля не может быть > 100 %).
+- При **создании** курса поле **обязательно** (§2.3).
+- При **редактировании** — необязательно: отсутствует ключ → «не менять»
+  (§2.4). Значение `≤ 0` → `422` (ошибка валидации `threshold_multipler`).
+
 ### 0.5. Коды ошибок домена
 
 | HTTP | Исключение | `code` в теле | Когда |
@@ -78,8 +115,11 @@ Query-параметры: `page` (1-based), `per_page` (1..100, по умолч�
 | 422 | `InvalidCourseOrder` | `invalid_course_order` | дубль/неположительный order |
 | 422 | `InvalidCourseGrade` | `invalid_course_grade` | оценка вне `0..1` |
 | 422 | `InvalidCompletion` | `invalid_completion` | пройденность вне `0..1` |
-| 422 | `InvalidNextLessonThreshold` | `invalid_next_lesson_threshold` | порог не в `(0..1]` |
 | 422 | `InvalidTimeGap` | `invalid_time_gap` | отрицательный разрыв |
+
+> `InvalidNextLessonThreshold` (`invalid_next_lesson_threshold`) остаётся
+> доменным исключением VO `NextLessonThreshold`, но через API курсов больше
+> не достижим: порог курса не принимается из запроса (§1.1, §2.3, §2.4).
 
 Единый формат тела ошибки:
 
@@ -107,7 +147,7 @@ Query-параметры: `page` (1-based), `per_page` (1..100, по умолч�
   "title": "Основы Python",
   "description": "Курс для 8 класса",
   "locale": "ru",
-  "next_lesson_threshold": 0.6,
+  "threshold_multipler": 1.0,
   "tax_id": 31,
   "updated_at": "2025-01-15T10:30:00+00:00",
   "lessons_count": 7,
@@ -137,7 +177,7 @@ Query-параметры: `page` (1-based), `per_page` (1..100, по умолч�
 | `title` | string | название |
 | `description` | string | описание |
 | `locale` | string | `ru` / `en` / ... |
-| `next_lesson_threshold` | float | порог допуска к следующему уроку `(0..1]` |
+| `threshold_multipler` | float | множитель базового порога типа урока (§0.6), дефолт `1.0` |
 | `tax_id` | int \| null | узел таксономии |
 | `updated_at` | string \| null | ISO-8601 |
 | `lessons_count` | int | всего уроков в курсе |
@@ -145,6 +185,18 @@ Query-параметры: `page` (1-based), `per_page` (1..100, по умолч�
 
 Состав (`themes`) отдаётся **по умолчанию** в `GET /courses/{id}` и
 **не отдаётся** в листинге (см. 1.2).
+
+> **`next_lesson_threshold` курса в API нет.** Базовый порог допуска к
+> следующему уроку задаётся справочником типов уроков
+> (`lesson_types.next_lesson_threshold`, `course-domain-spec` §8.2), а не
+> курсом. Поле не принимается на вход (§2.3, §2.4), не отдаётся в ответах и
+> не пишется в `courses`: значение в БД задаётся дефолтом колонки. Если
+> клиент пришлёт ключ — он игнорируется (422 не будет).
+>
+> **Множитель этого базового порога — `threshold_multipler`.** Он присутствует
+> в API: обязателен при создании (§2.3), редактируется через шапку (§2.4),
+> отдаётся в ответе. Итоговый порог =
+> `base(type) × threshold_multipler`, не выше `1.0` (§0.6).
 
 ### 1.2. `CourseListItem` (элемент листинга)
 
@@ -156,6 +208,7 @@ Query-параметры: `page` (1-based), `per_page` (1..100, по умолч�
   "title": "Основы Python",
   "description": "Курс для 8 класса",
   "locale": "ru",
+  "threshold_multipler": 1.0,
   "tax_id": 31,
   "lessons_count": 7,
   "updated_at": "2025-01-15T10:30:00+00:00"
@@ -227,9 +280,19 @@ Query:
 ```json
 {
   "data": [ /* CourseListItem[] */ ],
-  "meta": { "current_page": 1, "per_page": 20, "total": 137, "last_page": 7 }
+  "meta": {
+    "current_page": 1,
+    "per_page": 20,
+    "has_more_pages": true,
+    "from": 1,
+    "to": 20
+  }
 }
 ```
+
+`meta` — тот же формат, что у `GET /api/lessons` (§0.2): `total` и
+`last_page` не отдаются, листание — по `has_more_pages`. Пагинация
+выполняется в БД (`simplePaginate`), состав курса в листинге не загружается.
 
 ---
 
@@ -262,7 +325,7 @@ POST /api/courses
   "title": "Основы Python",
   "description": "Курс для 8 класса",
   "locale": "ru",
-  "next_lesson_threshold": 0.6,
+  "threshold_multipler": 1.0,
   "tax_id": 31,
   "user_id": null
 }
@@ -273,7 +336,7 @@ POST /api/courses
 | `title` | да | string, 1..255 |
 | `description` | да | string, 1..5000 |
 | `locale` | да | string, 2..10, входит в `config('course.locales')` |
-| `next_lesson_threshold` | да | number > 0, ≤ 1 |
+| `threshold_multipler` | **да** | number, `> 0`; множитель базового порога типа (§0.6) |
 | `tax_id` | нет | int, существует в таксономии |
 | `user_id` | нет | int \| null; **опускать = создать себе**; `null` = системный (только admin) |
 
@@ -299,7 +362,7 @@ PATCH /api/courses/{course_id}
   "title": "Новое название",
   "description": "Новое описание",
   "locale": "en",
-  "next_lesson_threshold": 0.7,
+  "threshold_multipler": 1.5,
   "tax_id": 42
 }
 ```
@@ -309,7 +372,7 @@ PATCH /api/courses/{course_id}
 | `title` | string, 1..255 |
 | `description` | string, 1..5000 |
 | `locale` | смена запрещена, если в курсе есть уроки → `422 course_locale_change_denied` |
-| `next_lesson_threshold` | number > 0, ≤ 1 |
+| `threshold_multipler` | number, `> 0`; отсутствие ключа = «не менять» (§0.6) |
 | `tax_id` | смена запрещена у непустого курса → `422 course_taxonomy_change_denied`; уроки должны лежать в целевой ветке |
 
 Ответ `200`: полный `Course`.
@@ -317,6 +380,10 @@ PATCH /api/courses/{course_id}
 > **Различие «не менять» и «очистить»**: `tax_id: null` — явная попытка
 > убрать таксономию (сработает проверка домена). Чтобы «не менять» —
 > просто не передавайте ключ.
+
+> `next_lesson_threshold` в `PATCH` не принимается (§1.1): ключ игнорируется,
+> порог курса не меняется. `threshold_multipler`, наоборот, принимается и
+> меняет множитель базового порога типа (§0.6).
 
 ---
 

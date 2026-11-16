@@ -8,8 +8,8 @@ use App\Application\Course\Exceptions\CourseAccessDenied;
 use App\Domain\Course\ValueObjects\CourseDescription;
 use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\Locale;
-use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\UserId;
 use Tests\Support\CourseScene;
 
@@ -23,6 +23,7 @@ function createCourse(
     CourseViewerContext $viewer,
     ?UserId $ownerId,
     ?TaxonomyId $taxId = null,
+    float $multiplier = 1.0,
 ) {
     return $action->execute(
         viewer: $viewer,
@@ -30,7 +31,7 @@ function createCourse(
         title: new CourseTitle('Новый курс'),
         description: new CourseDescription('Описание нового курса'),
         locale: new Locale('ru'),
-        threshold: new NextLessonThreshold(0.6),
+        thresholdMultiplier: new ThresholdMultiplier($multiplier),
         taxId: $taxId,
     );
 }
@@ -49,6 +50,7 @@ it('создаёт курс с шапкой и без состава', function 
         ->and($course->title()->value)->toBe('Новый курс')
         ->and($course->userId()->value)->toBe(1)
         ->and($course->taxId()?->value)->toBe(7)
+        ->and($course->thresholdMultiplier()->value)->toBe(1.0)
         ->and($course->themes())->toBe([])
         ->and($scene->courses->saveCalls)->toBe(1);
 });

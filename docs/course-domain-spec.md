@@ -401,7 +401,25 @@ interface AdmissionStrategyInterface
    «наступил» (для первого урока дата ставится при назначении);
 4. курс не удалён soft delete.
 
-`threshold = max(courses.next_lesson_threshold, lesson_types.next_lesson_threshold)`.
+`threshold = max(courses.next_lesson_threshold, lesson_types.next_lesson_threshold × courses.threshold_multipler)`
+
+Разбор:
+
+- **Базовый порог специфичен для типа урока** (`lesson_types.next_lesson_threshold`, §8.2).
+- **Множитель курса** `courses.threshold_multipler` (float, `NOT NULL`, дефолт
+  `1.0`, CHECK `> 0`) масштабирует этот базовый порог: курс с `0.5` требует
+  вдвое меньше, с `2.0` — вдвое больше.
+- Результат умножения **ограничивается сверху единицей**: доля не может
+  превысить `1.0`, то есть «сдано на 100 %». `multiplier = 1.0` — требование
+  типа не меняется.
+- `courses.next_lesson_threshold` (курсовой порог-«пол») применяется через
+  `max`: он может дополнительно ужесточить требование, но не ослабить тип.
+- Если у урока **не задан тип** — множителю нечего масштабировать, действует
+  только `courses.next_lesson_threshold`.
+
+Множитель задаётся при создании курса (обязателен) и меняется через
+редактирование шапки (необязателен, «не передан — не менять»). На состав
+курса не влияет, глубина §8.1 п.2 (порядок уроков) не меняется.
 
 ### 8.2. Пороги по типу урока
 
@@ -416,6 +434,11 @@ interface AdmissionStrategyInterface
 
 Значения **редактируемы** (справочник) и живут в БД, не в коде.
 Тип конкретного урока в курсе — `course_theme_lessons.type_id` (§10.5).
+
+Итоговый порог = `base(type) × course.threshold_multipler`, ограниченный
+сверху `1.0`, поверх — `max` с `courses.next_lesson_threshold` (§8.1).
+Пример: тип `home_work` (`0.333`) при `threshold_multipler = 2.0` даёт
+`0.666`; при `threshold_multipler = 0.5` — `0.1665`.
 
 ### 8.3. Результат
 
@@ -831,9 +854,16 @@ HTTP-слой описан отдельно: **`docs/course-api-spec.md`**. Та
 Проекция листинга (фактическая, см. §13.1.3):
 
 `id`, `user_id`, `is_system`, `title`, `description`, `locale`,
-`next_lesson_threshold`, `tax_id`, `updated_at`, `lessons_count`.
+`tax_id`, `updated_at`, `lessons_count`.
 
 Полей тем/уроков **нет** — листинг лёгкий.
+
+> **Обновлено (API):** поля `next_lesson_threshold` в ответах курса и в
+> валидации `CreateCourseAction`/`EditCourseHeaderAction` больше **нет** —
+> порог допуска задаётся справочником `lesson_types` (§8.2), а
+> `courses.next_lesson_threshold` пишется БД-дефолтом (`course-api-spec` §1.1).
+> Прочие упоминания порога курса ниже (§3.3, §3.5, §7.3, §8.1) — целевое
+> поведение домена, они ещё не приведены в соответствие с кодом.
 
 ### 13.4. Детальный курс — **без отдельного VO**
 
@@ -858,8 +888,8 @@ HTTP-слой описан отдельно: **`docs/course-api-spec.md`**. Та
 | Action | Метод и сигнатура | Права |
 |--------|-------------------|-------|
 | `ListCoursesAction` | `execute(viewer, ?TaxonomyId, ?string)` | scope §13.2 |
-| `CreateCourseAction` | `execute(viewer, ?UserId ownerId, title, description, locale, threshold, ?taxId)` | `canCreate` (системный — только `admin`) |
-| `EditCourseHeaderAction` | `execute(viewer, courseId, ?title, ?description, ?locale, ?threshold, ?taxId, bool changeTaxonomy)` | `canEdit` |
+| `CreateCourseAction` | `execute(viewer, ?UserId ownerId, title, description, locale, ThresholdMultiplier thresholdMultiplier, ?taxId)` | `canCreate` (системный — только `admin`) |
+| `EditCourseHeaderAction` | `execute(viewer, courseId, ?title, ?description, ?locale, ?ThresholdMultiplier thresholdMultiplier, ?taxId, bool changeTaxonomy)` | `canEdit` |
 | `DeleteCourseAction` | `execute(viewer, courseId)` | `canEdit` |
 | `EditCourseThemeAction` | `add(viewer, courseId, string title)` / `rename(...)` / `remove(...)` / `move(..., int toPosition)` | `canEdit`, публикует `CourseChanged` |
 | `EditCourseLessonAction` | `add(viewer, courseId, themeId, lessonId, ?typeId, ?timeGap)` / `remove(...)` / `move(..., int toPosition)` / `changeType(..., ?typeId)` / `changeTimeGap(..., TimeGap)` | `canEdit`, публикует `CourseChanged` |
@@ -880,7 +910,8 @@ Action выполняет работу целиком до ответа. `202` �
 
 Application **не** имеет DTO-классов: HTTP-слой валидирует вход,
 собирает VO (`CourseTitle`, `CourseDescription`, `Locale`,
-`NextLessonThreshold`, `TimeGap`, `LessonTypeId`) и передаёт их в Action.
+`ThresholdMultiplier`, `NextLessonThreshold`, `TimeGap`, `LessonTypeId`)
+и передаёт их в Action.
 
 `InvalidArgumentException` (пустой `CourseTitle` и т.п.) пока **не
 транслируется** в 422 — ловится заранее через правила валидации в
@@ -900,6 +931,7 @@ user_id         bigint NULL REFERENCES users(id) ON DELETE CASCADE   -- NULL = �
 title           varchar(255) NOT NULL
 description     text NOT NULL DEFAULT ''
 next_lesson_threshold float NOT NULL DEFAULT 1.0
+threshold_multipler   float NOT NULL DEFAULT 1.0   -- множитель базового порога типа, CHECK (> 0)
 locale          varchar(8) NOT NULL
 tax_id          bigint NULL REFERENCES taxonomies(id) ON DELETE SET NULL
 complexity      float NULL

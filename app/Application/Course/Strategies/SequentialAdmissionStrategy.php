@@ -21,6 +21,17 @@ use App\Domain\Course\ValueObjects\NextLessonThreshold;
  */
 final readonly class SequentialAdmissionStrategy implements AdmissionStrategyInterface
 {
+    /**
+     * Порог для L_k.
+     *
+     * Базовый порог берётся из типа урока и масштабируется множителем курса:
+     *   base * threshold_multipler.
+     * Курс учителя (course.next_lesson_threshold) может дополнительно
+     * ужесточить результат — max(course, base * multiplier).
+     *
+     * Тип урока не задан — курс работает на своём пороге (множителю нечего
+     * масштабировать).
+     */
     public function thresholdFor(
         Course $course,
         LessonId $lessonId,
@@ -32,7 +43,18 @@ final readonly class SequentialAdmissionStrategy implements AdmissionStrategyInt
             return $courseThreshold;
         }
 
-        return $courseThreshold->max(new NextLessonThreshold($typeThreshold));
+        $scaled = $course->thresholdMultiplier()->multiply(new NextLessonThreshold($typeThreshold));
+
+        return $courseThreshold->max($this->clamp($scaled));
+    }
+
+    /**
+     * Доля не может превышать 1.0: VO NextLessonThreshold ограничен (0..1].
+     * Множитель > 1 поднимает требование к типу, но не выше «всё сдано».
+     */
+    private function clamp(float $value): NextLessonThreshold
+    {
+        return new NextLessonThreshold(min($value, 1.0));
     }
 
     public function isAdmitted(

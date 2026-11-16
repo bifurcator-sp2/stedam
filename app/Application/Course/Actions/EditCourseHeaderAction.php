@@ -17,8 +17,8 @@ use App\Domain\Course\ValueObjects\CourseDescription;
 use App\Domain\Course\ValueObjects\CourseId;
 use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\Locale;
-use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use DateTimeImmutable;
 
 /**
@@ -53,7 +53,7 @@ final readonly class EditCourseHeaderAction
         ?CourseTitle $title = null,
         ?CourseDescription $description = null,
         ?Locale $locale = null,
-        ?NextLessonThreshold $threshold = null,
+        ?ThresholdMultiplier $thresholdMultiplier = null,
         ?TaxonomyId $taxId = null,
         bool $changeTaxonomy = false,
         ?DateTimeImmutable $now = null,
@@ -77,8 +77,8 @@ final readonly class EditCourseHeaderAction
             $course = $course->changeLocale($locale);
         }
 
-        if ($threshold !== null) {
-            $course = $course->changeNextLessonThreshold($threshold);
+        if ($thresholdMultiplier !== null) {
+            $course = $course->changeThresholdMultiplier($thresholdMultiplier);
         }
 
         if ($changeTaxonomy) {

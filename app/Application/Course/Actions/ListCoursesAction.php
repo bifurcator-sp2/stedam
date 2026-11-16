@@ -9,9 +9,11 @@ use App\Application\Course\Context\CourseViewerRole;
 use App\Application\Course\Ports\CourseRepositoryInterface;
 use App\Domain\Course\Entities\Course;
 use App\Domain\Course\ValueObjects\TaxonomyId;
+use Illuminate\Contracts\Pagination\Paginator;
+use Illuminate\Pagination\Paginator as ConcretePaginator;
 
 /**
- * Листинг курсов для смотрящего (§13.2).
+ * Листинг курсов для смотрящего (§13.2) — с постраничной выборкой.
  *
  *  - student — курсы, назначенные ему (системные — только если назначены);
  *  - parent — то же для его детей, без дублей;
@@ -21,6 +23,12 @@ use App\Domain\Course\ValueObjects\TaxonomyId;
  *
  * Фильтры taxId/search применяются в порту: таксономия — вместе с
  * поддеревом, поиск — без учёта регистра по title и description.
+ *
+ * Пагинация — та же, что у листинга уроков: без подсчёта total, страница
+ * определяется наличием следующей строки. parent берёт страницу из порта по
+ * каждому ребёнку и склеивает их без дублей: страница может оказаться
+ * короче, но граница «есть ли ещё» не теряется, пока есть ребёнок с
+ * hasMorePages().
  */
 final readonly class ListCoursesAction
 {
@@ -29,42 +37,28 @@ final readonly class ListCoursesAction
     ) {}
 
     /**
-     * @return list<Course>
+     * @return Paginator
      */
     public function execute(
         CourseViewerContext $viewer,
         ?TaxonomyId $taxId = null,
         ?string $search = null,
-    ): array {
+        int $page = 1,
+        int $perPage = 20,
+    ): Paginator {
         if ($viewer->isStudentView()) {
             $studentId = $viewer->userId();
 
             return $studentId === null
-                ? []
-                : $this->courses->listForStudent($studentId, $taxId, $search);
+                ? new ConcretePaginator([], $perPage, $page)
+                : $this->courses->listForStudent($studentId, $taxId, $search, $page, $perPage);
         }
 
         // parent: порт listForStudent принимает одного ученика, а у родителя
         // их несколько. Поэтому перебираем детей и склеиваем без дублей:
         // курс, назначенный двум детям, в списке родителя — один раз.
         if ($viewer->role() === CourseViewerRole::Parent) {
-            $seen = [];
-            $result = [];
-
-            foreach ($viewer->childStudentIds() as $childId) {
-                foreach ($this->courses->listForStudent($childId, $taxId, $search) as $course) {
-                    $id = $course->id()?->value;
-
-                    if ($id === null || isset($seen[$id])) {
-                        continue;
-                    }
-
-                    $seen[$id] = true;
-                    $result[] = $course;
-                }
-            }
-
-            return $result;
+            return $this->listForParent($viewer, $taxId, $search, $page, $perPage);
         }
 
         // «Видит всё» (admin/methodologist/headteacher) — снимаем фильтр по
@@ -76,6 +70,8 @@ final readonly class ListCoursesAction
                 search: $search,
                 includeSystem: true,
                 allOwners: true,
+                page: $page,
+                perPage: $perPage,
             );
         }
 
@@ -85,6 +81,49 @@ final readonly class ListCoursesAction
             taxId: $taxId,
             search: $search,
             includeSystem: $viewer->seesSystemCourses(),
+            page: $page,
+            perPage: $perPage,
         );
+    }
+
+    /**
+     * Страница каталога родителя: объединение страниц детей без дублей.
+     *
+     * @return Paginator
+     */
+    private function listForParent(
+        CourseViewerContext $viewer,
+        ?TaxonomyId $taxId,
+        ?string $search,
+        int $page,
+        int $perPage,
+    ): Paginator {
+        $seen = [];
+        $items = [];
+        $hasMorePages = false;
+
+        foreach ($viewer->childStudentIds() as $childId) {
+            $childPage = $this->courses->listForStudent($childId, $taxId, $search, $page, $perPage);
+
+            $hasMorePages = $hasMorePages || $childPage->hasMorePages();
+
+            foreach ($childPage->items() as $course) {
+                $id = $course->id()?->value;
+
+                if ($id === null || isset($seen[$id])) {
+                    continue;
+                }
+
+                $seen[$id] = true;
+                $items[] = $course;
+            }
+        }
+
+        if (!$hasMorePages && count($items) > $perPage) {
+            $hasMorePages = true;
+            $items = array_slice($items, 0, $perPage);
+        }
+
+        return new ConcretePaginator($items, $perPage, $page);
     }
 }

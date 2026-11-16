@@ -18,6 +18,26 @@ function repo(): CourseRepositoryInterface
     return app(CourseRepositoryInterface::class);
 }
 
+/**
+ * Список курсов из страницы (порт отдаёт simple-пагинатор).
+ *
+ * @return list<\App\Domain\Course\Entities\Course>
+ */
+function repoItems(\Illuminate\Contracts\Pagination\Paginator $page): array
+{
+    return array_values($page->items());
+}
+
+/**
+ * Названия курсов страницы.
+ *
+ * @return list<string>
+ */
+function repoTitles(\Illuminate\Contracts\Pagination\Paginator $page): array
+{
+    return array_map(static fn ($c) => $c->title()->value, repoItems($page));
+}
+
 function repoUser(string $name): User
 {
     return User::query()->create([
@@ -78,7 +98,7 @@ it('ownerId = null, includeSystem = false — отдаёт пусто, а не �
         includeSystem: false,
     );
 
-    expect($result)->toBe([]);
+    expect(repoItems($result))->toBe([]);
 });
 
 it('ownerId = null, includeSystem = true — отдаёт только системные', function () {
@@ -93,8 +113,8 @@ it('ownerId = null, includeSystem = true — отдаёт только сист�
         includeSystem: true,
     );
 
-    expect($result)->toHaveCount(1)
-        ->and($result[0]->title()->value)->toBe('Системный');
+    expect(repoItems($result))->toHaveCount(1)
+        ->and(repoItems($result)[0]->title()->value)->toBe('Системный');
 });
 
 it('ownerId задан, includeSystem = false — только свои', function () {
@@ -104,8 +124,8 @@ it('ownerId задан, includeSystem = false — только свои', functi
 
     $result = repo()->listForOwner(new UserId($me->id), null, null, false);
 
-    expect($result)->toHaveCount(1)
-        ->and($result[0]->title()->value)->toBe('Мой');
+    expect(repoItems($result))->toHaveCount(1)
+        ->and(repoItems($result)[0]->title()->value)->toBe('Мой');
 });
 
 it('ownerId задан, includeSystem = true — свои + системные', function () {
@@ -115,9 +135,7 @@ it('ownerId задан, includeSystem = true — свои + системные',
     repoCourse('Системный', null);
     repoCourse('Чужой', $other->id);
 
-    $result = repo()->listForOwner(new UserId($me->id), null, null, true);
-
-    $titles = array_map(static fn ($c) => $c->title()->value, $result);
+    $titles = repoTitles(repo()->listForOwner(new UserId($me->id), null, null, true));
 
     expect($titles)->toEqualCanonicalizing(['Мой', 'Системный']);
 });
@@ -133,10 +151,7 @@ it('tax_id фильтрует курсы вместе с поддеревом', 
     repoCourseIn('Биология', $foreign->id);
     repoCourseIn('Без раздела', null);
 
-    $titles = static fn (array $courses): array => array_map(
-        static fn ($c) => $c->title()->value,
-        $courses,
-    );
+    $titles = repoTitles(...);
 
     expect($titles(repo()->listForOwner(null, new TaxonomyId($root->id), null, true, allOwners: true)))
         ->toEqualCanonicalizing(['Алгебра', 'Уравнения'])
@@ -151,10 +166,7 @@ it('search ищет по названию и описанию без учёта 
     repoCourseWithDescription('Курс для 8 класса', 'Готовимся к олимпиаде по PYTHON', null);
     repoCourse('Алгоритмы', null);
 
-    $titles = static fn (array $courses): array => array_map(
-        static fn ($c) => $c->title()->value,
-        $courses,
-    );
+    $titles = repoTitles(...);
 
     expect($titles(repo()->listForOwner(null, null, 'python', true, allOwners: true)))
         ->toEqualCanonicalizing(['Основы Python', 'Курс для 8 класса'])
@@ -179,10 +191,7 @@ it('listForStudent учитывает фильтры и отдаёт тольк�
         'updated_at' => now(),
     ]);
 
-    $titles = static fn (array $courses): array => array_map(
-        static fn ($c) => $c->title()->value,
-        $courses,
-    );
+    $titles = repoTitles(...);
 
     expect($titles(repo()->listForStudent(new UserId($student->id))))
         ->toBe(['Назначенный'])
@@ -199,9 +208,7 @@ it('allOwners = true — отдаёт всё, включая чужие', functi
     repoCourse('Системный', null);
     repoCourse('Чужой', $other->id);
 
-    $result = repo()->listForOwner(null, null, null, true, allOwners: true);
-
-    $titles = array_map(static fn ($c) => $c->title()->value, $result);
+    $titles = repoTitles(repo()->listForOwner(null, null, null, true, allOwners: true));
 
     expect($titles)->toEqualCanonicalizing(['Мой', 'Системный', 'Чужой']);
 });

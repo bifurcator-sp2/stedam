@@ -163,8 +163,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/learns/{learn}/grade', [LearnController::class, 'grade'])->whereNumber('learn');
     Route::post('/learns/{learn}/cancel', [LearnController::class, 'cancel'])->whereNumber('learn');
 
-    Route::get('/lessons/filter', [\App\Http\Controllers\Api\LessonController::class, 'listFilterable']);
-
 // 2. Статический POST (не конфликтует по методу, но пусть будет рядом)
     Route::post('/lessons/make', [\App\Http\Controllers\Api\LessonController::class, 'make']);
 

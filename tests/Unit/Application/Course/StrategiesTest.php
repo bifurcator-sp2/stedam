@@ -15,6 +15,7 @@ use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\LessonId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
 
 /**
@@ -22,7 +23,7 @@ use App\Domain\Course\ValueObjects\TimeGap;
  *
  * @param list<int> $lessonIds
  */
-function strategyCourse(array $lessonIds, float $threshold = 0.6): Course
+function strategyCourse(array $lessonIds, float $threshold = 0.6, float $multiplier = 1.0): Course
 {
     $lessons = [];
 
@@ -42,6 +43,7 @@ function strategyCourse(array $lessonIds, float $threshold = 0.6): Course
         description: new CourseDescription('Описание'),
         locale: new Locale('ru'),
         nextLessonThreshold: new NextLessonThreshold($threshold),
+        thresholdMultiplier: new ThresholdMultiplier($multiplier),
         taxId: null,
         themes: [CourseTheme::restore(new CourseThemeId(1), 'Тема', 1, $lessons)],
         updatedAt: null,
@@ -101,6 +103,24 @@ describe('SequentialAdmissionStrategy', function () {
         expect($strategy->isAdmitted($course, new LessonId(20), 0.9, 0.5))->toBeFalse();
     });
 
+    it('масштабирует базовый порог типа множителем курса', function () {
+        $strategy = new SequentialAdmissionStrategy();
+        $course = strategyCourse([10, 20], threshold: 0.1, multiplier: 0.5);
+
+        // base 0.9 → 0.9 * 0.5 = 0.45.
+        expect($strategy->isAdmitted($course, new LessonId(20), 0.9, 0.5))->toBeTrue()
+            ->and($strategy->isAdmitted($course, new LessonId(20), 0.9, 0.4))->toBeFalse();
+    });
+
+    it('ограничивает масштабированный порог единицей', function () {
+        $strategy = new SequentialAdmissionStrategy();
+        $course = strategyCourse([10, 20], threshold: 0.1, multiplier: 4.0);
+
+        // base 0.9 * 4 = 3.6, но доля не выше 1.0 → оценка 1.0 не проходит
+        // (сравнение строго «больше»), 0.95 — тем более.
+        expect($strategy->isAdmitted($course, new LessonId(20), 0.9, 1.0))->toBeFalse();
+    });
+
     it('не допускает урок вне курса', function () {
         $strategy = new SequentialAdmissionStrategy();
         $course = strategyCourse([10, 20]);
@@ -125,6 +145,7 @@ describe('SequentialAdmissionStrategy', function () {
             description: new CourseDescription('Описание'),
             locale: new Locale('ru'),
             nextLessonThreshold: new NextLessonThreshold(0.6),
+            thresholdMultiplier: ThresholdMultiplier::default(),
             taxId: null,
             themes: [$theme1, $theme2],
             updatedAt: null,

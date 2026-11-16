@@ -28,8 +28,8 @@ use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\LessonId;
 use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\Locale;
-use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
 use App\Domain\Course\ValueObjects\UserId;
 use App\Http\Resources\CourseAssignmentResource;
@@ -62,7 +62,11 @@ final readonly class CoursesController
     // Листинг и детальный курс
     // ------------------------------------------------------------------
 
-    public function index(Request $request, ListCoursesAction $action): AnonymousResourceCollection
+    /**
+     * Пагинация — как в LessonController::list(): simplePaginate из порта,
+     * без подсчёта total. Клиент листает по has_more_pages, а не last_page.
+     */
+    public function index(Request $request, ListCoursesAction $action): JsonResponse
     {
         $validated = $request->validate([
             'tax_id' => ['nullable', 'integer'],
@@ -71,29 +75,28 @@ final readonly class CoursesController
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $perPage = (int) ($validated['per_page'] ?? 20);
-        $page = (int) ($validated['page'] ?? 1);
+        $perPage = max(1, min((int) ($validated['per_page'] ?? 20), 100));
+        $page = max(1, (int) ($validated['page'] ?? 1));
 
-        $courses = $action->execute(
+        $paginator = $action->execute(
             viewer: $this->contextResolver->resolve(),
             taxId: isset($validated['tax_id']) ? new TaxonomyId((int) $validated['tax_id']) : null,
             search: $validated['search'] ?? null,
+            page: $page,
+            perPage: $perPage,
         );
 
-        $total = count($courses);
-        $slice = array_slice($courses, ($page - 1) * $perPage, $perPage);
-
-        return CourseResource::collection(
-            array_map(
-                static fn (Course $course): CourseResource => new CourseResource($course, withThemes: false),
-                $slice,
+        return response()->json([
+            'data' => array_map(
+                static fn (Course $course): array => (new CourseResource($course, withThemes: false))->resolve($request),
+                $paginator->items(),
             ),
-        )->additional([
             'meta' => [
-                'current_page' => $page,
-                'per_page' => $perPage,
-                'total' => $total,
-                'last_page' => $total === 0 ? 1 : (int) ceil($total / $perPage),
+                'current_page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'has_more_pages' => $paginator->hasMorePages(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
             ],
         ]);
     }
@@ -123,7 +126,8 @@ final readonly class CoursesController
             // Границы — как у VO Locale (xx или xx-XX, до 8 символов), иначе
             // пользователь получил бы 422 домена вместо ошибок валидации.
             'locale' => ['required', 'string', 'max:8', 'regex:/^[a-z]{2}(-[A-Z]{2})?$/'],
-            'next_lesson_threshold' => ['required', 'numeric', 'gt:0', 'lte:1'],
+            // Множитель базового порога типа урока: строго положительное число.
+            'threshold_multipler' => ['required', 'numeric', 'gt:0'],
             'tax_id' => ['nullable', 'integer'],
             // null = системный курс (только admin); отсутствие ключа = себе.
             'user_id' => ['nullable', 'integer'],
@@ -143,7 +147,7 @@ final readonly class CoursesController
             title: new CourseTitle($validated['title']),
             description: new CourseDescription($validated['description']),
             locale: new Locale($validated['locale']),
-            threshold: new NextLessonThreshold((float) $validated['next_lesson_threshold']),
+            thresholdMultiplier: new ThresholdMultiplier((float) $validated['threshold_multipler']),
             taxId: isset($validated['tax_id']) ? new TaxonomyId((int) $validated['tax_id']) : null,
         );
 
@@ -156,7 +160,7 @@ final readonly class CoursesController
             'title' => ['sometimes', 'string', 'min:1', 'max:255'],
             'description' => ['sometimes', 'string', 'min:1', 'max:5000'],
             'locale' => ['sometimes', 'string', 'max:8', 'regex:/^[a-z]{2}(-[A-Z]{2})?$/'],
-            'next_lesson_threshold' => ['sometimes', 'numeric', 'gt:0', 'lte:1'],
+            'threshold_multipler' => ['sometimes', 'numeric', 'gt:0'],
             'tax_id' => ['sometimes', 'nullable', 'integer'],
         ]);
 
@@ -168,8 +172,8 @@ final readonly class CoursesController
                 ? new CourseDescription($validated['description'])
                 : null,
             locale: isset($validated['locale']) ? new Locale($validated['locale']) : null,
-            threshold: isset($validated['next_lesson_threshold'])
-                ? new NextLessonThreshold((float) $validated['next_lesson_threshold'])
+            thresholdMultiplier: isset($validated['threshold_multipler'])
+                ? new ThresholdMultiplier((float) $validated['threshold_multipler'])
                 : null,
             taxId: isset($validated['tax_id']) ? new TaxonomyId((int) $validated['tax_id']) : null,
             // Передали ключ (даже null) — значит, хотим сменить таксономию.

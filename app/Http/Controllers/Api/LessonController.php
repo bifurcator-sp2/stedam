@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 use App\Application\LessonBlocks\Actions\AddBlockAction;
 use App\Application\LessonBlocks\DTOs\AddBlockData;
 use App\Application\Lessons\Actions\CreateLessonAction;
+use App\Application\Lessons\Actions\ListLessonsAction;
 use App\Application\Lessons\Actions\SaveLessonAction;
 use App\Application\Lessons\DTOs\CreateLessonData;
 use App\Application\Lessons\DTOs\UpdateLessonData;
@@ -292,67 +293,34 @@ class LessonController
     }
 
     /**
-     * Общий конструктор запроса для списков уроков.
+     * Мои уроки: фильтр по таксономии + полнотекстовый поиск + пагинация.
+     *
+     * GET /lessons?tax=<id>&search=<...>&page=1&per_page=20
      */
-    public function getLessonsListQuery(Request $request): \Illuminate\Database\Eloquent\Builder
-    {
-        $query = Lesson::query()
-            ->withCount('blocks')
-            ->with(['taxonomies:id']);
-
-        // Фильтрация по таксономии
-        $taxId = $request->integer('tax');
-        if ($taxId > 0) {
-            $taxonomy = Taxonomy::find($taxId);
-            if ($taxonomy) {
-                $taxIds = $taxonomy->descendantsAndSelf()->pluck('id')->toArray();
-                $query->whereHas('taxonomies', fn($q) => $q->whereIn('taxonomies.id', $taxIds));
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
-
-        // Поиск
-        $search = $request->input('search');
-        if ($search) {
-            $cleanSearch = preg_replace('/[+\-><\(\)~*\"@]+/', ' ', $search);
-            $cleanSearch = trim(preg_replace('/\s+/', ' ', $cleanSearch));
-
-            if (!empty($cleanSearch)) {
-                $words = explode(' ', $cleanSearch);
-                $booleanSearch = '+' . implode('* +', $words) . '*';
-
-                $query->whereRaw(
-                    "to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(description, '')) @@ to_tsquery('simple', ?)",
-                    [$booleanSearch]
-                );
-            }
-        }
-
-        return $query->orderByDesc('id');
-    }
-
-    public function list(Request $request): JsonResponse
+    public function list(Request $request, ListLessonsAction $listLessons): JsonResponse
     {
         $user = $request->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $perPage = max(1, min((int)$request->integer('per_page', 20), 100));
+        $page = max(1, (int) $request->integer('page', 1));
+        $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
 
-        $paginator = $this->getLessonsListQuery($request)
-            ->where('user_id', $user->id)
-            ->simplePaginate($perPage);
+        $result = $listLessons->paginate(
+            $request->query() + ['user_id' => (int) $user->id],
+            $page,
+            $perPage,
+        );
 
         return response()->json([
-            'data' => LessonListResource::collection($paginator->getCollection())->resolve($request),
+            'data' => LessonListResource::collection($result->items)->resolve($request),
             'meta' => [
-                'current_page'   => $paginator->currentPage(),
-                'per_page'       => $paginator->perPage(),
-                'has_more_pages' => $paginator->hasMorePages(),
-                'from'           => $paginator->firstItem(),
-                'to'             => $paginator->lastItem(),
+                'current_page'   => $result->page,
+                'per_page'       => $result->perPage,
+                'has_more_pages' => $result->hasMorePages(),
+                'from'           => $result->items === [] ? null : ($result->page - 1) * $result->perPage + 1,
+                'to'             => $result->items === [] ? null : ($result->page - 1) * $result->perPage + count($result->items),
             ],
         ]);
     }

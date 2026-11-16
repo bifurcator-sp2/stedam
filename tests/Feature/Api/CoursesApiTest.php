@@ -47,7 +47,7 @@ function coursePayload(array $overrides = []): array
         'title' => 'Основы Python',
         'description' => 'Курс для 8 класса',
         'locale' => 'ru',
-        'next_lesson_threshold' => 0.6,
+        'threshold_multipler' => 1.0,
         ...$overrides,
     ];
 }
@@ -109,15 +109,63 @@ it('валидирует обязательные поля', function () {
 
     $this->postJson('/api/courses', [])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['title', 'description', 'locale', 'next_lesson_threshold']);
+        ->assertJsonValidationErrors(['title', 'description', 'locale', 'threshold_multipler']);
 });
 
-it('отклоняет порог вне (0..1]', function () {
+it('threshold_multipler обязателен при создании и должен быть положительным', function () {
     Sanctum::actingAs(apiUserWithRole('teacher'));
 
-    $this->postJson('/api/courses', coursePayload(['next_lesson_threshold' => 0]))
+    $this->postJson('/api/courses', coursePayload(['threshold_multipler' => 0]))
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['next_lesson_threshold']);
+        ->assertJsonValidationErrors(['threshold_multipler']);
+
+    $this->postJson('/api/courses', coursePayload(['threshold_multipler' => -0.5]))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['threshold_multipler']);
+});
+
+it('threshold_multipler сохраняется, редактируется и отдаётся', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+
+    $response = $this->postJson('/api/courses', coursePayload(['threshold_multipler' => 1.5]))
+        ->assertCreated();
+
+    expect((float) $response->json('threshold_multipler'))->toBe(1.5);
+
+    $id = $response->json('id');
+
+    $this->patchJson("/api/courses/{$id}", ['threshold_multipler' => 0.75])
+        ->assertOk()
+        ->assertJsonPath('threshold_multipler', 0.75);
+
+    expect(DB::table('courses')->where('id', $id)->value('threshold_multipler'))
+        ->toEqual(0.75);
+
+    $this->getJson("/api/courses/{$id}")
+        ->assertOk()
+        ->assertJsonPath('threshold_multipler', 0.75);
+});
+
+it('next_lesson_threshold не принимается и не отдаётся', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+
+    // Порог курса не часть API: ключ игнорируется и не попадает в ответ.
+    $response = $this->postJson('/api/courses', coursePayload(['next_lesson_threshold' => 0.6]))
+        ->assertCreated()
+        ->assertJsonMissingPath('next_lesson_threshold');
+
+    $id = $response->json('id');
+
+    $this->patchJson("/api/courses/{$id}", ['next_lesson_threshold' => 0.9])
+        ->assertOk()
+        ->assertJsonMissingPath('next_lesson_threshold');
+
+    $this->getJson("/api/courses/{$id}")
+        ->assertOk()
+        ->assertJsonMissingPath('next_lesson_threshold');
+
+    expect(DB::table('courses')->where('id', $id)->value('next_lesson_threshold'))
+        ->toEqual(1.0);
 });
 
 // ---------------------------------------------------------------------
@@ -134,8 +182,50 @@ it('учитель видит свой курс в списке', function () {
 
     expect($list->json('data'))->toHaveCount(1)
         ->and($list->json('data.0.title'))->toBe('Основы Python')
-        ->and($list->json('meta.total'))->toBe(1)
+        ->and($list->json('meta.current_page'))->toBe(1)
+        ->and($list->json('meta.per_page'))->toBe(20)
+        ->and($list->json('meta.has_more_pages'))->toBeFalse()
+        ->and($list->json('meta.from'))->toBe(1)
+        ->and($list->json('meta.to'))->toBe(1)
         ->and($list->json('data.0.themes'))->toBeNull();
+});
+
+it('пагинация курсов листается по has_more_pages, как у уроков', function () {
+    $teacher = apiUserWithRole('teacher');
+    Sanctum::actingAs($teacher);
+
+    foreach (['Первый', 'Второй', 'Третий'] as $title) {
+        $this->postJson('/api/courses', coursePayload(['title' => $title]))->assertCreated();
+    }
+
+    $first = $this->getJson('/api/courses?per_page=2&page=1')->assertOk();
+
+    expect($first->json('data'))->toHaveCount(2)
+        ->and($first->json('meta.current_page'))->toBe(1)
+        ->and($first->json('meta.per_page'))->toBe(2)
+        ->and($first->json('meta.has_more_pages'))->toBeTrue()
+        ->and($first->json('meta.from'))->toBe(1)
+        ->and($first->json('meta.to'))->toBe(2)
+        ->and(array_keys($first->json('meta')))
+        ->toBe(['current_page', 'per_page', 'has_more_pages', 'from', 'to']);
+
+    $second = $this->getJson('/api/courses?per_page=2&page=2')->assertOk();
+
+    expect($second->json('data'))->toHaveCount(1)
+        ->and($second->json('meta.has_more_pages'))->toBeFalse()
+        ->and($second->json('meta.from'))->toBe(3)
+        ->and($second->json('meta.to'))->toBe(3);
+});
+
+it('пустой курс-листинг отдаёт from и to = null', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+
+    $list = $this->getJson('/api/courses')->assertOk();
+
+    expect($list->json('data'))->toBe([])
+        ->and($list->json('meta.has_more_pages'))->toBeFalse()
+        ->and($list->json('meta.from'))->toBeNull()
+        ->and($list->json('meta.to'))->toBeNull();
 });
 
 it('детальный курс отдаёт состав и флаги прав', function () {
@@ -346,7 +436,10 @@ it('студент не открывает системный курс, кото
 
     Sanctum::actingAs(apiUserWithRole('student'));
 
-    $this->getJson('/api/courses')->assertOk()->assertJsonPath('meta.total', 0);
+    // simple-пагинация: total нет, пустая страница — data: [] + has_more_pages: false.
+    $this->getJson('/api/courses')->assertOk()
+        ->assertJsonPath('data', [])
+        ->assertJsonPath('meta.has_more_pages', false);
 
     $this->getJson("/api/courses/{$systemId}")
         ->assertForbidden()
@@ -381,7 +474,9 @@ it('родитель без детей не видит курс', function () {
 
     Sanctum::actingAs(apiUserWithRole('parent'));
 
-    $this->getJson('/api/courses')->assertOk()->assertJsonPath('meta.total', 0);
+    $this->getJson('/api/courses')->assertOk()
+        ->assertJsonPath('data', [])
+        ->assertJsonPath('meta.has_more_pages', false);
     $this->getJson("/api/courses/{$courseId}")->assertForbidden();
 });
 

@@ -19,6 +19,7 @@ use App\Domain\Course\ValueObjects\LessonId;
 use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
 use App\Domain\Course\ValueObjects\UserId;
 use Tests\Support\Fakes\InMemoryLearnPort;
@@ -46,6 +47,7 @@ function serviceCourse(array $lessons, float $threshold = 0.6): Course
         description: new CourseDescription('Описание'),
         locale: new Locale('ru'),
         nextLessonThreshold: new NextLessonThreshold($threshold),
+        thresholdMultiplier: ThresholdMultiplier::default(),
         taxId: null,
         themes: [CourseTheme::restore(new CourseThemeId(1), 'Тема', 1, $built)],
         updatedAt: null,
