@@ -170,7 +170,9 @@ settings нормализованы, file-sets синхронизированы,
 
 Порядок строгий — так соблюдаются инварианты (publish-гейт, order):
 
-1. **Черновик**: `CreateLessonAction(owner, CreateLessonData(locale:'ru'))`.
+1. **Черновик**: `CreateLessonAction(owner, CreateLessonData(locale:'ru', type: pick(lessonTypes)))`.
+   `lessonTypes` — коды справочника `lesson_types` по `sort`; если справочник
+   пуст — команда `FAILURE` с подсказкой `db:seed --class=LessonTypeSeeder`.
 2. **Шапка + таксономия** (без публикации):
    `UpdateLessonAction(id, owner, UpdateLessonData(title, description,
    descriptionTouched:true, saved:true, taxonomyIds:[leaf]))`.

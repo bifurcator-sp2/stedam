@@ -20,17 +20,18 @@ use App\Application\Course\Exceptions\CourseAccessDenied;
 use App\Application\Course\Exceptions\CourseNotFound;
 use App\Application\Course\Ports\CourseAssignmentRepositoryInterface;
 use App\Application\Course\Ports\CourseRepositoryInterface;
+use App\Application\Course\Ports\LessonReaderInterface;
 use App\Domain\Course\Entities\Course;
 use App\Domain\Course\ValueObjects\CourseDescription;
 use App\Domain\Course\ValueObjects\CourseId;
 use App\Domain\Course\ValueObjects\CourseThemeId;
 use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\LessonId;
-use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\TaxonomyId;
 use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
+use App\Domain\Course\ValueObjects\TimeGapMultiplier;
 use App\Domain\Course\ValueObjects\UserId;
 use App\Http\Resources\CourseAssignmentResource;
 use App\Http\Resources\CourseResource;
@@ -56,6 +57,7 @@ final readonly class CoursesController
         private EloquentCourseContextResolver $contextResolver,
         private CourseRepositoryInterface $courses,
         private CourseAssignmentRepositoryInterface $assignments,
+        private LessonReaderInterface $lessonReader,
     ) {}
 
     // ------------------------------------------------------------------
@@ -109,7 +111,7 @@ final readonly class CoursesController
         $this->assertCanView($viewer, $course);
 
         return response()->json([
-            ...(new CourseResource($course))->resolve(request()),
+            ...$this->courseResource($course)->resolve(request()),
             'can' => $this->permissions($viewer, $course),
         ]);
     }
@@ -128,6 +130,8 @@ final readonly class CoursesController
             'locale' => ['required', 'string', 'max:8', 'regex:/^[a-z]{2}(-[A-Z]{2})?$/'],
             // Множитель базового порога типа урока: строго положительное число.
             'threshold_multipler' => ['required', 'numeric', 'gt:0'],
+            // Множитель паузы между уроками: 0.0..100.0 (0 — без паузы).
+            'time_gap_multipler' => ['required', 'numeric', 'min:0', 'max:100'],
             'tax_id' => ['nullable', 'integer'],
             // null = системный курс (только admin); отсутствие ключа = себе.
             'user_id' => ['nullable', 'integer'],
@@ -148,10 +152,11 @@ final readonly class CoursesController
             description: new CourseDescription($validated['description']),
             locale: new Locale($validated['locale']),
             thresholdMultiplier: new ThresholdMultiplier((float) $validated['threshold_multipler']),
+            timeGapMultiplier: new TimeGapMultiplier((float) $validated['time_gap_multipler']),
             taxId: isset($validated['tax_id']) ? new TaxonomyId((int) $validated['tax_id']) : null,
         );
 
-        return response()->json(new CourseResource($course), 201);
+        return response()->json($this->courseResource($course), 201);
     }
 
     public function update(int $courseId, Request $request, EditCourseHeaderAction $action): JsonResponse
@@ -161,7 +166,20 @@ final readonly class CoursesController
             'description' => ['sometimes', 'string', 'min:1', 'max:5000'],
             'locale' => ['sometimes', 'string', 'max:8', 'regex:/^[a-z]{2}(-[A-Z]{2})?$/'],
             'threshold_multipler' => ['sometimes', 'numeric', 'gt:0'],
+            'time_gap_multipler' => ['sometimes', 'numeric', 'min:0', 'max:100'],
             'tax_id' => ['sometimes', 'nullable', 'integer'],
+            // Опубликованный курс правится только снятием публикации.
+            'published' => ['sometimes', 'boolean'],
+            // Состав: полное состояние. Пустой массив — удалить все темы.
+            'themes' => ['sometimes', 'array'],
+            'themes.*.id' => ['nullable', 'integer'],
+            'themes.*.title' => ['required', 'string', 'min:1', 'max:255'],
+            'themes.*.lessons' => ['sometimes', 'array'],
+            'themes.*.lessons.*' => ['integer'],
+            // Необязательный клиентский time_gap на случай, если тип урока
+            // не найден в справочнике: уроки адресуются id.
+            'themes.*.time_gaps' => ['sometimes', 'array'],
+            'themes.*.time_gaps.*' => ['integer', 'min:0'],
         ]);
 
         $course = $action->execute(
@@ -175,12 +193,29 @@ final readonly class CoursesController
             thresholdMultiplier: isset($validated['threshold_multipler'])
                 ? new ThresholdMultiplier((float) $validated['threshold_multipler'])
                 : null,
+            timeGapMultiplier: isset($validated['time_gap_multipler'])
+                ? new TimeGapMultiplier((float) $validated['time_gap_multipler'])
+                : null,
             taxId: isset($validated['tax_id']) ? new TaxonomyId((int) $validated['tax_id']) : null,
             // Передали ключ (даже null) — значит, хотим сменить таксономию.
             changeTaxonomy: $request->has('tax_id'),
+            published: array_key_exists('published', $validated)
+                ? (bool) $validated['published']
+                : null,
+            themes: array_key_exists('themes', $validated)
+                ? array_map(
+                    static fn (array $theme): array => [
+                        'id' => $theme['id'] ?? null,
+                        'title' => $theme['title'],
+                        'lessons' => $theme['lessons'] ?? [],
+                        'time_gaps' => $theme['time_gaps'] ?? [],
+                    ],
+                    $validated['themes'],
+                )
+                : null,
         );
 
-        return response()->json(new CourseResource($course));
+        return response()->json($this->courseResource($course));
     }
 
     public function destroy(int $courseId, DeleteCourseAction $action): JsonResponse
@@ -212,7 +247,7 @@ final readonly class CoursesController
             title: $validated['title'],
         );
 
-        return response()->json(new CourseResource($course), 201);
+        return response()->json($this->courseResource($course), 201);
     }
 
     public function updateTheme(
@@ -232,7 +267,7 @@ final readonly class CoursesController
             title: $validated['title'],
         );
 
-        return response()->json(new CourseResource($course));
+        return response()->json($this->courseResource($course));
     }
 
     public function destroyTheme(
@@ -246,7 +281,7 @@ final readonly class CoursesController
             themeId: new CourseThemeId($themeId),
         );
 
-        return response()->json(new CourseResource($course));
+        return response()->json($this->courseResource($course));
     }
 
     public function moveTheme(
@@ -266,7 +301,7 @@ final readonly class CoursesController
             toPosition: (int) $validated['position'],
         );
 
-        return response()->json(new CourseResource($course));
+        return response()->json($this->courseResource($course));
     }
 
     // ------------------------------------------------------------------
@@ -281,7 +316,6 @@ final readonly class CoursesController
     ): JsonResponse {
         $validated = $request->validate([
             'lesson_id' => ['required', 'integer'],
-            'type_id' => ['nullable', 'integer'],
             'time_gap' => ['nullable', 'integer', 'min:0'],
         ]);
 
@@ -290,11 +324,10 @@ final readonly class CoursesController
             courseId: new CourseId($courseId),
             themeId: new CourseThemeId($themeId),
             lessonId: new LessonId((int) $validated['lesson_id']),
-            typeId: isset($validated['type_id']) ? new LessonTypeId((int) $validated['type_id']) : null,
             timeGap: isset($validated['time_gap']) ? new TimeGap((int) $validated['time_gap']) : null,
         );
 
-        return response()->json(new CourseResource($course), 201);
+        return response()->json($this->courseResource($course), 201);
     }
 
     public function destroyLesson(
@@ -310,7 +343,7 @@ final readonly class CoursesController
             lessonId: new LessonId($lessonId),
         );
 
-        return response()->json(new CourseResource($course));
+        return response()->json($this->courseResource($course));
     }
 
     public function moveLesson(
@@ -332,53 +365,7 @@ final readonly class CoursesController
             toPosition: (int) $validated['position'],
         );
 
-        return response()->json(new CourseResource($course));
-    }
-
-    public function updateLessonType(
-        int $courseId,
-        int $themeId,
-        int $lessonId,
-        Request $request,
-        EditCourseLessonAction $action,
-    ): JsonResponse {
-        $validated = $request->validate([
-            'type_id' => ['present', 'nullable', 'integer'],
-        ]);
-
-        $course = $action->changeType(
-            viewer: $this->contextResolver->resolve(),
-            courseId: new CourseId($courseId),
-            themeId: new CourseThemeId($themeId),
-            lessonId: new LessonId($lessonId),
-            typeId: $validated['type_id'] === null
-                ? null
-                : new LessonTypeId((int) $validated['type_id']),
-        );
-
-        return response()->json(new CourseResource($course));
-    }
-
-    public function updateLessonTimeGap(
-        int $courseId,
-        int $themeId,
-        int $lessonId,
-        Request $request,
-        EditCourseLessonAction $action,
-    ): JsonResponse {
-        $validated = $request->validate([
-            'time_gap' => ['required', 'integer', 'min:0'],
-        ]);
-
-        $course = $action->changeTimeGap(
-            viewer: $this->contextResolver->resolve(),
-            courseId: new CourseId($courseId),
-            themeId: new CourseThemeId($themeId),
-            lessonId: new LessonId($lessonId),
-            timeGap: new TimeGap((int) $validated['time_gap']),
-        );
-
-        return response()->json(new CourseResource($course));
+        return response()->json($this->courseResource($course));
     }
 
     // ------------------------------------------------------------------
@@ -466,6 +453,28 @@ final readonly class CoursesController
     {
         return $this->courses->findById(new CourseId($courseId))
             ?? throw CourseNotFound::withId($courseId);
+    }
+
+    /**
+     * Единая форма ответа курса для GET/POST/PATCH/PUT.
+     *
+     * Карточки уроков (код типа, название, описание, сложность) читаются
+     * одним батч-запросом по всем урокам состава — не N+1 на урок.
+     */
+    private function courseResource(Course $course): CourseResource
+    {
+        $lessonIds = [];
+
+        foreach ($course->themes() as $theme) {
+            foreach ($theme->lessons() as $lesson) {
+                $lessonIds[] = $lesson->lessonId();
+            }
+        }
+
+        return new CourseResource(
+            $course,
+            lessonSummaries: $this->lessonReader->summariesOf($lessonIds),
+        );
     }
 
     private function assertCanView(CourseViewerContext $viewer, Course $course): void

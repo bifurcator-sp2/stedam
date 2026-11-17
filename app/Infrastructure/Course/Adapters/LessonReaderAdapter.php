@@ -8,13 +8,14 @@ use App\Application\Course\Ports\LessonReaderInterface;
 use App\Domain\Course\ValueObjects\LessonId as CourseLessonId;
 use App\Models\Lesson;
 use App\Models\LessonTaxonomy;
+use App\Models\LessonType;
 use App\Models\Taxonomy;
 
 /**
  * Адаптер чтения уроков из контекста Lessons.
  *
  * Только чтение и только то, что нужно курсам: существование, сложность,
- * ветка таксономии.
+ * ветка таксономии, тип урока и его базовый разрыв.
  *
  * Сложность урока хранится в БД уже в 0..1 (lessons.complexity —
  * double(0..1)), поэтому нормализации нет — в отличие от Learn\Grade (0..100).
@@ -59,6 +60,72 @@ final readonly class LessonReaderAdapter implements LessonReaderInterface
     public function exists(CourseLessonId $lessonId): bool
     {
         return Lesson::query()->whereKey($lessonId->value)->exists();
+    }
+
+    public function typeCodesOf(array $lessonIds): array
+    {
+        $ids = array_map(static fn (CourseLessonId $id): int => $id->value, $lessonIds);
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $rows = Lesson::query()
+            ->withTrashed()
+            ->whereIn('id', $ids)
+            ->pluck('type', 'id');
+
+        $result = array_fill_keys($ids, null);
+
+        foreach ($rows as $id => $code) {
+            $result[(int) $id] = $code === null || $code === '' ? null : (string) $code;
+        }
+
+        return $result;
+    }
+
+    public function summariesOf(array $lessonIds): array
+    {
+        $ids = array_map(static fn (CourseLessonId $id): int => $id->value, $lessonIds);
+
+        if ($ids === []) {
+            return [];
+        }
+
+        // withTrashed(): урок из курса мог быть удалён — состав курса его
+        // всё ещё ссылается, поэтому карточку отдаём, а не теряем строку.
+        $rows = Lesson::query()
+            ->withTrashed()
+            ->whereIn('id', $ids)
+            ->get(['id', 'type', 'title', 'description', 'complexity']);
+
+        $result = [];
+
+        foreach ($rows as $row) {
+            $result[(int) $row->id] = [
+                'type' => $row->type === null || $row->type === '' ? null : (string) $row->type,
+                'title' => $row->title === null ? null : (string) $row->title,
+                'description' => $row->description === null ? null : (string) $row->description,
+                'complexity' => $row->complexity === null ? null : (float) $row->complexity,
+            ];
+        }
+
+        return $result;
+    }
+
+    public function timeGapsByTypeCode(array $codes): array
+    {
+        $codes = array_values(array_unique($codes));
+
+        if ($codes === []) {
+            return [];
+        }
+
+        return LessonType::query()
+            ->whereIn('code', $codes)
+            ->pluck('time_gap', 'code')
+            ->map(static fn ($value): int => (int) $value)
+            ->all();
     }
 
     public function taxonomyIdOf(CourseLessonId $lessonId): ?int

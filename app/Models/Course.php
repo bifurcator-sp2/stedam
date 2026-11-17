@@ -25,16 +25,20 @@ class Course extends Model
         'description',
         'next_lesson_threshold',
         'threshold_multipler',
+        'time_gap_multipler',
         'locale',
         'tax_id',
         'complexity',
+        'published',
     ];
 
     protected $casts = [
         'user_id' => 'integer',
         'tax_id' => 'integer',
+        'published' => 'boolean',
         'next_lesson_threshold' => 'float',
         'threshold_multipler' => 'float',
+        'time_gap_multipler' => 'float',
         'complexity' => 'float',
     ];
 

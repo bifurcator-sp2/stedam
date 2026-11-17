@@ -48,6 +48,7 @@ function coursePayload(array $overrides = []): array
         'description' => 'Курс для 8 класса',
         'locale' => 'ru',
         'threshold_multipler' => 1.0,
+        'time_gap_multipler' => 1.0,
         ...$overrides,
     ];
 }
@@ -109,7 +110,7 @@ it('валидирует обязательные поля', function () {
 
     $this->postJson('/api/courses', [])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['title', 'description', 'locale', 'threshold_multipler']);
+        ->assertJsonValidationErrors(['title', 'description', 'locale', 'threshold_multipler', 'time_gap_multipler']);
 });
 
 it('threshold_multipler обязателен при создании и должен быть положительным', function () {
@@ -144,6 +145,52 @@ it('threshold_multipler сохраняется, редактируется и о
     $this->getJson("/api/courses/{$id}")
         ->assertOk()
         ->assertJsonPath('threshold_multipler', 0.75);
+});
+
+it('time_gap_multipler обязателен при создании и принимает значения 0.0..100.0', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+
+    $this->postJson('/api/courses', coursePayload(['time_gap_multipler' => 100.5]))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['time_gap_multipler']);
+
+    $this->postJson('/api/courses', coursePayload(['time_gap_multipler' => -0.5]))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['time_gap_multipler']);
+
+    $this->postJson('/api/courses', coursePayload(['time_gap_multipler' => 0.0]))
+        ->assertCreated()
+        ->assertJsonPath('time_gap_multipler', 0.0);
+
+    $this->postJson('/api/courses', coursePayload(['time_gap_multipler' => 100.0]))
+        ->assertCreated()
+        ->assertJsonPath('time_gap_multipler', 100.0);
+});
+
+it('time_gap_multipler сохраняется, редактируется и отдаётся', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+
+    $response = $this->postJson('/api/courses', coursePayload(['time_gap_multipler' => 1.5]))
+        ->assertCreated();
+
+    expect((float) $response->json('time_gap_multipler'))->toBe(1.5);
+
+    $id = $response->json('id');
+
+    $this->patchJson("/api/courses/{$id}", ['time_gap_multipler' => 0.75])
+        ->assertOk()
+        ->assertJsonPath('time_gap_multipler', 0.75);
+
+    expect(DB::table('courses')->where('id', $id)->value('time_gap_multipler'))
+        ->toEqual(0.75);
+
+    $this->patchJson("/api/courses/{$id}", ['time_gap_multipler' => 101])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['time_gap_multipler']);
+
+    $this->getJson("/api/courses/{$id}")
+        ->assertOk()
+        ->assertJsonPath('time_gap_multipler', 0.75);
 });
 
 it('next_lesson_threshold не принимается и не отдаётся', function () {
@@ -297,6 +344,99 @@ it('удаление возвращает 204 и курс пропадает', f
 });
 
 // ---------------------------------------------------------------------
+// Публикация
+// ---------------------------------------------------------------------
+
+it('новый курс создаётся неопубликованным', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+
+    $this->postJson('/api/courses', coursePayload())
+        ->assertCreated()
+        ->assertJsonPath('published', false);
+});
+
+it('автор публикует курс и снимает публикацию', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+    $id = $this->postJson('/api/courses', coursePayload())->json('id');
+
+    $this->patchJson("/api/courses/{$id}", ['published' => true])
+        ->assertOk()
+        ->assertJsonPath('published', true);
+
+    $this->patchJson("/api/courses/{$id}", ['published' => false])
+        ->assertOk()
+        ->assertJsonPath('published', false);
+});
+
+it('опубликованный курс нельзя изменить, не сняв публикацию', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+    $id = $this->postJson('/api/courses', coursePayload())->json('id');
+    $this->patchJson("/api/courses/{$id}", ['published' => true])->assertOk();
+
+    $this->patchJson("/api/courses/{$id}", ['title' => 'Взлом'])
+        ->assertUnprocessable()
+        ->assertJsonPath('code', 'course_is_published_edit');
+
+    $this->getJson("/api/courses/{$id}")->assertOk()->assertJsonPath('title', 'Основы Python');
+});
+
+it('снятие публикации атомарно: правки в том же запросе игнорируются', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+    $id = $this->postJson('/api/courses', coursePayload())->json('id');
+    $this->patchJson("/api/courses/{$id}", ['published' => true])->assertOk();
+
+    $this->patchJson("/api/courses/{$id}", [
+        'published' => false,
+        'title' => 'Новое название',
+        'description' => 'Новое описание',
+    ])
+        ->assertOk()
+        ->assertJsonPath('published', false)
+        ->assertJsonPath('title', 'Основы Python')
+        ->assertJsonPath('description', 'Курс для 8 класса');
+
+    // Следующим запросом содержимое меняется нормально.
+    $this->patchJson("/api/courses/{$id}", ['title' => 'Новое название'])
+        ->assertOk()
+        ->assertJsonPath('title', 'Новое название');
+});
+
+it('темы опубликованного курса не меняются', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+    $id = $this->postJson('/api/courses', coursePayload())->json('id');
+    $this->postJson("/api/courses/{$id}/themes", ['title' => 'Введение'])->assertCreated();
+    $this->patchJson("/api/courses/{$id}", ['published' => true])->assertOk();
+
+    $this->postJson("/api/courses/{$id}/themes", ['title' => 'Новая'])
+        ->assertUnprocessable()
+        ->assertJsonPath('code', 'course_is_published_edit');
+
+    expect($this->getJson("/api/courses/{$id}")->json('themes'))->toHaveCount(1);
+});
+
+it('публиковать курс может только автор', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+    $id = $this->postJson('/api/courses', coursePayload())->json('id');
+
+    Sanctum::actingAs(apiUserWithRole('student'));
+    $this->patchJson("/api/courses/{$id}", ['published' => true])->assertForbidden();
+
+    Sanctum::actingAs(apiUserWithRole('admin'));
+    $this->patchJson("/api/courses/{$id}", ['published' => true])
+        ->assertForbidden()
+        ->assertJsonPath('code', 'course_access_denied');
+});
+
+it('published валидируется как boolean', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+    $id = $this->postJson('/api/courses', coursePayload())->json('id');
+
+    $this->patchJson("/api/courses/{$id}", ['published' => 'maybe'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['published']);
+});
+
+// ---------------------------------------------------------------------
 // Темы
 // ---------------------------------------------------------------------
 
@@ -342,6 +482,72 @@ it('валидирует название темы', function () {
     $this->postJson("/api/courses/{$id}/themes", ['title' => ''])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['title']);
+});
+
+// ---------------------------------------------------------------------
+// Состав: уроки в теме и единая форма ответа
+// ---------------------------------------------------------------------
+
+/**
+ * Урок в БД с карточкой (тип, название, описание).
+ */
+function apiLesson(string $title, string $description, string $type): \App\Models\Lesson
+{
+    return \App\Models\Lesson::query()->create([
+        'user_id' => apiUserWithRole('teacher')->id,
+        'locale' => 'ru',
+        'title' => $title,
+        'description' => $description,
+        'type' => $type,
+    ]);
+}
+
+it('урок в теме отдаёт код типа, название, описание и сложность', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+    $lesson = apiLesson('Циклы', 'Про for и while', 'class_work');
+
+    $id = $this->postJson('/api/courses', coursePayload())->json('id');
+    $this->postJson("/api/courses/{$id}/themes", ['title' => 'Введение']);
+    $themeId = $this->getJson("/api/courses/{$id}")->json('themes.0.id');
+
+    $this->postJson("/api/courses/{$id}/themes/{$themeId}/lessons", [
+        'lesson_id' => $lesson->id,
+    ])->assertCreated();
+
+    $this->getJson("/api/courses/{$id}")
+        ->assertOk()
+        ->assertJsonPath('themes.0.lessons.0.lesson_id', $lesson->id)
+        ->assertJsonPath('themes.0.lessons.0.type', 'class_work')
+        ->assertJsonPath('themes.0.lessons.0.title', 'Циклы')
+        ->assertJsonPath('themes.0.lessons.0.description', 'Про for и while')
+        ->assertJsonStructure(['themes' => [['lessons' => [['complexity']]]]]);
+});
+
+it('store, show и update отдают одинаковую форму курса', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+    $lesson = apiLesson('Циклы', 'Про for и while', 'class_work');
+
+    $created = $this->postJson('/api/courses', coursePayload())->assertCreated();
+    $id = $created->json('id');
+
+    $this->postJson("/api/courses/{$id}/themes", ['title' => 'Введение']);
+    $themeId = $this->getJson("/api/courses/{$id}")->json('themes.0.id');
+    $this->postJson("/api/courses/{$id}/themes/{$themeId}/lessons", [
+        'lesson_id' => $lesson->id,
+    ]);
+
+    $show = $this->getJson("/api/courses/{$id}")->assertOk();
+    $updated = $this->patchJson("/api/courses/{$id}", ['title' => 'Новое'])->assertOk();
+
+    // show дополнительно содержит `can`, но форма самого курса совпадает
+    // с ответом PATCH по составу и полям урока.
+    $show->assertJsonPath('themes', $updated->json('themes'));
+
+    foreach ([$show, $updated] as $response) {
+        expect($response->json('id'))->toBeInt()
+            ->and($response->json('themes'))->toBeArray()
+            ->and($response->json('lessons_count'))->toBe(1);
+    }
 });
 
 // ---------------------------------------------------------------------

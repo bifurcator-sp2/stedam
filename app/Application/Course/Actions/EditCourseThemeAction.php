@@ -20,6 +20,9 @@ use Illuminate\Contracts\Events\Dispatcher;
  *
  * Темы входят в состав курса, поэтому любая операция публикует CourseChanged
  * (слушатель пересчитает completion/grade всех назначений).
+ *
+ * Состав опубликованного курса менять нельзя: мутация агрегата бросает
+ * CourseIsPublishedEdit → HTTP 422.
  */
 final readonly class EditCourseThemeAction
 {

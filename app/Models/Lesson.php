@@ -19,6 +19,7 @@ class Lesson extends Model
     protected $fillable = [
         'user_id',
         'locale',
+        'type',
         'saved',
         'title',
         'description',

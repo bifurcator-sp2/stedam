@@ -17,6 +17,7 @@ use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
+use App\Domain\Course\ValueObjects\TimeGapMultiplier;
 
 /**
  * Курс с уроками в одной теме. Домен — без Laravel, поэтому строим вручную.
@@ -44,6 +45,7 @@ function strategyCourse(array $lessonIds, float $threshold = 0.6, float $multipl
         locale: new Locale('ru'),
         nextLessonThreshold: new NextLessonThreshold($threshold),
         thresholdMultiplier: new ThresholdMultiplier($multiplier),
+        timeGapMultiplier: TimeGapMultiplier::default(),
         taxId: null,
         themes: [CourseTheme::restore(new CourseThemeId(1), 'Тема', 1, $lessons)],
         updatedAt: null,
@@ -146,6 +148,7 @@ describe('SequentialAdmissionStrategy', function () {
             locale: new Locale('ru'),
             nextLessonThreshold: new NextLessonThreshold(0.6),
             thresholdMultiplier: ThresholdMultiplier::default(),
+            timeGapMultiplier: TimeGapMultiplier::default(),
             taxId: null,
             themes: [$theme1, $theme2],
             updatedAt: null,

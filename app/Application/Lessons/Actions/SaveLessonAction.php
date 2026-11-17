@@ -33,9 +33,10 @@ final readonly class SaveLessonAction
     {
         $lesson = ($this->update)($id, $userId, $data);
 
-        // Опубликованный урок и не просят снять публикацию —
-        // Update вернул «как есть», блоки не трогаем.
-        if ($lesson->isPublished() && $data->published !== false) {
+        // Блоки меняются только у неопубликованного урока. Снятие публикации
+        // в этом же запросе состав блоков не трогает — изменение состава
+        // возможно следующим запросом (инвариант 1 агрегата).
+        if ($lesson->isPublished()) {
             return $lesson;
         }
 

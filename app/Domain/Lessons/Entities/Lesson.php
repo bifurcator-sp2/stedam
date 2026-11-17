@@ -6,8 +6,10 @@ namespace App\Domain\Lessons\Entities;
 
 use App\Domain\LessonBlocks\Exceptions\LessonIsPublished;
 use App\Domain\Lessons\Exceptions\LessonAccessDenied;
+use App\Domain\Lessons\Exceptions\LessonIsPublishedEdit;
 use App\Domain\Lessons\ValueObjects\Complexity;
 use App\Domain\Lessons\ValueObjects\LessonId;
+use App\Domain\Lessons\ValueObjects\LessonType;
 use App\Domain\Lessons\ValueObjects\TaxonomyId;
 use App\Domain\Lessons\ValueObjects\UserId;
 
@@ -26,10 +28,13 @@ use App\Domain\Lessons\ValueObjects\UserId;
  * каждой операции нельзя.
  *
  * Инварианты:
- *   1. Опубликованный урок нельзя редактировать (кроме снятия публикации).
+ *   1. Опубликованный урок нельзя редактировать: единственное допустимое
+ *      изменение — снятие публикации (`published = false`), атомарно.
  *   2. complexity — производная от complexity заданий, не задаётся вручную.
  *   3. Владелец — единственный, кто может менять (кроме admin-override,
  *      который проверяется в Application).
+ *   4. Тип урока (`type` — код справочника `lesson_types`) обязателен и
+ *      меняется только пока урок не опубликован.
  */
 final class Lesson
 {
@@ -42,6 +47,7 @@ final class Lesson
         private string $title,
         private ?string $description,
         private string $locale,
+        private LessonType $type,
         private bool $saved,
         private bool $published,
         private ?Complexity $complexity,
@@ -54,17 +60,23 @@ final class Lesson
     /**
      * Пустой черновик урока: то, что создаётся по кнопке «Создать урок».
      *
-     * Название пустое, saved/published = false. complexity будет
-     * пересчитана при сохранении, как только в урок добавят задания.
+     * Название пустое, saved/published = false. Тип урока — обязателен:
+     * по умолчанию классная работа, при создании можно передать другой.
+     * complexity будет пересчитана при сохранении, как только в урок
+     * добавят задания.
      */
-    public static function draft(UserId $userId, string $locale): self
-    {
+    public static function draft(
+        UserId $userId,
+        string $locale,
+        ?LessonType $type = null,
+    ): self {
         return new self(
             id: null,
             userId: $userId,
             title: '',
             description: null,
             locale: $locale,
+            type: $type ?? LessonType::default(),
             saved: false,
             published: false,
             complexity: null,
@@ -85,6 +97,7 @@ final class Lesson
         string $title,
         ?string $description,
         string $locale,
+        LessonType $type,
         bool $saved,
         bool $published,
         ?Complexity $complexity,
@@ -96,6 +109,7 @@ final class Lesson
             title: $title,
             description: $description,
             locale: $locale,
+            type: $type,
             saved: $saved,
             published: $published,
             complexity: $complexity,
@@ -144,6 +158,11 @@ final class Lesson
         return $this->locale;
     }
 
+    public function type(): LessonType
+    {
+        return $this->type;
+    }
+
     public function isSaved(): bool
     {
         return $this->saved;
@@ -171,10 +190,10 @@ final class Lesson
      * Описание изменений урока. Все поля опциональны:
      * null в DTO-слое — «не менять», отдельное правило для description.
      *
-     * Защита от редактирования опубликованного урока — на уровне
-     * Application (UpdateLessonAction): она решает, вызывать ли update()
-     * вообще. Домен update() применяет изменения без дополнительных
-     * проверок публикации, чтобы не дублировать источник истины.
+     * Опубликованный урок (published === true) можно изменить только одним
+     * способом — снять с публикации (`published = false`): прочие поля такого
+     * запроса игнорируются. Любое другое изменение → LessonIsPublishedEdit.
+     * Для неопубликованного урока ограничений нет (кроме инварианта 4 про type).
      *
      * @param list<TaxonomyId>|null $taxonomyIds
      */
@@ -183,10 +202,27 @@ final class Lesson
         ?string $description,
         bool $descriptionTouched,
         ?string $locale,
+        ?LessonType $type,
         ?bool $saved,
         ?bool $published,
         ?array $taxonomyIds,
     ): void {
+        // Снятие публикации — атомарное действие: опубликованный урок сначала
+        // снимают с публикации, и только следующим запросом меняют содержимое.
+        // Остальные поля такого запроса игнорируются (фронт вправе отправить
+        // весь объект урока целиком).
+        if ($this->published && $published === false) {
+            $this->published = false;
+
+            return;
+        }
+
+        if ($this->published) {
+            throw LessonIsPublishedEdit::forLesson(
+                (int) ($this->id?->value ?? 0)
+            );
+        }
+
         if ($title !== null) {
             $this->title = $title;
         }
@@ -195,6 +231,11 @@ final class Lesson
         }
         if ($locale !== null) {
             $this->locale = $locale;
+        }
+        if ($type !== null) {
+            // Инвариант 4: тип фиксируется публикацией.
+            $this->assertTypeChangeAllowed();
+            $this->type = $type;
         }
         if ($saved !== null) {
             $this->saved = $saved;
@@ -252,6 +293,21 @@ final class Lesson
     {
         if ($this->published) {
             throw LessonIsPublished::forLesson(
+                (int) ($this->id?->value ?? 0)
+            );
+        }
+    }
+
+    /**
+     * Тип урока можно менять только пока урок не опубликован.
+     *
+     * Опубликованность — строго `published === true`; снятие публикации
+     * в том же запросе смену типа не открывает.
+     */
+    private function assertTypeChangeAllowed(): void
+    {
+        if ($this->published) {
+            throw LessonIsPublishedEdit::forLesson(
                 (int) ($this->id?->value ?? 0)
             );
         }

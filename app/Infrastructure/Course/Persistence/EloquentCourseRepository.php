@@ -13,12 +13,12 @@ use App\Domain\Course\ValueObjects\CourseId;
 use App\Domain\Course\ValueObjects\CourseThemeId;
 use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\LessonId;
-use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
 use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
+use App\Domain\Course\ValueObjects\TimeGapMultiplier;
 use App\Domain\Course\ValueObjects\UserId;
 use App\Models\Course as CourseModel;
 use App\Models\CourseTheme as ThemeModel;
@@ -212,15 +212,15 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
         return array_map(static fn ($row): int => (int) $row->id, $rows);
     }
 
-    public function typeThresholds(array $typeIds): array
+    public function typeThresholdsByCode(array $codes): array
     {
-        if ($typeIds === []) {
+        if ($codes === []) {
             return [];
         }
 
         return LessonType::query()
-            ->whereIn('id', $typeIds)
-            ->pluck('next_lesson_threshold', 'id')
+            ->whereIn('code', $codes)
+            ->pluck('next_lesson_threshold', 'code')
             ->map(fn ($value) => (float) $value)
             ->all();
     }
@@ -243,11 +243,13 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
             locale: new Locale($model->locale),
             nextLessonThreshold: new NextLessonThreshold((float) $model->next_lesson_threshold),
             thresholdMultiplier: new ThresholdMultiplier((float) $model->threshold_multipler),
+            timeGapMultiplier: new TimeGapMultiplier((float) $model->time_gap_multipler),
             taxId: $model->tax_id === null ? null : new TaxonomyId((int) $model->tax_id),
             themes: $themes,
             updatedAt: $model->updated_at === null
                 ? null
                 : DateTimeImmutable::createFromInterface($model->updated_at),
+            published: (bool) $model->published,
         );
     }
 
@@ -259,9 +261,6 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
             $lessons[] = new CourseLesson(
                 lessonId: new LessonId((int) $lessonModel->lesson_id),
                 order: (int) $lessonModel->order,
-                typeId: $lessonModel->type_id === null
-                    ? null
-                    : new LessonTypeId((int) $lessonModel->type_id),
                 timeGap: new TimeGap((int) $lessonModel->time_gap),
             );
         }
@@ -291,7 +290,9 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
         // next_lesson_threshold курса не пишем: значение задаётся БД-дефолтом,
         // в API его нет (docs/course-api-spec.md §1.1, §2.3–2.4).
         $model->threshold_multipler = $course->thresholdMultiplier()->value;
+        $model->time_gap_multipler = $course->timeGapMultiplier()->value;
         $model->tax_id = $course->taxId()?->value;
+        $model->published = $course->isPublished();
         $model->save();
 
         return $model;
@@ -353,7 +354,6 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
                 'lesson_id' => $lesson->lessonId()->value,
             ]);
 
-            $row->type_id = $lesson->typeId()?->value;
             $row->order = $lesson->order();
             $row->time_gap = $lesson->timeGap()->hours;
             $row->save();

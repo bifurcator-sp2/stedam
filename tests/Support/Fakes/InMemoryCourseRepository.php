@@ -203,7 +203,7 @@ final class InMemoryCourseRepository implements CourseRepositoryInterface
             || mb_stripos($course->description()->value, $needle) !== false;
     }
 
-    public function typeThresholds(array $typeIds): array
+    public function typeThresholdsByCode(array $codes): array
     {
         return [];
     }

@@ -16,6 +16,7 @@ use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
 use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
+use App\Domain\Course\ValueObjects\TimeGapMultiplier;
 use App\Domain\Course\ValueObjects\UserId;
 use Tests\Support\Fakes\FakeTransactionManager;
 use Tests\Support\Fakes\InMemoryCourseAssignmentRepository;
@@ -73,12 +74,14 @@ final class CourseScene
         ?UserId $ownerId = null,
         ?TaxonomyId $taxId = null,
         float $threshold = 0.6,
+        bool $published = false,
     ): Course {
         return $this->buildCourse(
             themes: $themes,
             userId: $ownerId ?? new UserId(1),
             taxId: $taxId,
             threshold: $threshold,
+            published: $published,
         );
     }
 
@@ -112,6 +115,7 @@ final class CourseScene
         ?UserId $userId,
         ?TaxonomyId $taxId,
         float $threshold,
+        bool $published = false,
     ): Course {
         $courseId = new CourseId($this->nextCourseId++);
 
@@ -127,7 +131,6 @@ final class CourseScene
                 $builtLessons[] = CourseLesson::create(
                     new LessonId($lessonId),
                     $lessonOrder++,
-                    null,
                     TimeGap::zero(),
                 );
             }
@@ -148,9 +151,11 @@ final class CourseScene
             locale: new Locale('ru'),
             nextLessonThreshold: new NextLessonThreshold($threshold),
             thresholdMultiplier: ThresholdMultiplier::default(),
+            timeGapMultiplier: TimeGapMultiplier::default(),
             taxId: $taxId,
             themes: $builtThemes,
             updatedAt: null,
+            published: $published,
         );
 
         return $this->courses->add($course);

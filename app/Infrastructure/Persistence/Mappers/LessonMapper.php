@@ -7,6 +7,7 @@ namespace App\Infrastructure\Persistence\Mappers;
 use App\Domain\Lessons\Entities\Lesson as DomainLesson;
 use App\Domain\Lessons\ValueObjects\Complexity;
 use App\Domain\Lessons\ValueObjects\LessonId;
+use App\Domain\Lessons\ValueObjects\LessonType;
 use App\Domain\Lessons\ValueObjects\TaxonomyId;
 use App\Domain\Lessons\ValueObjects\UserId;
 use App\Models\Lesson as LessonModel;
@@ -25,6 +26,7 @@ final class LessonMapper
             title: (string) ($model->title ?? ''),
             description: $model->description,
             locale: (string) ($model->locale ?? 'ru'),
+            type: new LessonType((string) ($model->type ?? LessonType::DEFAULT)),
             saved: (bool) $model->saved,
             published: (bool) $model->published,
             complexity: Complexity::fromNullable(
@@ -43,6 +45,7 @@ final class LessonMapper
         $model->title       = $domain->title();
         $model->description = $domain->description();
         $model->locale      = $domain->locale();
+        $model->type        = $domain->type()->value;
         $model->saved       = $domain->isSaved();
         $model->published   = $domain->isPublished();
         $model->complexity  = $domain->complexity()?->value;

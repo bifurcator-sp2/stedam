@@ -25,6 +25,15 @@ final class InMemoryLessonReader implements LessonReaderInterface
     /** @var array<int, list<int>> taxonomyId => все узлы поддерева (включая себя) */
     private array $subtrees = [];
 
+    /** @var array<int, string> lessonId => код типа (lessons.type) */
+    private array $typeCodes = [];
+
+    /** @var array<string, int> код типа => lesson_types.time_gap (часы) */
+    private array $typeTimeGaps = [];
+
+    /** @var array<int, array{type: string|null, title: string|null, description: string|null, complexity: float|null}> */
+    private array $summaries = [];
+
     public function addLesson(int $lessonId, ?float $complexity = null): void
     {
         if ($complexity !== null) {
@@ -32,6 +41,24 @@ final class InMemoryLessonReader implements LessonReaderInterface
         } else {
             $this->complexity[$lessonId] = $complexity ?? 0.5;
         }
+    }
+
+    /**
+     * Задать карточку урока, отдаваемую в составе курса.
+     */
+    public function setSummary(
+        int $lessonId,
+        ?string $type = null,
+        ?string $title = null,
+        ?string $description = null,
+        ?float $complexity = null,
+    ): void {
+        $this->summaries[$lessonId] = [
+            'type' => $type,
+            'title' => $title,
+            'description' => $description,
+            'complexity' => $complexity,
+        ];
     }
 
     public function setTaxonomy(int $lessonId, ?int $taxonomyId): void
@@ -55,6 +82,18 @@ final class InMemoryLessonReader implements LessonReaderInterface
         $this->subtrees[$taxonomyId] = $subtreeIds;
     }
 
+    /**
+     * Задать тип урока и (необязательно) зарегистрировать базовый разрыв типа.
+     */
+    public function setType(int $lessonId, string $code, ?int $timeGapHours = null): void
+    {
+        $this->typeCodes[$lessonId] = $code;
+
+        if ($timeGapHours !== null) {
+            $this->typeTimeGaps[$code] = $timeGapHours;
+        }
+    }
+
     public function complexityOf(LessonId $lessonId): ?float
     {
         return $this->complexity[$lessonId->value] ?? null;
@@ -74,6 +113,46 @@ final class InMemoryLessonReader implements LessonReaderInterface
     public function exists(LessonId $lessonId): bool
     {
         return array_key_exists($lessonId->value, $this->complexity);
+    }
+
+    public function typeCodesOf(array $lessonIds): array
+    {
+        $result = [];
+
+        foreach ($lessonIds as $lessonId) {
+            $result[$lessonId->value] = $this->typeCodes[$lessonId->value] ?? null;
+        }
+
+        return $result;
+    }
+
+    public function summariesOf(array $lessonIds): array
+    {
+        $result = [];
+
+        foreach ($lessonIds as $lessonId) {
+            $result[$lessonId->value] = $this->summaries[$lessonId->value] ?? [
+                'type' => $this->typeCodes[$lessonId->value] ?? null,
+                'title' => null,
+                'description' => null,
+                'complexity' => $this->complexityOf($lessonId),
+            ];
+        }
+
+        return $result;
+    }
+
+    public function timeGapsByTypeCode(array $codes): array
+    {
+        $result = [];
+
+        foreach ($codes as $code) {
+            if (array_key_exists($code, $this->typeTimeGaps)) {
+                $result[$code] = $this->typeTimeGaps[$code];
+            }
+        }
+
+        return $result;
     }
 
     public function taxonomyIdOf(LessonId $lessonId): ?int

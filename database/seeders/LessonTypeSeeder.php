@@ -19,6 +19,7 @@ class LessonTypeSeeder extends Seeder
             [
                 'code' => 'class_work',
                 'next_lesson_threshold' => 0.75,
+                'time_gap' => 12,
                 'color' => '#4CAF50',
                 'sort' => 10,
                 'ru' => 'Классная работа',
@@ -29,6 +30,7 @@ class LessonTypeSeeder extends Seeder
             [
                 'code' => 'home_work',
                 'next_lesson_threshold' => 0.333,
+                'time_gap' => 4,
                 'color' => '#2196F3',
                 'sort' => 20,
                 'ru' => 'Домашняя работа',
@@ -39,6 +41,7 @@ class LessonTypeSeeder extends Seeder
             [
                 'code' => 'ind_work',
                 'next_lesson_threshold' => 0.50,
+                'time_gap' => 8,
                 'color' => '#FF9800',
                 'sort' => 30,
                 'ru' => 'Самостоятельная работа',
@@ -49,6 +52,7 @@ class LessonTypeSeeder extends Seeder
             [
                 'code' => 'control_work',
                 'next_lesson_threshold' => 0.666,
+                'time_gap' => 12,
                 'color' => '#F44336',
                 'sort' => 40,
                 'ru' => 'Контрольная работа',
@@ -63,6 +67,7 @@ class LessonTypeSeeder extends Seeder
                 ['code' => $data['code']],
                 [
                     'next_lesson_threshold' => $data['next_lesson_threshold'],
+                    'time_gap' => $data['time_gap'],
                     'color' => $data['color'],
                     'sort' => $data['sort'],
                 ]

@@ -67,6 +67,11 @@ class AppServiceProvider extends ServiceProvider
             \App\Application\Lessons\Ports\LessonsQueryInterface::class,
             \App\Infrastructure\Persistence\Queries\EloquentLessonsQuery::class,
         );
+        // Read-side справочника типов урока (для select'а `type`).
+        $this->app->bind(
+            \App\Application\Lessons\Ports\LessonTypeQueryInterface::class,
+            \App\Infrastructure\Persistence\Queries\EloquentLessonTypeQuery::class,
+        );
         $this->app->bind(
             \App\Application\LessonBlocks\Ports\LessonBlockRepositoryInterface::class,
             \App\Infrastructure\Persistence\Repositories\EloquentLessonBlockRepository::class,

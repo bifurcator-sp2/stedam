@@ -15,19 +15,23 @@ use App\Domain\Course\Exceptions\CourseLessonNotInTheme;
 use App\Domain\Course\ValueObjects\CourseId;
 use App\Domain\Course\ValueObjects\CourseThemeId;
 use App\Domain\Course\ValueObjects\LessonId;
-use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\TimeGap;
 use DateTimeImmutable;
 use Illuminate\Contracts\Events\Dispatcher;
 
 /**
- * Операции над уроками внутри темы: добавить, убрать, переставить,
- * сменить тип, сменить разрыв.
+ * Операции над уроками внутри темы: добавить, убрать, переставить.
+ *
+ * Полная замена состава курса (темы и уроки) выполняется через
+ * EditCourseHeaderAction::execute() с параметром $themes.
  *
  * addLesson проверяет существование урока в контексте Lessons: в курс
  * нельзя сослаться на несуществующий урок.
  *
  * Любая операция меняет состав курса → публикует CourseChanged.
+ *
+ * Уроки в темах — часть содержимого курса: у опубликованного курса их менять
+ * нельзя (CourseIsPublishedEdit → HTTP 422).
  */
 final readonly class EditCourseLessonAction
 {
@@ -42,7 +46,6 @@ final readonly class EditCourseLessonAction
         CourseId $courseId,
         CourseThemeId $themeId,
         LessonId $lessonId,
-        ?LessonTypeId $typeId = null,
         ?TimeGap $timeGap = null,
         ?DateTimeImmutable $now = null,
     ): Course {
@@ -55,7 +58,7 @@ final readonly class EditCourseLessonAction
         return $this->mutate(
             $viewer,
             $courseId,
-            fn (Course $course) => $course->addLesson($themeId, $lessonId, $typeId, $timeGap),
+            fn (Course $course) => $course->addLesson($themeId, $lessonId, $timeGap),
             $now,
         );
     }
@@ -87,38 +90,6 @@ final readonly class EditCourseLessonAction
             $viewer,
             $courseId,
             fn (Course $course) => $course->moveLesson($themeId, $lessonId, $toPosition),
-            $now,
-        );
-    }
-
-    public function changeType(
-        CourseViewerContext $viewer,
-        CourseId $courseId,
-        CourseThemeId $themeId,
-        LessonId $lessonId,
-        ?LessonTypeId $typeId,
-        ?DateTimeImmutable $now = null,
-    ): Course {
-        return $this->mutate(
-            $viewer,
-            $courseId,
-            fn (Course $course) => $course->changeLessonType($themeId, $lessonId, $typeId),
-            $now,
-        );
-    }
-
-    public function changeTimeGap(
-        CourseViewerContext $viewer,
-        CourseId $courseId,
-        CourseThemeId $themeId,
-        LessonId $lessonId,
-        TimeGap $timeGap,
-        ?DateTimeImmutable $now = null,
-    ): Course {
-        return $this->mutate(
-            $viewer,
-            $courseId,
-            fn (Course $course) => $course->changeLessonTimeGap($themeId, $lessonId, $timeGap),
             $now,
         );
     }

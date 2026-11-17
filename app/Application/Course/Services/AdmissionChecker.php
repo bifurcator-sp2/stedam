@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Course\Services;
 
 use App\Application\Course\Ports\LearnPortInterface;
+use App\Application\Course\Ports\LessonReaderInterface;
 use App\Application\Course\Strategies\AdmissionStrategyInterface;
 use App\Domain\Course\Entities\Course;
 use App\Domain\Course\ValueObjects\LessonId;
@@ -15,20 +16,23 @@ use App\Domain\Course\ValueObjects\UserId;
  *
  *  - домен: позиция урока в курсе (Course::flatLessons) и пороги;
  *  - порт Learn: оценка предыдущего урока данного ученика;
- *  - справочник типов: порог типа урока (передаётся явно — type_id лежит
- *    в CourseLesson, а сам порог в lesson_types, куда домен не ходит).
+ *  - порт Lessons: код типа урока (lessons.type) и порог типа из
+ *    справочника lesson_types.
+ *
+ * Тип урока в связке тема→урок не хранится: он берётся у самого урока.
  *
  * Только чтение, без побочных эффектов.
  */
 final readonly class AdmissionChecker
 {
     /**
-     * @param array<int, float|null> $typeThresholdsByTypeId lesson_types.id => порог
+     * @param array<string, float|null> $typeThresholdsByCode код типа => порог
      */
     public function __construct(
         private LearnPortInterface $learn,
         private AdmissionStrategyInterface $strategy,
-        private array $typeThresholdsByTypeId = [],
+        private LessonReaderInterface $lessons,
+        private array $typeThresholdsByCode = [],
     ) {}
 
     public function isAdmitted(UserId $studentId, Course $course, LessonId $lessonId): bool
@@ -42,7 +46,7 @@ final readonly class AdmissionChecker
     }
 
     /**
-     * Пороги для всех уроков курса (для рендера списка с замками).
+     * Допуск для всех уроков курса (для рендера списка с замками).
      *
      * @param list<LessonId> $lessonIds
      * @return array<int, bool> lesson_id => допущен
@@ -75,14 +79,12 @@ final readonly class AdmissionChecker
 
     private function typeThresholdFor(Course $course, LessonId $lessonId): ?float
     {
-        $found = $course->findLesson($lessonId);
-
-        if ($found === null) {
+        if ($course->findLesson($lessonId) === null) {
             return null;
         }
 
-        $typeId = $found['lesson']->typeId();
+        $code = $this->lessons->typeCodesOf([$lessonId])[$lessonId->value] ?? null;
 
-        return $typeId === null ? null : ($this->typeThresholdsByTypeId[$typeId->value] ?? null);
+        return $code === null ? null : ($this->typeThresholdsByCode[$code] ?? null);
     }
 }

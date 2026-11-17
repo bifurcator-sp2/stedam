@@ -8,7 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Связь "тема курса → урок". Не урок и не прохождение — только привязка
- * с локальными параметрами планирования (order, time_gap, type_id).
+ * с локальными параметрами планирования (order, time_gap).
+ *
+ * Тип урока здесь не хранится: он берётся из самого урока (lessons.type),
+ * а time_gap вычисляется при сохранении как lesson_types.time_gap
+ * × courses.time_gap_multipler.
  */
 class CourseThemeLesson extends Model
 {
@@ -17,7 +21,6 @@ class CourseThemeLesson extends Model
     protected $fillable = [
         'theme_id',
         'lesson_id',
-        'type_id',
         'order',
         'time_gap',
     ];
@@ -25,7 +28,6 @@ class CourseThemeLesson extends Model
     protected $casts = [
         'theme_id' => 'integer',
         'lesson_id' => 'integer',
-        'type_id' => 'integer',
         'order' => 'integer',
         'time_gap' => 'integer',
     ];
@@ -38,10 +40,5 @@ class CourseThemeLesson extends Model
     public function lesson(): BelongsTo
     {
         return $this->belongsTo(Lesson::class);
-    }
-
-    public function type(): BelongsTo
-    {
-        return $this->belongsTo(LessonType::class, 'type_id');
     }
 }

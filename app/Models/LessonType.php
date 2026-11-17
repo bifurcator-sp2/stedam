@@ -25,11 +25,13 @@ class LessonType extends Model
         'next_lesson_threshold',
         'color',
         'sort',
+        'time_gap',
     ];
 
     protected $casts = [
         'next_lesson_threshold' => 'float',
         'sort' => 'integer',
+        'time_gap' => 'integer',
     ];
 
     public function translations(): HasMany

@@ -77,6 +77,9 @@ class SeedLotrLessonsCommand extends Command
     /** @var list<int> */
     protected array $procTests = [];
 
+    /** @var list<string> коды типов уроков из справочника lesson_types */
+    protected array $lessonTypes = [];
+
     protected bool $stopRequested = false;
     protected ?string $stopFile = null;
 
@@ -164,6 +167,13 @@ class SeedLotrLessonsCommand extends Command
 
         $this->commonTestsByTaxonomy = $this->tasks->pluckIdsGroupedByTaxonomy(array_keys($this->leaves));
         $this->procTests             = $this->procTasks->pluckAllIds();
+
+        $this->lessonTypes = $this->resolveLessonTypes();
+        if ($this->lessonTypes === []) {
+            $this->error('Справочник lesson_types пуст. Запустите: php artisan db:seed --class=LessonTypeSeeder');
+            return self::FAILURE;
+        }
+        $this->info('Lesson types: ' . implode(', ', $this->lessonTypes));
 
         $commonTotal = array_sum(array_map('count', $this->commonTestsByTaxonomy));
         $procTotal   = count($this->procTests);
@@ -366,8 +376,12 @@ class SeedLotrLessonsCommand extends Command
     ): void {
         $owner = new UserId($this->lessonOwnerIds[array_rand($this->lessonOwnerIds)]);
 
-        // 1. Черновик.
-        $lesson   = ($this->createLesson)($owner, new CreateLessonData(locale: 'ru'));
+        // 1. Черновик. Тип урока — обязательное поле; в сиде раздаём
+        //    типы из справочника, чтобы данные были представительными.
+        $lesson   = ($this->createLesson)(
+            $owner,
+            new CreateLessonData(locale: 'ru', type: $this->pick($this->lessonTypes)),
+        );
         $lessonId = $lesson->id();
         if ($lessonId === null) {
             throw new \LogicException('CreateLessonAction did not assign id');
@@ -593,6 +607,21 @@ class SeedLotrLessonsCommand extends Command
         }
 
         return $leaves;
+    }
+
+    /**
+     * Коды типов уроков из справочника `lesson_types` (по порядку sort).
+     *
+     * @return list<string>
+     */
+    protected function resolveLessonTypes(): array
+    {
+        return DB::table('lesson_types')
+            ->orderBy('sort')
+            ->orderBy('id')
+            ->pluck('code')
+            ->map(static fn ($v): string => (string) $v)
+            ->all();
     }
 
     /**

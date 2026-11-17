@@ -10,6 +10,7 @@ use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\TaxonomyId;
 use App\Domain\Course\ValueObjects\ThresholdMultiplier;
+use App\Domain\Course\ValueObjects\TimeGapMultiplier;
 use App\Domain\Course\ValueObjects\UserId;
 use Tests\Support\CourseScene;
 
@@ -32,6 +33,7 @@ function createCourse(
         description: new CourseDescription('Описание нового курса'),
         locale: new Locale('ru'),
         thresholdMultiplier: new ThresholdMultiplier($multiplier),
+        timeGapMultiplier: TimeGapMultiplier::default(),
         taxId: $taxId,
     );
 }

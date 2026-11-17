@@ -165,3 +165,23 @@ it('для листа поддерево — он сам', function () {
 
     expect($this->reader->taxonomySubtreeIds($leaf->id))->toBe([$leaf->id]);
 });
+
+it('возвращает карточки уроков пачкой', function () {
+    $lesson = makeLesson(0.4);
+    Lesson::query()->whereKey($lesson->id)->update([
+        'type' => 'home_work',
+        'title' => 'Домашняя работа',
+        'description' => 'Описание урока',
+    ]);
+
+    $result = $this->reader->summariesOf([new LessonId($lesson->id), new LessonId(99999)]);
+
+    expect($result)->toBe([
+        $lesson->id => [
+            'type' => 'home_work',
+            'title' => 'Домашняя работа',
+            'description' => 'Описание урока',
+            'complexity' => 0.4,
+        ],
+    ]);
+});

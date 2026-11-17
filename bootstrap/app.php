@@ -57,6 +57,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Domain\Course\Exceptions\CourseLessonAlreadyInCourse::class => [409, 'course_lesson_already_in_course'],
             // 422
             \App\Domain\Course\Exceptions\CourseLocaleChangeDenied::class => [422, 'course_locale_change_denied'],
+            \App\Domain\Course\Exceptions\CourseIsPublishedEdit::class => [422, 'course_is_published_edit'],
             \App\Domain\Course\Exceptions\CourseTaxonomyChangeDenied::class => [422, 'course_taxonomy_change_denied'],
             \App\Domain\Course\Exceptions\InvalidCourseOrder::class => [422, 'invalid_course_order'],
             \App\Domain\Course\Exceptions\InvalidCourseGrade::class => [422, 'invalid_course_grade'],

@@ -146,6 +146,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // --- Уроки ---
 
 // 1. Статические GET — строго до /lessons/{lesson}
+    Route::get('/lessons/types', [\App\Http\Controllers\Api\LessonController::class, 'types']);
     Route::get('/lessons/learn', [\App\Http\Controllers\Api\LearnController::class, 'list_learn']);
     Route::get('/lessons/actual', [\App\Http\Controllers\Api\LearnController::class, 'getActualLessons']);
     Route::post('/learn/begin', [LearnController::class, 'beginLearnLesson']);
@@ -240,10 +241,6 @@ Route::middleware('auth:sanctum')->prefix('courses')->group(function () {
     Route::delete('/{courseId}/themes/{themeId}/lessons/{lessonId}', [$c, 'destroyLesson'])
         ->whereNumber('courseId')->whereNumber('themeId')->whereNumber('lessonId');
     Route::put('/{courseId}/themes/{themeId}/lessons/{lessonId}/position', [$c, 'moveLesson'])
-        ->whereNumber('courseId')->whereNumber('themeId')->whereNumber('lessonId');
-    Route::patch('/{courseId}/themes/{themeId}/lessons/{lessonId}/type', [$c, 'updateLessonType'])
-        ->whereNumber('courseId')->whereNumber('themeId')->whereNumber('lessonId');
-    Route::patch('/{courseId}/themes/{themeId}/lessons/{lessonId}/time-gap', [$c, 'updateLessonTimeGap'])
         ->whereNumber('courseId')->whereNumber('themeId')->whereNumber('lessonId');
 
     // Назначения

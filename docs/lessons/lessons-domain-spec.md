@@ -46,6 +46,7 @@
 | Понятие | Тип | Смысл |
 |---------|-----|-------|
 | `LessonId` | VO | Идентификатор урока (≥ 0; `0` — сентинел «нет урока») |
+| `LessonType` | VO | Тип урока — код справочника `lesson_types.code` (`class_work`, `home_work`, …) |
 | `LessonBlockId` | VO | Идентификатор строки `lesson_blocks` (own-блок или задание) |
 | `BlockId` | VO | Идентификатор прототипа `blocks` |
 | `TaskId` | VO | Идентификатор обычного задания (> 0) |
@@ -63,14 +64,35 @@
 ## 3. Агрегат `Lesson`
 
 Поля: `id (?LessonId)`, `userId (UserId)`, `title`, `description (?string)`,
-`locale`, `saved (bool)`, `published (bool)`, `complexity (?Complexity)`,
-`taxonomyIds (list<TaxonomyId>)`.
+`locale`, `type (LessonType)`, `saved (bool)`, `published (bool)`,
+`complexity (?Complexity)`, `taxonomyIds (list<TaxonomyId>)`.
+
+### 3.0. Тип урока (`type`)
+
+- `type` — **обязательное** поле: VO `App\Domain\Lessons\ValueObjects\LessonType`.
+- Хранит **строковый код** из справочника `lesson_types.code`
+  (`class_work`, `home_work`, `ind_work`, `control_work`), а не id строки
+  справочника и не результат join'а с `course_theme_lessons` (там `type_id`
+  — параметр планирования курса, ортогонален полю урока).
+- VO валидирует только **форму** кода: непустой, ≤ 32 символов,
+  `snake_case` (`^[a-z][a-z0-9_]*$`). Существование кода в справочнике
+  проверяет HTTP-слой (`exists:lesson_types,code`), не домен.
+- Константа `LessonType::DEFAULT === 'class_work'`; фабрика
+  `LessonType::default()`.
+- Физически: `lessons.type` — `NOT NULL DEFAULT 'class_work'`
+  (миграция `2026_11_26_100000_add_type_to_lessons_table`); индекс
+  `lessons_type_idx`. FK на `lesson_types` **нет** намеренно: тип —
+  значение-код, справочник пересидируется независимо от уроков.
+- Справочник для выбора в UI (`code` + локализованные `title`/`description`)
+  отдаётся ключом `lesson_types`: в карточке — `GET /api/lessons/{id}` (§8.2.1),
+  в списке — `GET /api/lessons` (§8.2.2).
 
 ### 3.1. Фабрики
 
-- `Lesson::draft(UserId, locale)` — пустой черновик (`saved=false`,
-  `published=false`, `title=''`, `complexity=null`, таксономии пусты).
-- `Lesson::fromPersistence(...)` — реконструкция из хранилища.
+- `Lesson::draft(UserId, locale, ?LessonType $type = null)` — пустой черновик
+  (`saved=false`, `published=false`, `title=''`, `complexity=null`,
+  таксономии пусты). `$type === null` → `LessonType::default()` (`class_work`).
+- `Lesson::fromPersistence(...)` — реконструкция из хранилища; `type` обязателен.
 
 ### 3.2. Инварианты
 
@@ -80,6 +102,27 @@
    (см. §3.3); вручную не задаётся.
 3. Владелец — единственный, кто может менять; admin-override проверяется
    в Application (`assertCanBeEditedBy(userId, isAdmin)`).
+4. `type` обязателен всегда; **сменить** тип можно только у неопубликованного
+   урока. «Опубликован» — строго `published === true`. Правило живёт в
+   агрегате: `Lesson::update(...)` при заданном `type` и `published === true`
+   бросает `LessonIsPublishedEdit` → HTTP 422
+   (`LessonController::save` не дублирует проверку). Снятие публикации в том
+   же запросе смену типа **не** открывает: снятие публикации атомарно (п.5).
+5. Редактирование по состоянию `published` (единое правило для всех полей
+   шапки — `title`, `description`, `locale`, `type`, `saved`, `taxonomy_ids`):
+   - `published = true` + `published = false` в запросе → **атомарное снятие
+     публикации**: применяется только `published = false`, все остальные
+     поля запроса игнорируются (фронт вправе отправить объект урока целиком).
+     Содержимое меняется следующим запросом.
+   - `published = true` без `published = false` (в том числе с любыми
+     правками) → `Lesson::update()` → `LessonIsPublishedEdit` → HTTP 422,
+     ничего не сохраняется. Молчаливого no-op нет: раньше такой `PUT`
+     возвращал 200 без изменений, из-за чего клиент не видел отказа.
+   - `published = false` → урок редактируется нормально (включая публикацию
+     тем же запросом).
+   - Состав блоков (`blocks`) меняется только у неопубликованного урока:
+     `SaveLessonAction` не вызывает `SyncBlocksAction`, если после обновления
+     урок опубликован; снятие публикации состав блоков не трогает (§8.3).
 
 ### 3.3. Расчёт complexity
 
@@ -178,6 +221,20 @@
 | `pluckAllIds(): list<int>` | **dev/seeding** — все id (включая soft-deleted) |
 | `delete(LessonId): void` | **dev/seeding** — forceDelete; отсутствие — не ошибка |
 
+### 7.1.1. `App\Application\Lessons\Ports\LessonTypeQueryInterface`
+
+Read-side справочника `lesson_types` для выбора `type` в интерфейсе.
+HTTP-слой к таблице справочника **не обращается** — получает готовые DTO.
+
+| Метод | Назначение |
+|-------|------------|
+| `allOrdered(): list<LessonTypeOption>` | все типы по `sort`, затем id; `title`/`description` локализованы (текущая локаль → fallback → первая доступная) |
+
+Реализация — `App\Infrastructure\Persistence\Queries\EloquentLessonTypeQuery`
+(переводы грузятся только для текущей локали и `app.fallback_locale`).
+`LessonTypeOption` — readonly-DTO Application-слоя
+(`code`, `title`, `description`, `color`, `sort`, `next_lesson_threshold`, `time_gap`), не модель.
+
 ### 7.2. `App\Application\LessonBlocks\Ports\LessonBlockRepositoryInterface`
 
 | Метод | Назначение |
@@ -241,10 +298,12 @@
 
 | Action | DTO | Роль |
 |--------|-----|------|
-| `Lessons\CreateLessonAction` | `CreateLessonData` | создать черновик урока |
-| `Lessons\UpdateLessonAction` | `UpdateLessonData` | шапка + таксономии (+`published`) |
+| `Lessons\CreateLessonAction` | `CreateLessonData` | создать черновик урока (тип по умолчанию — `class_work`) |
+| `Lessons\UpdateLessonAction` | `UpdateLessonData` | шапка + таксономии + `type` (+`published`) |
 | `Lessons\SaveLessonAction` | — | полный save с проверкой `LessonRulesChecker` |
 | `Lessons\DeleteLessonAction` | — | удалить урок (idempotent) |
+| `Lessons\ListLessonsAction` | `LessonListFilter` | каталог уроков (read, `LessonsQueryInterface`) |
+| `Lessons\ListLessonTypesAction` | — | справочник типов (read, `LessonTypeQueryInterface`) |
 | `LessonBlocks\AddBlockAction` | `AddBlockData` | добавить блок/задание (`own`/`shared`) |
 | `LessonBlocks\SyncBlocksAction` | `SyncBlocksData` | привести состав блоков к списку |
 | `Tasks\CreateTaskAction` | `CreateTaskData` | создать обычное задание |
@@ -277,13 +336,161 @@ AddBlockData(
    иначе `own` (`LessonBlock::own` + file-sets + `placeOwnAt`).
 6. Post-save: `LessonRepository::save(getById(...))` → `saving`-хук пересчитывает complexity.
 
-### 8.2. `UpdateLessonAction`
+### 8.2. `CreateLessonAction` / `CreateLessonData`
+
+```
+CreateLessonData(
+    ?string $locale = null,    // null — app.locale (владелец решает в HTTP)
+    ?string $type   = null     // code из lesson_types; null — class_work
+)
+```
+
+- `type`, если задан, прогоняется через VO `LessonType` (форма кода);
+  `null` → `LessonType::default()`.
+- HTTP `POST /api/lessons/make`: `type` — `sometimes|string|max:32|exists:lesson_types,code`.
+  Не передан → урок создаётся как `class_work`.
+
+### 8.2.1. Справочник типов в ответе `GET /api/lessons/{id}`
+
+`LessonController::show` дополнительно отдаёт список доступных типов для
+select'а — ключ **`lesson_types`** в `LessonResource`:
+
+```json
+{
+  "id": 12,
+  "type": "home_work",
+  "...": "...",
+  "lesson_types": [
+    {"code": "class_work",  "title": "Классная работа", "description": "...", "color": "#4CAF50", "sort": 10},
+    {"code": "home_work",   "title": "Домашняя работа", "description": "...", "color": "#2196F3", "sort": 20}
+  ]
+}
+```
+
+- Источник — `ListLessonTypesAction` → `LessonTypeQueryInterface::allOrdered()`
+  (таблица `lesson_types`, порядок `sort`, затем `id`); HTTP-слой получает
+  DTO `LessonTypeOption` и сериализует его `LessonTypeResource`.
+- `title`/`description` локализованы на момент сборки DTO (текущая локаль →
+  `app.fallback_locale` → первая доступная); контекст локали задаёт
+  middleware `SetLocale` (`Accept-Language` / `?locale=`).
+- `code` — то же значение, что нужно отправить в `type` при
+  `POST /api/lessons/make` и `PUT /api/lessons/{id}`.
+- Ключ присутствует в ответах `show` (§8.2.1) и `list` (§8.2.2, на уровне
+  ответа); в `make`/`save` (`LessonResource`) справочника нет.
+- В `show` первым элементом идёт тип самого урока (`optionByCode`), затем
+  остальные типы без дубля; в `list` порядок — как у `allOrdered()`.
+- Справочник отдаётся независимо от `published`: смену `type`
+  фронтенд предлагает только для неопубликованного урока (§3.2, п.4).
+
+### 8.2.2. Справочник типов в ответе `GET /api/lessons`
+
+Список уроков (`LessonController::list`) отдаёт справочник **один раз на
+ответ** — рядом с `data` и `meta`, а не в каждом элементе. Порядок ключей
+ответа: `data`, `meta`, `lesson_types`.
+
+```json
+{
+  "data": [
+    {"id": 12, "type": "home_work", "...": "..."},
+    {"id": 15, "type": "ind_work",  "...": "..."}
+  ],
+  "meta": {"current_page": 1, "per_page": 20, "has_more_pages": false, "from": 1, "to": 2},
+  "lesson_types": [
+    {"code": "class_work",  "title": "Классная работа", "description": "...", "color": "#4CAF50", "sort": 10},
+    {"code": "home_work",   "title": "Домашняя работа", "description": "...", "color": "#2196F3", "sort": 20}
+  ]
+}
+```
+
+- Источник и локализация — те же, что в §8.2.1 (`ListLessonTypesAction` →
+  `LessonTypeQueryInterface::allOrdered()` → `LessonTypeResource`).
+- Элементы `data` (`LessonListResource`) содержат только код `type`;
+  локализованное название фронт берёт из `lesson_types` по `code`.
+- Справочник отдаётся и для пустой страницы (`data: []`) — чтобы фильтр по
+  типу не «пропадал» при поиске без результатов.
+
+### 8.2.3. Отдельный справочник `GET /api/lessons/types`
+
+Полный справочник одним ответом — для селектов вне контекста урока
+(редактор курса, фильтры, настройки):
+
+```
+GET /api/lessons/types
+Authorization: auth:sanctum
+Accept-Language: ru
+```
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "code": "class_work",
+      "title": "Классная работа",
+      "description": "Работа выполняется на уроке",
+      "color": "#4CAF50",
+      "sort": 10,
+      "next_lesson_threshold": 0.75,
+      "time_gap": 12
+    }
+  ]
+}
+```
+
+| Поле | Тип | Смысл |
+|------|-----|-------|
+| `id` | int | id записи справочника |
+| `code` | string | машинный код — то же значение, что `lessons.type` |
+| `title` | string \| null | локализованное название |
+| `description` | string \| null | локализованное описание |
+| `color` | string \| null | UI-подсказка цвета |
+| `sort` | int | порядок в селектах (список уже отсортирован: `sort`, затем `id`) |
+| `next_lesson_threshold` | float | базовый порог допуска к следующему уроку, `0..1` (`course-api-spec` §0.6) |
+| `time_gap` | int | дефолтный разрыв между уроками, целые часы (`lesson_types.time_gap`, `course-api-spec` §0.4) |
+
+- Источник — `ListLessonTypesAction` → `LessonTypeQueryInterface::allOrdered()`,
+  ответ — `LessonTypeResource`. Тот же DTO, что в §8.2.1–8.2.2, поэтому формат
+  элемента идентичен.
+- Локализация — `title`/`description` по текущей локали (`Accept-Language` /
+  `?locale=`, middleware `SetLocale`), затем `app.fallback_locale`, затем
+  первый доступный перевод. Выбор перевода — в `EloquentLessonTypeQuery`,
+  чтобы последний случай не зависел от набора загруженных переводов.
+- Пагинации нет: справочник короткий и стабильный.
+- Маршрут объявлен до `/api/lessons/{lesson}`: иначе `types` ушёл бы в
+  биндинг урока.
+
+### 8.3. `UpdateLessonAction` и `SaveLessonAction`
+
+`PUT /api/lessons/{id}` → `SaveLessonAction` → `UpdateLessonAction`
+(+ `SyncBlocksAction`, если урок не опубликован).
 
 - Права: только владелец (`LessonAccessDeniedError::notOwner`).
-- Опубликованный урок: применяется только если запрос снимает публикацию
-  (`published=false`); иначе — no-op (возврат как есть).
+- Состояние `published` (см. §3.2, п.5):
+  - урок `published = true` + `{"published": false}` → атомарное снятие
+    публикации; прочие поля запроса (`title`, `description`, `locale`, `type`,
+    `saved`, `taxonomy_ids`, `blocks`) **игнорируются** — это позволяет
+    фронту отправлять объект урока целиком;
+  - урок `published = true` без `published = false` (в том числе с правками)
+    → 422 `LessonIsPublishedEdit`, транзакция откатывается, урок не меняется
+    (а не прежний молчаливый 200);
+  - урок `published = false` → обычное редактирование, публикация тем же
+    запросом разрешена.
+- Проверка живёт **в агрегате** `Lesson::update()`: при `published === true`
+  и `published = false` — только снятие публикации и немедленный выход, иначе
+  `LessonIsPublishedEdit`. `UpdateLessonAction` не делает своей проверки и не
+  возвращает «урок как есть»; `LessonController::save` тоже не дублирует
+  проверку, `guard()` маппит исключение в 422.
+- `UpdateLessonData.type` (`null` = не менять) — код из справочника; прогоняется
+  через VO `LessonType`. HTTP `PUT /api/lessons/{id}`: `type` —
+  `sometimes|string|max:32|exists:lesson_types,code`.
+- Смена типа у опубликованного урока запрещена дважды: общим правилом
+  публикации и инвариантом 4 агрегата (`type` при `published === true`).
+- Блоки: `SaveLessonAction` вызывает `SyncBlocksAction` только если урок
+  не опубликован. Снятие публикации в запросе состав блоков **не** меняет —
+  `blocks` из такого запроса игнорируются; менять состав следует следующим
+  запросом после снятия публикации.
 
-### 8.3. `DeleteLessonAction`
+### 8.4. `DeleteLessonAction`
 
 - `__invoke(LessonId)` → `LessonRepository::delete(id)`.
 - Чистка own-блоков и pivot — каскадом (модель + FK `CASCADE`, см. миграцию
@@ -294,6 +501,9 @@ AddBlockData(
 
 ## 9. Физическая схема и каскады (справочно)
 
+- `lessons.type` — `varchar(32) NOT NULL DEFAULT 'class_work'` + индекс
+  `lessons_type_idx` (миграция `2026_11_26_100000_add_type_to_lessons_table`).
+  FK на `lesson_types.code` нет: это значение-код, а не ссылка.
 - `lessons → learn_statuses` : **CASCADE** (миграция `2026_11_22_...`).
 - `lessons → lesson_lesson_block_as_test` : **CASCADE**.
 - `lesson_blocks` — `SoftDeletes`; `forceDelete` каскадно чистит FileSet'ы

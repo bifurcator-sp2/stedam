@@ -120,6 +120,7 @@
 | `complexity` | `?Complexity` | производная: среднее сложностей всех уроков |
 | `createdAt` | `DateTimeImmutable` | момент создания |
 | `updatedAt` | `DateTimeImmutable` | см. §3.5 |
+| `published` | `bool` | `false` до публикации; см. §3.9 |
 | `deletedAt` | `?DateTimeImmutable` | soft delete |
 
 ### 3.2. Фабрики
@@ -139,6 +140,10 @@
 | `changeLocale(Locale, now)` | только если в курсе нет уроков |
 | `changeThreshold(NextLessonThreshold, now)` | новый порог открытия следующего урока |
 | `moveToTaxonomy(?TaxonomyId, now)` | см. §3.6 — только если нет уроков |
+| `setPublished(bool, now)` | публикация / снятие публикации, см. §3.9 |
+
+Все операции шапки, кроме `setPublished`, у опубликованного курса бросают
+`CourseIsPublishedEdit` (§3.9).
 
 ### 3.4. Локаль
 
@@ -158,7 +163,7 @@
 - изменении `time_gap` / типа связи.
 
 Правило формулируется в домене: **любая мутация агрегата выставляет
-`updatedAt := now`**.
+`updatedAt := now`** (публикация и снятие публикации — тоже).
 
 ### 3.6. Перенос по таксономии
 
@@ -189,6 +194,36 @@
 `withId(CourseId)` — копия с присвоенным id; повторный вызов —
 `LogicException`. Копия не наследует накопленные события.
 
+### 3.9. Публикация
+
+`published` — признак «курс опубликован». Правило ровно то же, что у урока
+(`lessons.published`, см. `docs/lessons/lessons-domain-spec.md` §3.2, п.5).
+
+- Новый курс — черновик: `Course::create()` и `restore()` по умолчанию
+  `published = false` (БД: `courses.published boolean NOT NULL DEFAULT false`).
+- **Опубликованный курс (`published === true`) не редактируется.**
+  Запрещены все мутации содержимого: шапка (`rename`, `changeDescription`,
+  `changeLocale`, `changeNextLessonThreshold`, `changeThresholdMultiplier`,
+  `moveToTaxonomy`) и состав (`addTheme`, `renameTheme`, `removeTheme`,
+  `moveTheme`, `addLesson`, `removeLesson`, `moveLesson`, `changeLessonType`,
+  `changeLessonTimeGap`). Нарушение — `CourseIsPublishedEdit` → HTTP 422
+  → ничего не сохраняется.
+- Единственное допустимое изменение — `setPublished(false)`: снятие публикации.
+  Опубликованный курс приходит в него «как есть», поэтому снятие публикации
+  сначала проверяется Application-слоем и применяется **атомарно**: прочие
+  поля того же запроса (`title`, `description`, `locale`, `threshold_multipler`,
+  `tax_id`, темы) **игнорируются** (фронт вправе отправить объект курса целиком).
+- `published = true` у опубликованного курса — идемпотентный no-op.
+- Неопубликованный курс редактируется свободно, публикация тем же запросом
+  разрешена.
+- Права: публиковать/снимать публикацию может только тот, кто может
+  редактировать курс (`CourseViewerContext::canEdit`): автор; для системного
+  курса — admin.
+- Предусловий на содержимое нет: публиковать можно и пустой курс.
+
+Проверка живёт в агрегате (`Course::assertEditable()`, вызывается всеми
+мутациями кроме `setPublished`), а не в контроллере и не в отдельных Action.
+
 ---
 
 ## 4. Темы (`CourseTheme`) и уроки темы (`CourseLesson`)
@@ -211,12 +246,15 @@
 | `lessonId` | `LessonId` | `> 0` |
 | `order` | `int` | `≥ 1`, уникален внутри темы |
 | `timeGap` | `TimeGap` | `≥ 0` часов, по умолчанию из `config('course.lessons.time_gap', 2)` |
-| `typeId` | `?LessonTypeId` | тип урока (справочник §10); `null` — не задан |
 
-Фабрика: `CourseLesson::create(LessonId, int $order, TimeGap, ?LessonTypeId)`.
+Фабрика: `CourseLesson::create(LessonId, int $order, ?TimeGap)`.
 
-Связь **не** хранит заголовок и сложность урока — только ссылку и локальные
-параметры планирования.
+Связь **не** хранит заголовок, описание, сложность и тип урока — только
+ссылку и локальные параметры планирования. Тип урока принадлежит самому
+уроку (`lessons.type`) и читается через порт `LessonReaderInterface` (§12.5).
+В HTTP-ответе карточка урока (`type`, `title`, `description`, `complexity`)
+собирается read-проекцией при сериализации (`docs/course-api-spec.md` §1.1),
+а не хранится в агрегате.
 
 ### 4.3. Операции над темами и уроками
 
@@ -247,7 +285,9 @@
 `position` от 1.
 
 `Course::flatLessons(): list<FlatLesson>`, где
-`FlatLesson{ position, themeId, themeOrder, lessonId, lessonOrder, timeGap, typeId }`.
+`FlatLesson{ position, themeId, themeOrder, lessonId, lessonOrder, timeGap }`.
+Тип урока в плоском порядке не нужен: он читается у самого урока
+(`lessons.type`) через `LessonReaderInterface` (§12.5).
 
 ---
 
@@ -669,6 +709,24 @@ interface LessonInfoPort
 }
 ```
 
+Карточка урока для состава курса (HTTP-представление, `docs/course-api-spec.md`
+§1.1) читается тем же портом — батчем по всем урокам состава, без N+1:
+
+```php
+/** @return array<int, array{type: ?string, title: ?string, description: ?string, complexity: ?float}> */
+public function summariesOf(array $lessonIds): array;
+```
+
+- `type` — **код типа урока** (`lessons.type`), не id справочника.
+- `title`, `description`, `complexity` — поля самого урока
+  (`app/Models/Lesson.php`, `lessons`).
+- Курсы **не хранят** эти поля: они остаются собственностью контекста
+  Lessons (§1) и попадают в `Course` только как read-проекция при
+  сериализации ответа.
+- Урок в составе курса, но удалённый (soft delete), карточку отдаёт;
+  не найденный вовсе — все поля `null`.
+- Сложность — `0..1` (`docs/course-api-spec.md` §0.4), не проценты.
+
 ---
 
 ## 13. Application-слой
@@ -892,7 +950,7 @@ HTTP-слой описан отдельно: **`docs/course-api-spec.md`**. Та
 | `EditCourseHeaderAction` | `execute(viewer, courseId, ?title, ?description, ?locale, ?ThresholdMultiplier thresholdMultiplier, ?taxId, bool changeTaxonomy)` | `canEdit` |
 | `DeleteCourseAction` | `execute(viewer, courseId)` | `canEdit` |
 | `EditCourseThemeAction` | `add(viewer, courseId, string title)` / `rename(...)` / `remove(...)` / `move(..., int toPosition)` | `canEdit`, публикует `CourseChanged` |
-| `EditCourseLessonAction` | `add(viewer, courseId, themeId, lessonId, ?typeId, ?timeGap)` / `remove(...)` / `move(..., int toPosition)` / `changeType(..., ?typeId)` / `changeTimeGap(..., TimeGap)` | `canEdit`, публикует `CourseChanged` |
+| `EditCourseLessonAction` | `add(viewer, courseId, themeId, lessonId, ?timeGap)` / `remove(...)` / `move(..., int toPosition)` / `changeTimeGap(..., TimeGap)` | `canEdit`, публикует `CourseChanged` |
 | `AssignCourseAction` | `execute(viewer, courseId, UserId studentId): CourseAssignment` | `canAssign`, транзакция |
 | `UnassignCourseAction` | `execute(viewer, courseId, UserId studentId): void` | `canAssign`, транзакция |
 | `RecalculateCourseAction` | `execute(viewer, courseId, UserId studentId): CourseAssignment` | `canEdit` ИЛИ `canSeeProgressOf` |
@@ -1513,6 +1571,11 @@ HTTP-коды и машиночитаемые `code` — в §13.1.2. Applicatio
          → `CourseTaxonomyChangeDenied::lessonsOutsideTarget()`.
       Уроки без ветки смену не блокируют.
       Для батч-проверки добавлен `LessonReaderInterface::taxonomyIdsOf()`.
+- [x] Карточка урока в составе курса (код типа, название, описание,
+      сложность) читается батчем `LessonReaderInterface::summariesOf()` и
+      попадает в HTTP-ответ (`docs/course-api-spec.md` §1.1). Форма ответа
+      `POST` / `GET` / `PATCH` курса одинакова — карточки собирает
+      `CourseResource` через фабрику `CoursesController::courseResource()`.
 - [x] Транзакции в Application через порт `TransactionManagerInterface`
       (`app/Application/Shared/`), реализация
       `Infrastructure/Shared/EloquentTransactionManager` (поверх

@@ -7,10 +7,10 @@ use App\Application\Course\Context\CourseViewerContext;
 use App\Application\Course\Exceptions\CourseAccessDenied;
 use App\Application\Course\Exceptions\CourseNotFound;
 use App\Domain\Course\Events\CourseChanged;
+use App\Domain\Course\Exceptions\CourseIsPublishedEdit;
 use App\Domain\Course\Exceptions\CourseLessonNotInTheme;
 use App\Domain\Course\ValueObjects\CourseId;
 use App\Domain\Course\ValueObjects\LessonId;
-use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\TimeGap;
 use App\Domain\Course\ValueObjects\UserId;
 use Tests\Support\CourseScene;
@@ -73,7 +73,7 @@ it('отказывает добавить несуществующий урок'
     expect($scene->events->countOf(CourseChanged::class))->toBe(0);
 });
 
-it('добавляет урок с типом и разрывом', function () {
+it('добавляет урок с разрывом', function () {
     $scene = new CourseScene();
     $course = $scene->savedCourseWithLessons(['Тема 1' => [10]], ownerId: new UserId(1));
     $scene->lessons->addLesson(20);
@@ -84,15 +84,13 @@ it('добавляет урок с типом и разрывом', function () 
         $course->id(),
         $themeId,
         new LessonId(20),
-        typeId: new LessonTypeId(3),
         timeGap: new TimeGap(5),
     );
 
     $saved = $scene->courses->findById($course->id());
     $added = $saved->themes()[0]->lessons()[1];
 
-    expect($added->typeId()?->value)->toBe(3)
-        ->and($added->timeGap()->hours)->toBe(5);
+    expect($added->timeGap()->hours)->toBe(5);
 });
 
 it('удаляет урок из темы', function () {
@@ -150,38 +148,6 @@ it('отказывает на позиции вне диапазона', functio
     )->toThrow(\App\Domain\Course\Exceptions\InvalidCourseOrder::class);
 });
 
-it('меняет тип урока', function () {
-    $scene = new CourseScene();
-    $course = $scene->savedCourseWithLessons(['Тема 1' => [10]], ownerId: new UserId(1));
-    [, $themeId] = lessonIdsOfFirstTheme($course);
-
-    $updated = makeLessonAction($scene)->changeType(
-        CourseViewerContext::teacher(new UserId(1)),
-        $course->id(),
-        $themeId,
-        new LessonId(10),
-        new LessonTypeId(7),
-    );
-
-    expect($updated->themes()[0]->lessons()[0]->typeId()?->value)->toBe(7);
-});
-
-it('меняет разрыв между уроками', function () {
-    $scene = new CourseScene();
-    $course = $scene->savedCourseWithLessons(['Тема 1' => [10]], ownerId: new UserId(1));
-    [, $themeId] = lessonIdsOfFirstTheme($course);
-
-    $updated = makeLessonAction($scene)->changeTimeGap(
-        CourseViewerContext::teacher(new UserId(1)),
-        $course->id(),
-        $themeId,
-        new LessonId(10),
-        new TimeGap(8),
-    );
-
-    expect($updated->themes()[0]->lessons()[0]->timeGap()->hours)->toBe(8);
-});
-
 it('каждая операция публикует CourseChanged', function (string $operation) {
     $scene = new CourseScene();
     $course = $scene->savedCourseWithLessons(['Тема 1' => [10, 20]], ownerId: new UserId(1));
@@ -194,12 +160,10 @@ it('каждая операция публикует CourseChanged', function (s
         'add' => $action->add($viewer, $course->id(), $themeId, new LessonId(30)),
         'remove' => $action->remove($viewer, $course->id(), $themeId, new LessonId(20)),
         'move' => $action->move($viewer, $course->id(), $themeId, new LessonId(10), 1),
-        'changeType' => $action->changeType($viewer, $course->id(), $themeId, new LessonId(10), new LessonTypeId(2)),
-        'changeTimeGap' => $action->changeTimeGap($viewer, $course->id(), $themeId, new LessonId(10), new TimeGap(4)),
     };
 
     expect($scene->events->countOf(CourseChanged::class))->toBe(1);
-})->with(['add', 'remove', 'move', 'changeType', 'changeTimeGap']);
+})->with(['add', 'remove', 'move']);
 
 it('отказывает без прав редактирования', function () {
     $scene = new CourseScene();
@@ -232,3 +196,25 @@ it('отказывает, если курс не найден', function () {
         ),
     )->toThrow(CourseNotFound::class);
 });
+
+it('запрещает менять уроки опубликованного курса', function (string $operation) {
+    $scene = new CourseScene();
+    $course = $scene->savedCourseWithLessons(
+        ['Тема 1' => [10, 20]],
+        ownerId: new UserId(1),
+        published: true,
+    );
+    $scene->lessons->addLesson(30);
+    [, $themeId] = lessonIdsOfFirstTheme($course);
+    $viewer = CourseViewerContext::teacher(new UserId(1));
+    $action = makeLessonAction($scene);
+
+    expect(fn () => match ($operation) {
+        'add' => $action->add($viewer, $course->id(), $themeId, new LessonId(30)),
+        'remove' => $action->remove($viewer, $course->id(), $themeId, new LessonId(20)),
+        'move' => $action->move($viewer, $course->id(), $themeId, new LessonId(10), 1),
+    })->toThrow(CourseIsPublishedEdit::class);
+
+    expect($scene->events->countOf(CourseChanged::class))->toBe(0)
+        ->and($scene->courses->saveCalls)->toBe(0);
+})->with(['add', 'remove', 'move']);

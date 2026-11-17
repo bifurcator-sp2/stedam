@@ -86,12 +86,13 @@ interface CourseRepositoryInterface
 
     /**
      * Пороги типов уроков из справочника lesson_types:
-     * lesson_types.id => next_lesson_threshold (0..1).
+     * lesson_types.code => next_lesson_threshold (0..1).
      *
      * Нужен AdmissionChecker'у и построению списка уроков с замками.
+     * Ключ — код типа, потому что урок хранит именно код (lessons.type).
      *
-     * @param list<int> $typeIds
-     * @return array<int, float>
+     * @param list<string> $codes
+     * @return array<string, float>
      */
-    public function typeThresholds(array $typeIds): array;
+    public function typeThresholdsByCode(array $codes): array;
 }

@@ -7,10 +7,13 @@ use App\Application\LessonBlocks\Actions\AddBlockAction;
 use App\Application\LessonBlocks\DTOs\AddBlockData;
 use App\Application\Lessons\Actions\CreateLessonAction;
 use App\Application\Lessons\Actions\ListLessonsAction;
+use App\Application\Lessons\Actions\ListLessonTypesAction;
 use App\Application\Lessons\Actions\SaveLessonAction;
 use App\Application\Lessons\DTOs\CreateLessonData;
+use App\Application\Lessons\DTOs\LessonTypeOption;
 use App\Application\Lessons\DTOs\UpdateLessonData;
 use App\Application\Lessons\Exceptions\LessonAccessDeniedError;
+use App\Application\Lessons\Ports\LessonTypeQueryInterface;
 use App\Domain\LessonBlocks\Exceptions\BlockAssignmentDenied;
 use App\Domain\LessonBlocks\Exceptions\LessonBlockNotFound;
 use App\Domain\LessonBlocks\Exceptions\LessonIsPublished;
@@ -23,6 +26,7 @@ use App\Domain\Tasks\Exceptions\TaxonomyRequired;
 use App\Http\Resources\LessonBlockResource;
 use App\Http\Resources\LessonListResource;
 use App\Http\Resources\LessonResource;
+use App\Http\Resources\LessonTypeResource;
 use App\Models\Lesson;
 use App\Models\LessonBlock;
 use App\Models\Taxonomy;
@@ -37,12 +41,15 @@ class LessonController
         private readonly CreateLessonAction $createLesson,
         private readonly AddBlockAction $addBlock,
         private readonly SaveLessonAction $saveLesson,
+        private readonly ListLessonTypesAction $listLessonTypes,
+        private readonly LessonTypeQueryInterface $lessonTypesByCode,
     ) {}
 
     public function make(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'locale' => ['sometimes', 'string', 'max:10'],
+            'type' => ['sometimes', 'string', 'max:32', 'exists:lesson_types,code'],
         ]);
 
         $user = $request->user();
@@ -52,9 +59,10 @@ class LessonController
         // поэтому передаём «локаль владельца» как fallback здесь.
         $locale = $validated['locale'] ?? $user->locale ?? null;
 
+        // Тип урока: не передан → дефолт из справочника (class_work).
         $lesson = $this->guard(fn () => ($this->createLesson)(
             new UserId((int) $user->id),
-            new CreateLessonData($locale),
+            new CreateLessonData($locale, $validated['type'] ?? null),
         ));
 
         $lessonId = (int) $lesson->id()->value;
@@ -112,6 +120,7 @@ class LessonController
             'title' => ['sometimes', 'nullable', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
             'locale' => ['sometimes', 'string', 'max:10'],
+            'type' => ['sometimes', 'string', 'max:32', 'exists:lesson_types,code'],
             'saved' => ['sometimes', 'boolean'],
             'published' => ['sometimes', 'boolean'],
 
@@ -123,14 +132,9 @@ class LessonController
             'blocks.*.settings' => ['sometimes', 'nullable', 'array'],
         ]);
 
-        // ==================== ЗАЩИТА ОТ РЕДАКТИРОВАНИЯ ====================
-        if ($lesson->published) {
-            if (!$request->has('published') || $request->boolean('published') === true) {
-                return response()->json(new LessonResource($lesson->load(['blocks.block', 'lessonBlockAsTests.block', 'taxonomies'])));
-            }
-        }
-        // ===================================================================
-
+        // Правило публикации целиком в домене (инвариант 1 агрегата Lesson):
+        // опубликованный урок можно только снять с публикации, любое другое
+        // изменение → LessonIsPublishedEdit → 422 (см. guard()).
         $data = $this->buildUpdateData($request, $validated);
 
         $this->guard(fn () => DB::transaction(function () use ($lesson, $data, $user) {
@@ -164,6 +168,7 @@ class LessonController
             description: array_key_exists('description', $validated) ? ($validated['description'] ?? null) : null,
             descriptionTouched: $request->has('description'),
             locale: $validated['locale'] ?? null,
+            type: $validated['type'] ?? null,
             saved: array_key_exists('saved', $validated) ? (bool) $validated['saved'] : null,
             published: array_key_exists('published', $validated) ? (bool) $validated['published'] : null,
             taxonomyIds: array_key_exists('taxonomy_ids', $validated)
@@ -211,7 +216,27 @@ class LessonController
 
         $lesson->load(['blocks.block', 'lessonBlockAsTests.block', 'taxonomies']);
 
-        return response()->json(new LessonResource($lesson));
+        // Урок хранит только код типа (`lessons.type`): ставим его первым в
+        // справочнике, чтобы фронт сразу нашёл локализованное название.
+        $lessonType = $lesson->type === null
+            ? null
+            : $this->guardLessonType($lesson->type);
+
+        return response()->json(
+            (new LessonResource($lesson))->withLessonTypes(collect(array_filter([
+                $lessonType,
+                ...($this->listLessonTypes)(),
+            ]))),
+        );
+    }
+
+    /**
+     * Тип урока по коду — или null, если в справочнике такого кода нет
+     * (ответ не падает: фронт покажет сам код).
+     */
+    private function guardLessonType(string $code): ?LessonTypeOption
+    {
+        return $code === '' ? null : $this->lessonTypesByCode->optionByCode($code);
     }
 
     /**
@@ -297,6 +322,22 @@ class LessonController
      *
      * GET /lessons?tax=<id>&search=<...>&page=1&per_page=20
      */
+    /**
+     * Справочник типов урока: локализованные название и описание на текущую
+     * локаль (`Accept-Language` / `locale`, см. middleware SetLocale).
+     *
+     * GET /lessons/types — статический сегмент, обязан идти до `/lessons/{lesson}`.
+     */
+    public function types(Request $request): JsonResponse
+    {
+        return response()->json([
+            'data' => array_map(
+                fn (LessonTypeOption $option) => (new LessonTypeResource($option))->resolve($request),
+                ($this->listLessonTypes)(),
+            ),
+        ]);
+    }
+
     public function list(Request $request, ListLessonsAction $listLessons): JsonResponse
     {
         $user = $request->user();
@@ -322,6 +363,12 @@ class LessonController
                 'from'           => $result->items === [] ? null : ($result->page - 1) * $result->perPage + 1,
                 'to'             => $result->items === [] ? null : ($result->page - 1) * $result->perPage + count($result->items),
             ],
+            // Справочник типов — один на весь ответ: фронт отображает
+            // локализованное название вместо кода `type`.
+            'lesson_types' => array_map(
+                fn (LessonTypeOption $option) => (new LessonTypeResource($option))->resolve($request),
+                ($this->listLessonTypes)(),
+            ),
         ]);
     }
 }

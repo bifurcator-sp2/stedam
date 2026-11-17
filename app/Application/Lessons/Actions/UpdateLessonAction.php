@@ -9,6 +9,7 @@ use App\Application\Lessons\Exceptions\LessonAccessDeniedError;
 use App\Application\Lessons\Ports\LessonRepositoryInterface;
 use App\Domain\Lessons\Entities\Lesson;
 use App\Domain\Lessons\ValueObjects\LessonId;
+use App\Domain\Lessons\ValueObjects\LessonType;
 use App\Domain\Lessons\ValueObjects\TaxonomyId;
 use App\Domain\Lessons\ValueObjects\UserId;
 
@@ -20,13 +21,13 @@ use App\Domain\Lessons\ValueObjects\UserId;
  *   — правила урока (см. LessonRulesChecker, применение — тут же);
  *   — пересчёт complexity (см. пересчёт в LessonBlocks actions).
  *
- * Проверки прав:
- *   — если урок опубликован и запрос не снимает публикацию →
- *     «no-op»: возвращаем урок как есть (соответствует текущему
- *     контроллеру: при редактировании опубликованного без снятия
- *     публикации отдаётся ресурс без изменений).
- *   — иначе: только владелец может менять (admin-override не
- *     поддерживался в контроллере для save()).
+ * Проверки прав/публикации:
+ *   — только владелец может менять (admin-override для save() не
+ *     поддерживается);
+ *   — опубликованный урок можно только снять с публикации (`published=false`);
+ *     попытка поменять что-либо ещё → `LessonIsPublishedEdit` из агрегата
+ *     (HTTP 422). Молчаливого no-op здесь нет: иначе клиент не узнаёт,
+ *     что изменения не применились.
  */
 final readonly class UpdateLessonAction
 {
@@ -42,12 +43,6 @@ final readonly class UpdateLessonAction
             throw LessonAccessDeniedError::notOwner($id->value, $userId->value);
         }
 
-        // Опубликованный урок редактируется только в режиме «снять с публикации».
-        $unpublishRequested = $data->published === false;
-        if ($lesson->isPublished() && !$unpublishRequested) {
-            return $lesson;
-        }
-
         $taxonomyIds = null;
         if ($data->taxonomyIds !== null) {
             $taxonomyIds = array_map(
@@ -56,11 +51,14 @@ final readonly class UpdateLessonAction
             );
         }
 
+        $type = $data->type !== null ? new LessonType($data->type) : null;
+
         $lesson->update(
             title: $data->title,
             description: $data->description,
             descriptionTouched: $data->descriptionTouched,
             locale: $data->locale,
+            type: $type,
             saved: $data->saved,
             published: $data->published,
             taxonomyIds: $taxonomyIds,

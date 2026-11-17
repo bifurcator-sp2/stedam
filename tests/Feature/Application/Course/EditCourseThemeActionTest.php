@@ -8,6 +8,7 @@ use App\Application\Course\Exceptions\CourseAccessDenied;
 use App\Application\Course\Exceptions\CourseNotFound;
 use App\Domain\Course\Entities\Course;
 use App\Domain\Course\Events\CourseChanged;
+use App\Domain\Course\Exceptions\CourseIsPublishedEdit;
 use App\Domain\Course\Exceptions\InvalidCourseOrder;
 use App\Domain\Course\ValueObjects\CourseId;
 use App\Domain\Course\ValueObjects\CourseThemeId;
@@ -150,3 +151,25 @@ it('отказывает, если курс не найден', function () {
         ),
     )->toThrow(CourseNotFound::class);
 });
+
+it('запрещает менять темы опубликованного курса', function (string $operation) {
+    $scene = new CourseScene();
+    $course = $scene->savedCourseWithLessons(
+        ['A' => [10], 'B' => [20]],
+        ownerId: new UserId(1),
+        published: true,
+    );
+    $viewer = CourseViewerContext::teacher(new UserId(1));
+    $action = makeThemeAction($scene);
+    $themeId = $course->themes()[0]->id();
+
+    expect(fn () => match ($operation) {
+        'add' => $action->add($viewer, $course->id(), 'C'),
+        'rename' => $action->rename($viewer, $course->id(), $themeId, 'A2'),
+        'remove' => $action->remove($viewer, $course->id(), $themeId),
+        'move' => $action->move($viewer, $course->id(), $themeId, 2),
+    })->toThrow(CourseIsPublishedEdit::class);
+
+    expect($scene->events->countOf(CourseChanged::class))->toBe(0)
+        ->and($scene->courses->saveCalls)->toBe(0);
+})->with(['add', 'rename', 'remove', 'move']);

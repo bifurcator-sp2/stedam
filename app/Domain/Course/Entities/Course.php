@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Course\Entities;
 
+use App\Domain\Course\Exceptions\CourseIsPublishedEdit;
 use App\Domain\Course\Exceptions\CourseLessonAlreadyInCourse;
 use App\Domain\Course\Exceptions\CourseLessonNotInTheme;
 use App\Domain\Course\Exceptions\CourseLocaleChangeDenied;
@@ -16,12 +17,12 @@ use App\Domain\Course\ValueObjects\CourseId;
 use App\Domain\Course\ValueObjects\CourseThemeId;
 use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\LessonId;
-use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
 use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
+use App\Domain\Course\ValueObjects\TimeGapMultiplier;
 use App\Domain\Course\ValueObjects\UserId;
 use DateTimeImmutable;
 
@@ -40,7 +41,12 @@ use DateTimeImmutable;
  *  - порядок тем и уроков в теме: 1..N без дыр, уникален;
  *  - lesson_id уникален в пределах ВСЕГО курса (не только темы): один урок
  *    не может вистеть в двух темах;
+ *  - time_gap урока — производная: тип урока (Lessons) × time_gap_multipler
+ *    курса; домен хранит уже посчитанное значение;
  *  - смена locale и tax_id разрешена только пока в курсе нет уроков;
+ *  - опубликованный курс (published === true) не редактируется: единственное
+ *    допустимое изменение — снятие публикации (`setPublished(false)`);
+ *    правка шапки, тем и уроков в темах → CourseIsPublishedEdit;
  *  - user_id === null — системный курс.
  *
  * Иммутабельна: каждая мутация возвращает новый экземпляр.
@@ -58,9 +64,11 @@ final class Course
         private Locale $locale,
         private NextLessonThreshold $nextLessonThreshold,
         private ThresholdMultiplier $thresholdMultiplier,
+        private TimeGapMultiplier $timeGapMultiplier,
         private ?TaxonomyId $taxId,
         private array $themes,
         private ?DateTimeImmutable $updatedAt,
+        private bool $published = false,
     ) {}
 
     /**
@@ -76,6 +84,7 @@ final class Course
         Locale $locale,
         NextLessonThreshold $nextLessonThreshold,
         ThresholdMultiplier $thresholdMultiplier,
+        TimeGapMultiplier $timeGapMultiplier,
         ?TaxonomyId $taxId = null,
     ): self {
         return new self(
@@ -86,9 +95,11 @@ final class Course
             locale: $locale,
             nextLessonThreshold: $nextLessonThreshold,
             thresholdMultiplier: $thresholdMultiplier,
+            timeGapMultiplier: $timeGapMultiplier,
             taxId: $taxId,
             themes: [],
             updatedAt: null,
+            published: false,
         );
     }
 
@@ -105,9 +116,11 @@ final class Course
         Locale $locale,
         NextLessonThreshold $nextLessonThreshold,
         ThresholdMultiplier $thresholdMultiplier,
+        TimeGapMultiplier $timeGapMultiplier,
         ?TaxonomyId $taxId,
         array $themes,
         ?DateTimeImmutable $updatedAt,
+        bool $published = false,
     ): self {
         foreach ($themes as $theme) {
             if ($theme->id() === null) {
@@ -125,9 +138,11 @@ final class Course
             locale: $locale,
             nextLessonThreshold: $nextLessonThreshold,
             thresholdMultiplier: $thresholdMultiplier,
+            timeGapMultiplier: $timeGapMultiplier,
             taxId: $taxId,
             themes: self::renumberThemes($themes),
             updatedAt: $updatedAt,
+            published: $published,
         );
     }
 
@@ -144,6 +159,11 @@ final class Course
     public function isSystem(): bool
     {
         return $this->userId === null;
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->published;
     }
 
     public function title(): CourseTitle
@@ -169,6 +189,11 @@ final class Course
     public function thresholdMultiplier(): ThresholdMultiplier
     {
         return $this->thresholdMultiplier;
+    }
+
+    public function timeGapMultiplier(): TimeGapMultiplier
+    {
+        return $this->timeGapMultiplier;
     }
 
     public function taxId(): ?TaxonomyId
@@ -199,9 +224,11 @@ final class Course
             $this->locale,
             $this->nextLessonThreshold,
             $this->thresholdMultiplier,
+            $this->timeGapMultiplier,
             $this->taxId,
             $this->themes,
             $this->updatedAt,
+            $this->published,
         );
     }
 
@@ -210,30 +237,84 @@ final class Course
         return $this->copy(updatedAt: $now);
     }
 
+    // === Публикация ===
+
+    /**
+     * Поставить/снять публикацию.
+     *
+     * Опубликованный курс нельзя править (§ инварианты), поэтому снимать
+     * публикацию должна уметь сама операция публикации — без неё курс
+     * оказался бы заблокирован навсегда.
+     */
+    public function setPublished(bool $published): self
+    {
+        if ($published === $this->published) {
+            return $this;
+        }
+
+        return $this->copy(publishedIsSet: true, published: $published);
+    }
+
+    /**
+     * Запретить изменение содержимого опубликованного курса.
+     *
+     * Единственное допустимое изменение опубликованного курса — снятие
+     * публикации через `setPublished(false)`. Любая правка шапки, тем или
+     * уроков в теме до этого запрещена.
+     */
+    public function assertEditable(): void
+    {
+        if ($this->published) {
+            throw CourseIsPublishedEdit::forCourse(
+                (int) ($this->id?->value ?? 0)
+            );
+        }
+    }
+
     // === Шапка ===
 
     public function rename(CourseTitle $title): self
     {
+        $this->assertEditable();
+
         return $this->copy(title: $title);
     }
 
     public function changeDescription(CourseDescription $description): self
     {
+        $this->assertEditable();
+
         return $this->copy(description: $description);
     }
 
     public function changeNextLessonThreshold(NextLessonThreshold $threshold): self
     {
+        $this->assertEditable();
+
         return $this->copy(nextLessonThreshold: $threshold);
     }
 
     /**
-     * Множитель базового порога типа урока. На состав курса не влияет,
-     * поэтому применяется без ограничений — в отличие от locale/tax_id.
+     * Множитель базового порога типа урока. На состав курса не влияет:
+     * ограничений по урокам нет (в отличие от locale/tax_id), но опубликованный
+     * курс не редактируется вовсе.
      */
     public function changeThresholdMultiplier(ThresholdMultiplier $multiplier): self
     {
+        $this->assertEditable();
+
         return $this->copy(thresholdMultiplier: $multiplier);
+    }
+
+    /**
+     * Множитель паузы между уроками. На состав курса не влияет, но
+     * опубликованный курс не редактируется вовсе.
+     */
+    public function changeTimeGapMultiplier(TimeGapMultiplier $multiplier): self
+    {
+        $this->assertEditable();
+
+        return $this->copy(timeGapMultiplier: $multiplier);
     }
 
     /**
@@ -244,6 +325,8 @@ final class Course
         if ($locale->equals($this->locale)) {
             return $this;
         }
+
+        $this->assertEditable();
 
         $lessonCount = $this->countLessons();
 
@@ -262,6 +345,8 @@ final class Course
         if ($taxId?->value === $this->taxId?->value) {
             return $this;
         }
+
+        $this->assertEditable();
 
         $lessonCount = $this->countLessons();
 
@@ -341,7 +426,6 @@ final class Course
     public function addLesson(
         CourseThemeId $themeId,
         LessonId $lessonId,
-        ?LessonTypeId $typeId = null,
         ?TimeGap $timeGap = null,
     ): self {
         $this->requireTheme($themeId);
@@ -349,7 +433,7 @@ final class Course
 
         return $this->copy(themes: $this->mapThemes(
             fn (CourseTheme $theme) => $theme->id()?->equals($themeId) === true
-                ? $theme->addLesson($lessonId, $typeId, $timeGap)
+                ? $theme->addLesson($lessonId, $timeGap)
                 : $theme,
         ));
     }
@@ -376,32 +460,71 @@ final class Course
         ));
     }
 
-    public function changeLessonType(
-        CourseThemeId $themeId,
-        LessonId $lessonId,
-        ?LessonTypeId $typeId,
-    ): self {
-        $this->requireTheme($themeId);
+    /**
+     * Заменить состав курса целиком (шапка курса не трогается).
+     *
+     * Тело запроса описано в Application: домен получает уже разобранные
+     * заголовки тем и уроки с готовыми time_gap. Порядок темы и уроков —
+     * индекс в массиве (1-based): клиент порядок не считает.
+     *
+     * Удаление темы — «её нет в списке». Темы и уроки адресуются внешне:
+     * тема по своему id, урок — по lesson_id в пределах темы.
+     *
+     * @param list<array{title: string, lessonIds: list<LessonId>, timeGaps: array<int, TimeGap>}> $themes
+     * @param array<int, CourseThemeId|null> $themeIds параллельно $themes:
+     *        null — новая тема, иначе — id существующей темы этого курса
+     */
+    public function replaceThemes(array $themes, array $themeIds): self
+    {
+        $this->assertPersisted();
+        $this->assertEditable();
 
-        return $this->copy(themes: $this->mapThemes(
-            fn (CourseTheme $theme) => $theme->id()?->equals($themeId) === true
-                ? $theme->changeLessonType($lessonId, $typeId)
-                : $theme,
-        ));
+        $built = [];
+        $order = 1;
+
+        foreach ($themes as $index => $definition) {
+            $themeId = $themeIds[$index] ?? null;
+
+            if ($themeId !== null) {
+                $this->requireThemeId($themeId);
+            }
+
+            $theme = CourseTheme::create($definition['title'], $order)
+                ->replaceLessons($definition['lessonIds'], $definition['timeGaps']);
+
+            $built[] = $themeId === null ? $theme : $theme->withId($themeId);
+
+            $order++;
+        }
+
+        $this->assertLessonsUnique($built);
+
+        return $this->copy(themes: $built);
     }
 
-    public function changeLessonTimeGap(
-        CourseThemeId $themeId,
-        LessonId $lessonId,
-        TimeGap $timeGap,
-    ): self {
-        $this->requireTheme($themeId);
+    /**
+     * Пересчитать time_gap всех уроков (множитель курса изменился).
+     *
+     * Расчёт — в Application (нужен справочник типов), здесь только
+     * применение готовых значений.
+     *
+     * @param array<int, TimeGap> $timeGaps lessonId => разрыв
+     */
+    public function recalculateTimeGaps(array $timeGaps): self
+    {
+        $themes = [];
 
-        return $this->copy(themes: $this->mapThemes(
-            fn (CourseTheme $theme) => $theme->id()?->equals($themeId) === true
-                ? $theme->changeLessonTimeGap($lessonId, $timeGap)
-                : $theme,
-        ));
+        foreach ($this->themes as $theme) {
+            $lessonIds = [];
+
+            foreach ($theme->lessons() as $lesson) {
+                $lessonIds[] = $lesson->lessonId();
+            }
+
+            $themes[] = $theme->replaceLessons($lessonIds, $timeGaps);
+        }
+
+        return $this->copy(themes: $themes);
     }
 
     // === Производные ===
@@ -483,7 +606,16 @@ final class Course
     private function requireTheme(CourseThemeId $themeId): void
     {
         $this->assertPersisted();
+        $this->assertEditable();
+        $this->requireThemeId($themeId);
+    }
 
+    /**
+     * Существование темы в курсе без проверки публикации: replaceThemes
+     * проверяет editability один раз на входе.
+     */
+    private function requireThemeId(CourseThemeId $themeId): void
+    {
         foreach ($this->themes as $theme) {
             if ($theme->id()?->equals($themeId) === true) {
                 return;
@@ -491,6 +623,31 @@ final class Course
         }
 
         throw CourseThemeNotFound::withId($themeId->value);
+    }
+
+    /**
+     * lesson_id уникален в пределах всего курса, а не только темы.
+     *
+     * @param list<CourseTheme> $themes
+     */
+    private function assertLessonsUnique(array $themes): void
+    {
+        $seen = [];
+
+        foreach ($themes as $theme) {
+            foreach ($theme->lessons() as $lesson) {
+                $lessonId = $lesson->lessonId()->value;
+
+                if (isset($seen[$lessonId])) {
+                    throw CourseLessonAlreadyInCourse::forCourse(
+                        (int) ($this->id?->value ?? 0),
+                        $lessonId,
+                    );
+                }
+
+                $seen[$lessonId] = true;
+            }
+        }
     }
 
     private function assertLessonNotUsed(LessonId $lessonId): void
@@ -538,10 +695,13 @@ final class Course
         ?Locale $locale = null,
         ?NextLessonThreshold $nextLessonThreshold = null,
         ?ThresholdMultiplier $thresholdMultiplier = null,
+        ?TimeGapMultiplier $timeGapMultiplier = null,
         ?TaxonomyId $taxId = null,
         bool $taxIdIsSet = false,
         ?array $themes = null,
         ?DateTimeImmutable $updatedAt = null,
+        bool $published = false,
+        bool $publishedIsSet = false,
     ): self {
         return new self(
             $this->id,
@@ -551,9 +711,11 @@ final class Course
             $locale ?? $this->locale,
             $nextLessonThreshold ?? $this->nextLessonThreshold,
             $thresholdMultiplier ?? $this->thresholdMultiplier,
+            $timeGapMultiplier ?? $this->timeGapMultiplier,
             $taxIdIsSet ? $taxId : $this->taxId,
             $themes ?? $this->themes,
             $updatedAt ?? $this->updatedAt,
+            $publishedIsSet ? $published : $this->published,
         );
     }
 }

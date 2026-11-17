@@ -11,7 +11,9 @@ namespace App\Application\Lessons\DTOs;
  *   — title / locale / published: null = «не менять»;
  *   — description: явно поле presence через $descriptionTouched
  *     (в API его можно обнулить);
- *   — taxonomyIds: null = «не менять».
+ *   — taxonomyIds: null = «не менять»;
+ *   — type: код из справочника lesson_types; null = «не менять».
+ *     Смена типа допустима только у неопубликованного урока.
  *
  * blocks — поток блоков для sync (LessonBlocks::SyncBlocksAction):
  *   каждое звено — id существующего блока + опциональные settings.
@@ -29,6 +31,7 @@ final readonly class UpdateLessonData
         public ?string $description = null,
         public bool $descriptionTouched = false,
         public ?string $locale = null,
+        public ?string $type = null,
         public ?bool $saved = null,
         public ?bool $published = null,
         public ?array $taxonomyIds = null,

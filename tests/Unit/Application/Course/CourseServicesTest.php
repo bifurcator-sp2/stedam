@@ -16,27 +16,27 @@ use App\Domain\Course\ValueObjects\CourseId;
 use App\Domain\Course\ValueObjects\CourseThemeId;
 use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\LessonId;
-use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\ThresholdMultiplier;
 use App\Domain\Course\ValueObjects\TimeGap;
+use App\Domain\Course\ValueObjects\TimeGapMultiplier;
 use App\Domain\Course\ValueObjects\UserId;
 use Tests\Support\Fakes\InMemoryLearnPort;
+use Tests\Support\Fakes\InMemoryLessonReader;
 
 /**
- * @param list<array{int, int|null}> $lessons [lessonId, typeId]
+ * @param list<array{int, TimeGap|null}> $lessons [lessonId, timeGap]
  */
 function serviceCourse(array $lessons, float $threshold = 0.6): Course
 {
     $built = [];
 
-    foreach ($lessons as $index => [$lessonId, $typeId]) {
+    foreach ($lessons as $index => [$lessonId, $timeGap]) {
         $built[] = CourseLesson::create(
             new LessonId($lessonId),
             $index + 1,
-            $typeId === null ? null : new LessonTypeId($typeId),
-            TimeGap::zero(),
+            $timeGap ?? TimeGap::zero(),
         );
     }
 
@@ -48,6 +48,7 @@ function serviceCourse(array $lessons, float $threshold = 0.6): Course
         locale: new Locale('ru'),
         nextLessonThreshold: new NextLessonThreshold($threshold),
         thresholdMultiplier: ThresholdMultiplier::default(),
+        timeGapMultiplier: TimeGapMultiplier::default(),
         taxId: null,
         themes: [CourseTheme::restore(new CourseThemeId(1), 'Тема', 1, $built)],
         updatedAt: null,
@@ -62,7 +63,11 @@ describe('AdmissionChecker', function () {
 
         $learn->setGrade($student, new LessonId(10), 0.9);
 
-        $checker = new AdmissionChecker($learn, new SequentialAdmissionStrategy());
+        $checker = new AdmissionChecker(
+            $learn,
+            new SequentialAdmissionStrategy(),
+            new InMemoryLessonReader(),
+        );
 
         expect($checker->isAdmitted($student, $course, new LessonId(20)))->toBeTrue();
     });
@@ -71,23 +76,31 @@ describe('AdmissionChecker', function () {
         $learn = new InMemoryLearnPort();
         $course = serviceCourse([[10, null], [20, null]]);
 
-        $checker = new AdmissionChecker($learn, new SequentialAdmissionStrategy());
+        $checker = new AdmissionChecker(
+            $learn,
+            new SequentialAdmissionStrategy(),
+            new InMemoryLessonReader(),
+        );
 
         expect($checker->isAdmitted(new UserId(5), $course, new LessonId(20)))->toBeFalse();
     });
 
-    it('применяет порог типа урока из справочника', function () {
+    it('применяет порог типа урока из справочника по коду типа', function () {
         $learn = new InMemoryLearnPort();
+        $lessons = new InMemoryLessonReader();
         $student = new UserId(5);
-        // Урок 20 — типа 3, порог типа 0.9.
-        $course = serviceCourse([[10, null], [20, 3]], threshold: 0.5);
+        // Урок 20 — типа control_work, порог типа 0.9.
+        $course = serviceCourse([[10, null], [20, null]], threshold: 0.5);
 
+        $lessons->addLesson(20, 0.5);
+        $lessons->setType(20, 'control_work');
         $learn->setGrade($student, new LessonId(10), 0.7);
 
         $checker = new AdmissionChecker(
             $learn,
             new SequentialAdmissionStrategy(),
-            typeThresholdsByTypeId: [3 => 0.9],
+            $lessons,
+            typeThresholdsByCode: ['control_work' => 0.9],
         );
 
         // 0.7 > 0.5 (курс), но 0.7 < 0.9 (тип) — отказ.
@@ -101,7 +114,11 @@ describe('AdmissionChecker', function () {
 
         $learn->setGrade($student, new LessonId(10), 0.9);
 
-        $checker = new AdmissionChecker($learn, new SequentialAdmissionStrategy());
+        $checker = new AdmissionChecker(
+            $learn,
+            new SequentialAdmissionStrategy(),
+            new InMemoryLessonReader(),
+        );
 
         $map = $checker->admissionMap($student, $course, [
             new LessonId(10),

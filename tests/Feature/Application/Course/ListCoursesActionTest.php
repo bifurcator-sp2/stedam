@@ -11,6 +11,8 @@ use App\Domain\Course\ValueObjects\CourseTitle;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\NextLessonThreshold;
 use App\Domain\Course\ValueObjects\TaxonomyId;
+use App\Domain\Course\ValueObjects\ThresholdMultiplier;
+use App\Domain\Course\ValueObjects\TimeGapMultiplier;
 use App\Domain\Course\ValueObjects\UserId;
 use Illuminate\Contracts\Pagination\Paginator;
 use Tests\Support\CourseScene;
@@ -44,6 +46,8 @@ function ownedCourse(CourseScene $scene, ?UserId $ownerId, string $title, ?int $
         description: new CourseDescription('Описание'),
         locale: new Locale('ru'),
         nextLessonThreshold: new NextLessonThreshold(0.6),
+        thresholdMultiplier: ThresholdMultiplier::default(),
+        timeGapMultiplier: TimeGapMultiplier::default(),
         taxId: $taxId === null ? null : new TaxonomyId($taxId),
         themes: [],
         updatedAt: null,

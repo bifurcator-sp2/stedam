@@ -9,6 +9,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /**
  * Элемент списка уроков (лёгкая проекция).
  *
+ * Справочник `lesson_types` — на уровне ответа списка (см. LessonController::list):
+ * дублировать его в каждом элементе незачем.
+ *
  * @property \App\Models\Lesson $resource
  */
 class LessonListResource extends JsonResource
@@ -19,6 +22,7 @@ class LessonListResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'description' => $this->description,
+            'type' => $this->type,
             'blocks_count' => $this->whenCounted('blocks'),
             'published' => (bool) $this->published,
             'created_at' => $this->created_at?->toISOString(),

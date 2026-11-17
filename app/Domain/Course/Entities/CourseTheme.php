@@ -9,7 +9,6 @@ use App\Domain\Course\Exceptions\CourseLessonNotInTheme;
 use App\Domain\Course\Exceptions\InvalidCourseOrder;
 use App\Domain\Course\ValueObjects\CourseThemeId;
 use App\Domain\Course\ValueObjects\LessonId;
-use App\Domain\Course\ValueObjects\LessonTypeId;
 use App\Domain\Course\ValueObjects\TimeGap;
 use LogicException;
 
@@ -19,8 +18,7 @@ use LogicException;
  * Инварианты:
  *  - order темы и order урока — 1..N без дыр (нормализуется после мутации);
  *  - lesson_id внутри темы не дублируется;
- *  - тема без уроков допустима (создали заранее);
- *  - тема с уроками не может жить без id (нужен FK theme_id).
+ *  - тема без уроков допустима (создали заранее).
  */
 final readonly class CourseTheme
 {
@@ -37,18 +35,11 @@ final readonly class CourseTheme
             throw InvalidCourseOrder::nonPositive($order);
         }
 
-        if ($id === null && $lessons !== []) {
-            throw new LogicException(
-                'CourseTheme without id cannot contain lessons: theme must be saved first'
-            );
-        }
-
         $this->assertNoDuplicates($lessons);
     }
 
     /**
-     * Новая тема. Всегда без уроков: у неё ещё нет id, уроки добавятся
-     * после сохранения темы.
+     * Новая тема без id (id появится при сохранении агрегата).
      */
     public static function create(string $title, int $order): self
     {
@@ -112,21 +103,43 @@ final readonly class CourseTheme
         return new self($this->id, $this->title, $order, $this->lessons);
     }
 
-    public function addLesson(
-        LessonId $lessonId,
-        ?LessonTypeId $typeId = null,
-        ?TimeGap $timeGap = null,
-    ): self {
-        if ($this->id === null) {
-            throw new LogicException(
-                'Cannot add lesson to unsaved theme: save the theme first'
+    /**
+     * Заменить уроки темы целиком. Порядок — индекс в массиве (1-based).
+     *
+     * Уроки без time_gap получают default: расчёт по типу делает Application
+     * до вызова (формула зависит от курса и справочника, домен их не знает).
+     *
+     * @param list<LessonId> $lessonIds
+     * @param array<int, TimeGap> $timeGaps lessonId => разрыв
+     */
+    public function replaceLessons(array $lessonIds, array $timeGaps = []): self
+    {
+        $lessons = [];
+        $position = 1;
+
+        foreach ($lessonIds as $lessonId) {
+            $lessons[] = CourseLesson::create(
+                lessonId: $lessonId,
+                order: $position++,
+                timeGap: $timeGaps[$lessonId->value] ?? null,
             );
         }
 
+        return new self($this->id, $this->title, $this->order, $this->renumber($lessons));
+    }
+
+    /**
+     * Добавить урок в конец темы.
+     *
+     * time_gap по умолчанию — TimeGap::default(); расчёт по типу урока
+     * выполняет Application-слой (домен справочника lesson_types не знает).
+     */
+    public function addLesson(LessonId $lessonId, ?TimeGap $timeGap = null): self
+    {
         foreach ($this->lessons as $lesson) {
             if ($lesson->lessonId()->equals($lessonId)) {
                 throw new CourseLessonAlreadyInCourse(
-                    "Theme {$this->id->value} already contains lesson {$lessonId->value}"
+                    "Lesson {$lessonId->value} is already in theme " . ($this->id?->value ?? 0)
                 );
             }
         }
@@ -135,11 +148,10 @@ final readonly class CourseTheme
         $lessons[] = CourseLesson::create(
             lessonId: $lessonId,
             order: count($lessons) + 1,
-            typeId: $typeId,
             timeGap: $timeGap,
         );
 
-        return new self($this->id, $this->title, $this->order, $this->renumber($lessons));
+        return new self($this->id, $this->title, $this->order, $lessons);
     }
 
     public function removeLesson(LessonId $lessonId): self
@@ -188,46 +200,6 @@ final readonly class CourseTheme
         array_splice($lessons, $toPosition - 1, 0, [$moved]);
 
         return new self($this->id, $this->title, $this->order, $this->renumber($lessons));
-    }
-
-    public function changeLessonType(LessonId $lessonId, ?LessonTypeId $typeId): self
-    {
-        return $this->mutateLesson(
-            $lessonId,
-            fn (CourseLesson $lesson) => $lesson->withType($typeId),
-        );
-    }
-
-    public function changeLessonTimeGap(LessonId $lessonId, TimeGap $timeGap): self
-    {
-        return $this->mutateLesson(
-            $lessonId,
-            fn (CourseLesson $lesson) => $lesson->withTimeGap($timeGap),
-        );
-    }
-
-    /**
-     * @param callable(CourseLesson): CourseLesson $fn
-     */
-    private function mutateLesson(LessonId $lessonId, callable $fn): self
-    {
-        $lessons = [];
-        $found = false;
-
-        foreach ($this->lessons as $lesson) {
-            if ($lesson->lessonId()->equals($lessonId)) {
-                $lessons[] = $fn($lesson);
-                $found = true;
-                continue;
-            }
-            $lessons[] = $lesson;
-        }
-
-        if (!$found) {
-            throw CourseLessonNotInTheme::withIds($this->id?->value ?? 0, $lessonId->value);
-        }
-
-        return new self($this->id, $this->title, $this->order, $lessons);
     }
 
     /**
