@@ -16,7 +16,8 @@ use App\Domain\Lessons\ValueObjects\UserId;
  *   — taxonomyId   — узел дерева; список расширяется потомками в инфраструктуре;
  *   — search       — уже нормализованный поисковый запрос (null — поиска нет);
  *   — ownerId      — ограничение «только мои» (для личного кабинета);
- *   — onlyPublished— ограничение «только опубликованные» (для каталога).
+ *   — onlyPublished— ограничение «только опубликованные» (для каталога);
+ *   — orderBy      — колонка сортировки (по умолчанию — по id, от новых).
  */
 final readonly class LessonListFilter
 {
@@ -25,6 +26,7 @@ final readonly class LessonListFilter
         public ?FullTextSearchQuery $search = null,
         public ?UserId $ownerId = null,
         public bool $onlyPublished = false,
+        public string $orderBy = 'id',
     ) {}
 
     public static function default(): self

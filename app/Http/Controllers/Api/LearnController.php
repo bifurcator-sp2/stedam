@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Application\Learn\Actions\CancelLearnAction;
 use App\Application\Learn\Actions\GetAnswerUploadConfigAction;
+use App\Application\Learn\Actions\GetActualLessonsAction;
+use App\Application\Learn\Actions\GetLearnSnapshotAction;
 use App\Application\Learn\Actions\GetLearnAction;
 use App\Application\Learn\Actions\GradeLearnAction;
 use App\Application\Learn\Actions\ListLearnsAction;
@@ -74,23 +76,61 @@ class LearnController
     }
 
     /**
-     * Три опубликованных урока (витрина), с учётом таксономии/поиска.
+     * Актуальные уроки: опубликованные, без учёта автора и таксономии,
+     * сортировка по updated_at (недавно обновлённые — вверху).
      *
-     * GET /lessons/actual?tax=<id>&search=<...>
+     * GET /lessons/actual?search=<...>&page=1&per_page=20
      */
-    public function getActualLessons(Request $request, ListLessonsAction $listLessons): JsonResponse
+    public function getActualLessons(Request $request, GetActualLessonsAction $getActualLessons): JsonResponse
     {
         $user = $request->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $lessons = $listLessons->all(
-            $request->query() + ['only_published' => true],
-            limit: 3,
+        $page = max(1, (int) $request->integer('page', 1));
+        $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
+
+        $result = $getActualLessons->paginate(
+            $request->query(),
+            $page,
+            $perPage,
         );
 
-        return response()->json(LessonListResource::collection($lessons)->resolve($request));
+        return response()->json([
+            'data' => LessonListResource::collection($result->items)->resolve($request),
+            'meta' => [
+                'current_page' => $result->page,
+                'per_page' => $result->perPage,
+                'has_more_pages' => $result->hasMorePages(),
+                'from' => $result->items === [] ? null : ($result->page - 1) * $result->perPage + 1,
+                'to' => $result->items === [] ? null : ($result->page - 1) * $result->perPage + count($result->items),
+            ],
+        ]);
+    }
+
+    /**
+     * Снапшот прохождения: зафиксированная версия урока + её JSON.
+     *
+     * GET /learn/{learn}/snapshot
+     */
+    public function snapshot(Request $request, int $learn, GetLearnSnapshotAction $action): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $data = $action(new LearnId($learn), new UserId((int) $user->id));
+
+        // snapshot_data — уже готовый JSON; embedding-класс отдаёт его объектом.
+        $snapshotData = json_decode($data->snapshotData);
+
+        return response()->json([
+            'learn_id'        => $data->learnId,
+            'lesson_snapshot' => $data->hash->value,
+            'snapshot_data'   => $snapshotData ?? $data->snapshotData,
+        ]);
     }
 
     /**

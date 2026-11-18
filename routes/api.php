@@ -150,6 +150,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/lessons/learn', [\App\Http\Controllers\Api\LearnController::class, 'list_learn']);
     Route::get('/lessons/actual', [\App\Http\Controllers\Api\LearnController::class, 'getActualLessons']);
     Route::post('/learn/begin', [LearnController::class, 'beginLearnLesson']);
+    Route::get('/learn/snapshot/{learn}', [LearnController::class, 'snapshot'])->whereNumber('learn');
     Route::get('/learn/answers/upload-config', [LearnController::class, 'answerUploadConfig']);
 
     // Прохождения: чтение и действия (контекстные).

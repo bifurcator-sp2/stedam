@@ -34,6 +34,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\App\Application\Learn\Exceptions\LearnAccessDenied $e) {
             return response()->json(['message' => $e->getMessage()], 403);
         });
+        $exceptions->render(function (\App\Application\Learn\Exceptions\SnapshotUnavailable $e) {
+            return response()->json(['message' => $e->getMessage()], 404);
+        });
         $exceptions->render(function (\App\Domain\Learn\Exceptions\InvalidStatusTransition $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         });

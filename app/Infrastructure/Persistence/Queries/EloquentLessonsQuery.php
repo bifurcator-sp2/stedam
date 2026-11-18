@@ -100,6 +100,15 @@ final class EloquentLessonsQuery implements LessonsQueryInterface
             );
         }
 
-        return $query->orderByDesc('id');
+        // orderBy приходит из фильтра (по умолчанию — id). Допускаем только
+        // колонки модели + timestamps: имя колонки извне не должно попадать
+        // в SQL произвольной строкой.
+        $orderBy = $filter->orderBy;
+        $allowed = [...$query->getModel()->getFillable(), 'id', 'created_at', 'updated_at'];
+        if (!in_array($orderBy, $allowed, true)) {
+            $orderBy = 'id';
+        }
+
+        return $query->orderByDesc($orderBy);
     }
 }

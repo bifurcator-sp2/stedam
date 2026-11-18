@@ -120,6 +120,25 @@ class AppServiceProvider extends ServiceProvider
             },
         );
 
+        // Чтение зафиксированного снапшота по хэшу (для отдачи в HTTP).
+        $this->app->bind(
+            \App\Application\Learn\Ports\SnapshotReaderInterface::class,
+            function ($app) {
+                $disk = (string) config('learn.snapshot.disk', 's3_private');
+                $prefix = (string) config('learn.snapshot.prefix', 'learns/snapshots');
+
+                // S3-режим: приватный диск + fallback на store-диск FileSets.
+                // Hash-режим — без S3: снапшоты лежат на store-диске.
+                return config('learn.snapshot.driver', 's3') === 's3'
+                    ? new \App\Infrastructure\Learn\S3SnapshotReader(
+                        filesystems: $app->make(\Illuminate\Contracts\Filesystem\Factory::class),
+                        disk: $disk,
+                        prefix: $prefix,
+                    )
+                    : new \App\Infrastructure\Learn\FileStorageSnapshotReader(prefix: $prefix);
+            },
+        );
+
         // Буфер статусов в Redis (конфигурируемый connection/key).
         $this->app->singleton(
             \App\Infrastructure\Learn\LearnStatusBuffer::class,
