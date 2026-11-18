@@ -300,6 +300,11 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
 
     private function persistThemes(CourseModel $courseModel, Course $course): void
     {
+        // Уникальный индекс (course_id, order) не переживает построчный upsert
+        // при перестановке тем: сразу снимаем order с существующих строк и
+        // расставляем их заново на этапе persistTheme.
+        $this->clearThemeOrders($courseModel, $course);
+
         $keptThemeIds = [];
         $keptLessonIdsByTheme = [];
 
@@ -323,6 +328,26 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
                 ->when($lessonIds !== [], fn ($q) => $q->whereNotIn('id', $lessonIds))
                 ->delete();
         }
+    }
+
+    /**
+     * Сдвигает order уже существующих тем курса в «безопасную» зону,
+     * чтобы уникальный индекс (course_id, order) не мешал перестановке.
+     */
+    private function clearThemeOrders(CourseModel $courseModel, Course $course): void
+    {
+        $existingIds = array_values(array_filter(
+            array_map(fn (CourseTheme $theme) => $theme->id()?->value, $course->themes()),
+            fn (?int $id) => $id !== null,
+        ));
+
+        if ($existingIds === []) {
+            return;
+        }
+
+        ThemeModel::query()
+            ->whereIn('id', $existingIds)
+            ->update(['order' => DB::raw('"order" + 1000')]);
     }
 
     private function persistTheme(CourseModel $courseModel, CourseTheme $theme): ThemeModel

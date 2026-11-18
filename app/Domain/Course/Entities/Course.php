@@ -423,43 +423,6 @@ final class Course
 
     // === Уроки в теме ===
 
-    public function addLesson(
-        CourseThemeId $themeId,
-        LessonId $lessonId,
-        ?TimeGap $timeGap = null,
-    ): self {
-        $this->requireTheme($themeId);
-        $this->assertLessonNotUsed($lessonId);
-
-        return $this->copy(themes: $this->mapThemes(
-            fn (CourseTheme $theme) => $theme->id()?->equals($themeId) === true
-                ? $theme->addLesson($lessonId, $timeGap)
-                : $theme,
-        ));
-    }
-
-    public function removeLesson(CourseThemeId $themeId, LessonId $lessonId): self
-    {
-        $this->requireTheme($themeId);
-
-        return $this->copy(themes: $this->mapThemes(
-            fn (CourseTheme $theme) => $theme->id()?->equals($themeId) === true
-                ? $theme->removeLesson($lessonId)
-                : $theme,
-        ));
-    }
-
-    public function moveLesson(CourseThemeId $themeId, LessonId $lessonId, int $toPosition): self
-    {
-        $this->requireTheme($themeId);
-
-        return $this->copy(themes: $this->mapThemes(
-            fn (CourseTheme $theme) => $theme->id()?->equals($themeId) === true
-                ? $theme->moveLesson($lessonId, $toPosition)
-                : $theme,
-        ));
-    }
-
     /**
      * Заменить состав курса целиком (шапка курса не трогается).
      *
@@ -647,16 +610,6 @@ final class Course
 
                 $seen[$lessonId] = true;
             }
-        }
-    }
-
-    private function assertLessonNotUsed(LessonId $lessonId): void
-    {
-        if ($this->findLesson($lessonId) !== null) {
-            throw CourseLessonAlreadyInCourse::forCourse(
-                $this->id->value,
-                $lessonId->value,
-            );
         }
     }
 

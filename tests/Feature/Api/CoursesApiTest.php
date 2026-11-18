@@ -404,10 +404,10 @@ it('снятие публикации атомарно: правки в том �
 it('темы опубликованного курса не меняются', function () {
     Sanctum::actingAs(apiUserWithRole('teacher'));
     $id = $this->postJson('/api/courses', coursePayload())->json('id');
-    $this->postJson("/api/courses/{$id}/themes", ['title' => 'Введение'])->assertCreated();
+    $this->patchJson("/api/courses/{$id}", ['themes' => [['title' => 'Введение']]])->assertOk();
     $this->patchJson("/api/courses/{$id}", ['published' => true])->assertOk();
 
-    $this->postJson("/api/courses/{$id}/themes", ['title' => 'Новая'])
+    $this->patchJson("/api/courses/{$id}", ['themes' => [['title' => 'Новая']]])
         ->assertUnprocessable()
         ->assertJsonPath('code', 'course_is_published_edit');
 
@@ -437,15 +437,16 @@ it('published валидируется как boolean', function () {
 });
 
 // ---------------------------------------------------------------------
-// Темы
+// Темы (правка через PATCH /courses/{id}, поля themes)
 // ---------------------------------------------------------------------
 
-it('добавляет тему и возвращает полный курс', function () {
+it('добавляет тему через PATCH и возвращает полный курс', function () {
     Sanctum::actingAs(apiUserWithRole('teacher'));
     $id = $this->postJson('/api/courses', coursePayload())->json('id');
 
-    $response = $this->postJson("/api/courses/{$id}/themes", ['title' => 'Введение'])
-        ->assertCreated();
+    $response = $this->patchJson("/api/courses/{$id}", [
+        'themes' => [['title' => 'Введение']],
+    ])->assertOk();
 
     expect($response->json('themes'))->toHaveCount(1)
         ->and($response->json('themes.0.title'))->toBe('Введение')
@@ -456,10 +457,13 @@ it('добавляет тему и возвращает полный курс', 
 it('переименовывает тему', function () {
     Sanctum::actingAs(apiUserWithRole('teacher'));
     $id = $this->postJson('/api/courses', coursePayload())->json('id');
-    $themeId = $this->postJson("/api/courses/{$id}/themes", ['title' => 'Старая'])
-        ->json('themes.0.id');
+    $themeId = $this->patchJson("/api/courses/{$id}", [
+        'themes' => [['title' => 'Старая']],
+    ])->json('themes.0.id');
 
-    $this->patchJson("/api/courses/{$id}/themes/{$themeId}", ['title' => 'Новая'])
+    $this->patchJson("/api/courses/{$id}", [
+        'themes' => [['id' => $themeId, 'title' => 'Новая']],
+    ])
         ->assertOk()
         ->assertJsonPath('themes.0.title', 'Новая');
 });
@@ -467,22 +471,57 @@ it('переименовывает тему', function () {
 it('удаляет тему', function () {
     Sanctum::actingAs(apiUserWithRole('teacher'));
     $id = $this->postJson('/api/courses', coursePayload())->json('id');
-    $themeId = $this->postJson("/api/courses/{$id}/themes", ['title' => 'Тема'])
-        ->json('themes.0.id');
+    $this->patchJson("/api/courses/{$id}", ['themes' => [['title' => 'Тема']]])->assertOk();
 
-    $this->deleteJson("/api/courses/{$id}/themes/{$themeId}")
+    $this->patchJson("/api/courses/{$id}", ['themes' => []])
         ->assertOk()
         ->assertJsonPath('themes', []);
+});
+
+it('переставляет темы через PATCH без конфликта уникального order', function () {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+    $id = $this->postJson('/api/courses', coursePayload())->json('id');
+
+    $created = $this->patchJson("/api/courses/{$id}", [
+        'themes' => [['title' => 'Первая'], ['title' => 'Вторая']],
+    ])->assertOk()->json('themes');
+
+    $this->patchJson("/api/courses/{$id}", [
+        'themes' => [
+            ['id' => $created[1]['id'], 'title' => 'Вторая'],
+            ['id' => $created[0]['id'], 'title' => 'Первая'],
+        ],
+    ])
+        ->assertOk()
+        ->assertJsonPath('themes.0.id', $created[1]['id'])
+        ->assertJsonPath('themes.0.order', 1)
+        ->assertJsonPath('themes.1.id', $created[0]['id'])
+        ->assertJsonPath('themes.1.order', 2);
 });
 
 it('валидирует название темы', function () {
     Sanctum::actingAs(apiUserWithRole('teacher'));
     $id = $this->postJson('/api/courses', coursePayload())->json('id');
 
-    $this->postJson("/api/courses/{$id}/themes", ['title' => ''])
+    $this->patchJson("/api/courses/{$id}", ['themes' => [['title' => '']]])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['title']);
+        ->assertJsonValidationErrors(['themes.0.title']);
 });
+
+it('маршруты отдельных операций над темами удалены', function (string $method, string $uri) {
+    Sanctum::actingAs(apiUserWithRole('teacher'));
+    $id = $this->postJson('/api/courses', coursePayload())->json('id');
+
+    $this->{$method}("/api/courses/{$id}{$uri}")->assertNotFound();
+})->with([
+    ['postJson', '/themes'],
+    ['patchJson', '/themes/1'],
+    ['deleteJson', '/themes/1'],
+    ['putJson', '/themes/1/position'],
+    ['postJson', '/themes/1/lessons'],
+    ['deleteJson', '/themes/1/lessons/1'],
+    ['putJson', '/themes/1/lessons/1/position'],
+]);
 
 // ---------------------------------------------------------------------
 // Состав: уроки в теме и единая форма ответа
@@ -507,12 +546,9 @@ it('урок в теме отдаёт код типа, название, опи�
     $lesson = apiLesson('Циклы', 'Про for и while', 'class_work');
 
     $id = $this->postJson('/api/courses', coursePayload())->json('id');
-    $this->postJson("/api/courses/{$id}/themes", ['title' => 'Введение']);
-    $themeId = $this->getJson("/api/courses/{$id}")->json('themes.0.id');
-
-    $this->postJson("/api/courses/{$id}/themes/{$themeId}/lessons", [
-        'lesson_id' => $lesson->id,
-    ])->assertCreated();
+    $this->patchJson("/api/courses/{$id}", [
+        'themes' => [['title' => 'Введение', 'lessons' => [$lesson->id]]],
+    ])->assertOk();
 
     $this->getJson("/api/courses/{$id}")
         ->assertOk()
@@ -530,11 +566,9 @@ it('store, show и update отдают одинаковую форму курс�
     $created = $this->postJson('/api/courses', coursePayload())->assertCreated();
     $id = $created->json('id');
 
-    $this->postJson("/api/courses/{$id}/themes", ['title' => 'Введение']);
-    $themeId = $this->getJson("/api/courses/{$id}")->json('themes.0.id');
-    $this->postJson("/api/courses/{$id}/themes/{$themeId}/lessons", [
-        'lesson_id' => $lesson->id,
-    ]);
+    $this->patchJson("/api/courses/{$id}", [
+        'themes' => [['title' => 'Введение', 'lessons' => [$lesson->id]]],
+    ])->assertOk();
 
     $show = $this->getJson("/api/courses/{$id}")->assertOk();
     $updated = $this->patchJson("/api/courses/{$id}", ['title' => 'Новое'])->assertOk();

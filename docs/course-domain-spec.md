@@ -205,7 +205,7 @@
   Запрещены все мутации содержимого: шапка (`rename`, `changeDescription`,
   `changeLocale`, `changeNextLessonThreshold`, `changeThresholdMultiplier`,
   `moveToTaxonomy`) и состав (`addTheme`, `renameTheme`, `removeTheme`,
-  `moveTheme`, `addLesson`, `removeLesson`, `moveLesson`, `changeLessonType`,
+  `moveTheme`, `replaceThemes`, `recalculateTimeGaps`, `changeLessonType`,
   `changeLessonTimeGap`). Нарушение — `CourseIsPublishedEdit` → HTTP 422
   → ничего не сохраняется.
 - Единственное допустимое изменение — `setPublished(false)`: снятие публикации.
@@ -258,25 +258,28 @@
 
 ### 4.3. Операции над темами и уроками
 
+> **Фактический код.** Отдельные операции HTTP-слоя над темами и уроками
+> удалены (Actions `EditCourseThemeAction`/`EditCourseLessonAction` и методы
+> агрегата `addLesson`/`removeLesson`/`moveLesson`); состав курса правится
+> только целиком через `replaceThemes()` (Application —
+> `EditCourseHeaderAction` с полем `themes`).
+
 | Метод | Эффект |
 |-------|--------|
-| `addTheme(CourseTitle, ?int $order, now): CourseTheme` | добавить тему; `order = null` → в конец |
-| `removeTheme(CourseThemeId, now)` | удалить тему вместе с её уроками-связями |
-| `reorderThemes(list<CourseThemeId>, now)` | новый порядок тем |
-| `renameTheme(CourseThemeId, CourseTitle, now)` | переименовать тему |
-| `addLesson(CourseThemeId, LessonId, ?int $order, ?TimeGap, ?LessonTypeId, now)` | привязать урок к теме |
-| `removeLesson(CourseThemeId, LessonId, now)` | отвязать урок |
-| `reorderLessons(CourseThemeId, list<LessonId>, now)` | новый порядок уроков в теме |
-| `changeTimeGap(CourseThemeId, LessonId, TimeGap, now)` | индивидуальный разрыв |
-| `changeLessonType(CourseThemeId, LessonId, ?LessonTypeId, now)` | тип урока в рамках курса |
+| `addTheme(string $title)` | добавить тему в конец (только до `replaceThemes`) |
+| `renameTheme(CourseThemeId, string $title)` | переименовать тему |
+| `removeTheme(CourseThemeId)` | удалить тему вместе с её уроками-связями |
+| `moveTheme(CourseThemeId, int $toPosition)` | переставить тему (1-based) |
+| `replaceThemes(list<themes>, list<CourseThemeId|null>)` | заменить состав целиком (единственный путь правки уроков) |
+| `recalculateTimeGaps(array<int, TimeGap>)` | пересчитать `time_gap` всех уроков |
 
 Правила:
 
 - `order` нормализуется в непрерывный `1..N` (без дыр);
 - дубль `order` внутри темы/курса — `InvalidCourseOrder`;
-- `removeTheme`/`removeLesson` **не удаляют** сами уроки (`lessons` живут
-  независимо) — только связи;
-- все мутации выставляют `updatedAt := now` и порождают `CourseChanged`.
+- удаление темы (`removeTheme`/`replaceThemes`) **не удаляет** сами уроки
+  (`lessons` живут независимо) — только связи;
+- все мутации выставляют `updatedAt := now`.
 
 ### 4.4. Плоский порядок курса
 
@@ -947,10 +950,8 @@ HTTP-слой описан отдельно: **`docs/course-api-spec.md`**. Та
 |--------|-------------------|-------|
 | `ListCoursesAction` | `execute(viewer, ?TaxonomyId, ?string)` | scope §13.2 |
 | `CreateCourseAction` | `execute(viewer, ?UserId ownerId, title, description, locale, ThresholdMultiplier thresholdMultiplier, ?taxId)` | `canCreate` (системный — только `admin`) |
-| `EditCourseHeaderAction` | `execute(viewer, courseId, ?title, ?description, ?locale, ?ThresholdMultiplier thresholdMultiplier, ?taxId, bool changeTaxonomy)` | `canEdit` |
+| `EditCourseHeaderAction` | `execute(viewer, courseId, ?title, ?description, ?locale, ?ThresholdMultiplier thresholdMultiplier, ?taxId, bool changeTaxonomy, ?themes)` | `canEdit` |
 | `DeleteCourseAction` | `execute(viewer, courseId)` | `canEdit` |
-| `EditCourseThemeAction` | `add(viewer, courseId, string title)` / `rename(...)` / `remove(...)` / `move(..., int toPosition)` | `canEdit`, публикует `CourseChanged` |
-| `EditCourseLessonAction` | `add(viewer, courseId, themeId, lessonId, ?timeGap)` / `remove(...)` / `move(..., int toPosition)` / `changeTimeGap(..., TimeGap)` | `canEdit`, публикует `CourseChanged` |
 | `AssignCourseAction` | `execute(viewer, courseId, UserId studentId): CourseAssignment` | `canAssign`, транзакция |
 | `UnassignCourseAction` | `execute(viewer, courseId, UserId studentId): void` | `canAssign`, транзакция |
 | `RecalculateCourseAction` | `execute(viewer, courseId, UserId studentId): CourseAssignment` | `canEdit` ИЛИ `canSeeProgressOf` |
@@ -1485,10 +1486,12 @@ HTTP-коды и машиночитаемые `code` — в §13.1.2. Applicatio
       **Context (2):** `CourseViewerContext`, `CourseViewerRole` — матрица прав
       в doc-комментарии enum.
       **Services (2):** `AdmissionChecker`, `CourseGradeRecalculator`.
-      **Actions (9):** `CreateCourseAction`, `EditCourseHeaderAction`,
-      `EditCourseThemeAction`, `EditCourseLessonAction`, `AssignCourseAction`,
-      `UnassignCourseAction`, `RecalculateCourseAction`,
+      **Actions (8):** `CreateCourseAction`, `EditCourseHeaderAction`,
+      `AssignCourseAction`, `UnassignCourseAction`, `RecalculateCourseAction`,
       `RecalculateCourseForAllAction`, `ListCoursesAction`, `DeleteCourseAction`.
+      > `EditCourseThemeAction` и `EditCourseLessonAction` удалены вместе с
+      > маршрутами `/courses/{id}/themes...`; состав правится только через
+      > `EditCourseHeaderAction` (поле `themes`).
       **Exceptions (2):** `CourseNotFound`, `CourseAccessDenied` (Application-уровень).
 
 > **ВАЖНО — Actions не открывают транзакций.** `AssignCourseAction`,
@@ -1540,9 +1543,7 @@ HTTP-коды и машиночитаемые `code` — в §13.1.2. Applicatio
       |---|---|---|
       | `AssignCourseAction` | `CourseAssignmentCreated` | `EnrollOnAssignmentCreated` |
       | `UnassignCourseAction` | `CourseAssignmentRemoved` | `UnenrollOnAssignmentRemoved` |
-      | `EditCourseThemeAction` | `CourseChanged` | `RecalculateOnCourseChanged` |
-      | `EditCourseLessonAction` | `CourseChanged` | `RecalculateOnCourseChanged` |
-      | `EditCourseHeaderAction` | — (шапка не меняет состав) | — |
+      | `EditCourseHeaderAction` (при передаче `themes`) | `CourseChanged` | `RecalculateOnCourseChanged` |
       | `DeleteCourseAction` | через `UnassignCourseAction` | — |
 
       **Три события были пустыми файлами** (MCP-сбой при создании):
@@ -1602,7 +1603,7 @@ HTTP-коды и машиночитаемые `code` — в §13.1.2. Applicatio
 > `learns` в одной БД — `AssignCourseAction` атомарен. Переезд Learn на
 > отдельную БД сделает назначение без прохождений возможным, и это никак не
 > проявится. Лечится outbox-паттерном, не транзакцией.
-- [x] Тесты §19 — покрыты ВСЕ Actions (Create/List/Edit{Header,Theme,Lesson}/
+- [x] Тесты §19 — покрыты ВСЕ Actions (Create/List/EditHeader/
       Assign/Unassign/Delete/Recalculate{,+ForAll}), три слушателя, стратегии,
       `AdmissionChecker`, `CourseGradeRecalculator`,
       `EloquentTransactionManager`, `LessonReaderAdapter`,

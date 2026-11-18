@@ -107,12 +107,12 @@ Query-параметры: `page` (1-based), `per_page` (по умолчанию 
 |------|-----------|---------------|-------|
 | 403 | `CourseAccessDenied` | `course_access_denied` | нет прав на операцию |
 | 404 | `CourseNotFound` | `course_not_found` | курс/назначение не найдено |
-| 404 | `CourseThemeNotFound` | `course_theme_not_found` | темы нет в курсе |
-| 404 | `CourseLessonNotInTheme` | `course_lesson_not_in_theme` | урока нет в теме |
+| 404 | `CourseThemeNotFound` | `course_theme_not_found` | темы нет в курсе (доменное; через API курсов недостижимо) |
+| 404 | `CourseLessonNotInTheme` | `course_lesson_not_in_theme` | урока нет в теме (доменное; через API курсов недостижимо) |
 | 409 | `CourseAlreadyAssigned` | `course_already_assigned` | повторное назначение |
 | 422 | `CourseLocaleChangeDenied` | `course_locale_change_denied` | смена locale у курса с уроками |
 | 422 | `CourseTaxonomyChangeDenied` | `course_taxonomy_change_denied` | смена таксономии у непустого курса |
-| 422 | `InvalidCourseOrder` | `invalid_course_order` | дубль/неположительный order |
+| 422 | `InvalidCourseOrder` | `invalid_course_order` | дубль/неположительный order (доменное; через API курсов недостижимо) |
 | 422 | `InvalidCourseGrade` | `invalid_course_grade` | оценка вне `0..1` |
 | 422 | `InvalidCompletion` | `invalid_completion` | пройденность вне `0..1` |
 | 422 | `InvalidTimeGap` | `invalid_time_gap` | отрицательный разрыв |
@@ -368,8 +368,8 @@ POST /api/courses
 | `tax_id` | нет | int, существует в таксономии |
 | `user_id` | нет | int \| null; **опускать = создать себе**; `null` = системный (только admin) |
 
-Ответ `201`: полный `Course` (темы пустые — состав добавляется на
-сохранённом курсе, см. 2.6). Форма ответа идентична `GET` (§2.2) и
+Ответ `201`: полный `Course` (темы пустые — состав добавляется правкой курса,
+см. 2.6). Форма ответа идентична `GET` (§2.2) и
 `PATCH` (§2.4); различается только HTTP-статус.
 
 Ошибки: `403 course_access_denied` (попытка создать системный без прав).
@@ -404,6 +404,7 @@ PATCH /api/courses/{course_id}
 | `threshold_multipler` | number, `> 0`; отсутствие ключа = «не менять» (§0.6) |
 | `tax_id` | смена запрещена у непустого курса → `422 course_taxonomy_change_denied`; уроки должны лежать в целевой ветке |
 | `published` | bool, необязательное; см. правила публикации ниже |
+| `themes` | список состава; **единственный способ править темы и уроки** (§2.6) |
 
 Ответ `200`: полный `Course`. Форма ответа идентична `GET` (§2.2) и
 `POST` (§2.3), включая карточки уроков в `themes[].lessons[]` (§1.1) —
@@ -454,139 +455,36 @@ DELETE /api/courses/{course_id}
 
 ---
 
-### 2.6. Темы курса
+### 2.6. Темы курса и уроки в теме — маршруты удалены
 
-Темы — часть агрегата `Course`. Каждая операция возвращает **полный
-обновлённый курс** — фронт перерисовывает редактор из ответа.
-
-#### 2.6.1. Добавить тему
-
-```
-POST /api/courses/{course_id}/themes
-```
-
-Права: `canEdit`.
-
-```json
-{ "title": "Введение" }
-```
-
-Ответ `201`: полный `Course`.
-
-#### 2.6.2. Переименовать тему
+Отдельные эндпоинты управления темами и уроками темы **больше не существуют**
+(удалены из `routes/api.php` и `CoursesController`, Actions
+`EditCourseThemeAction` / `EditCourseLessonAction` удалены):
 
 ```
-PATCH /api/courses/{course_id}/themes/{theme_id}
-```
-
-```json
-{ "title": "Новое название темы" }
-```
-
-Ответ `200`: полный `Course`.
-
-#### 2.6.3. Удалить тему
-
-```
+POST   /api/courses/{course_id}/themes
+PATCH  /api/courses/{course_id}/themes/{theme_id}
 DELETE /api/courses/{course_id}/themes/{theme_id}
+PUT    /api/courses/{course_id}/themes/{theme_id}/position
+POST   /api/courses/{course_id}/themes/{theme_id}/lessons
+DELETE /api/courses/{course_id}/themes/{theme_id}/lessons/{lesson_id}
+PUT    /api/courses/{course_id}/themes/{theme_id}/lessons/{lesson_id}/position
 ```
 
-Ответ `200`: полный `Course` (удаление темы меняет состав → пересчёт).
+Состав курса правится **только целиком** через `PATCH /api/courses/{course_id}`
+(§2.4) — прежний контракт §2.6–2.7 не поддерживается. Состав (`themes`) в
+ответах курса (§1.1) остаётся: это read-проекция, а не отдельные операции.
 
-#### 2.6.4. Переставить тему
-
-```
-PUT /api/courses/{course_id}/themes/{theme_id}/position
-```
-
-```json
-{ "position": 1 }
-```
-
-`position` — 1-based целевая позиция. Остальные темы сдвигаются
-(двухфазная нормализация `order`).
-
-Ответ `200`: полный `Course`.
+Ошибки `course_theme_not_found`, `course_lesson_not_in_theme`,
+`invalid_course_order` (§0.5) через HTTP курсов больше не достижимы — они
+остаются доменными исключениями.
 
 ---
 
-### 2.7. Уроки в теме
+### ~~2.7. Уроки в теме~~ — удалено
 
-#### 2.7.1. Добавить урок в тему
-
-```
-POST /api/courses/{course_id}/themes/{theme_id}/lessons
-```
-
-Права: `canEdit`.
-
-```json
-{
-  "lesson_id": 101,
-  "time_gap": 2
-}
-```
-
-| Поле | Обяз. | Описание |
-|------|-------|----------|
-| `lesson_id` | да | int, урок должен существовать (иначе `404 course_lesson_not_in_theme`) |
-| `time_gap` | нет | целые часы, ≥ 0 |
-
-> Тип урока **не принимается**: он принадлежит уроку (`lessons.type`), а не
-> связи тема→урок. Колонка `type_id` удалена (миграция
-> `2026_11_27_100000_drop_type_id_from_course_theme_lessons_table`).
-
-> Один урок нельзя добавить в две темы одного курса —
-> `422 invalid_course_order` (нарушение уникальности `lesson_id` в курсе).
-
-Ответ `201`: полный `Course`; добавленный урок в ответе уже содержит карточку
-(`type`, `title`, `description`, `complexity`, §1.1).
-
-#### 2.7.2. Убрать урок из темы
-
-```
-DELETE /api/courses/{course_id}/themes/{theme_id}/lessons/{lesson_id}
-```
-
-Ответ `200`: полный `Course`.
-
-#### 2.7.3. Переставить урок
-
-```
-PUT /api/courses/{course_id}/themes/{theme_id}/lessons/{lesson_id}/position
-```
-
-```json
-{ "position": 2 }
-```
-
-Ответ `200`: полный `Course`.
-
-#### 2.7.4. Сменить тип урока
-
-```
-PATCH /api/courses/{course_id}/themes/{theme_id}/lessons/{lesson_id}/type
-```
-
-```json
-{ "type_id": 3 }
-```
-
-`type_id: null` — снять тип.
-
-Ответ `200`: полный `Course`.
-
-#### 2.7.5. Сменить разрыв (time_gap)
-
-```
-PATCH /api/courses/{course_id}/themes/{theme_id}/lessons/{lesson_id}/time-gap
-```
-
-```json
-{ "time_gap": 24 }
-```
-
-Целые часы, ≥ 0. Ответ `200`: полный `Course`.
+Маршруты §2.7 (добавить/убрать/переставить урок, смена типа и разрыва)
+удалены вместе с §2.6. См. пояснение выше.
 
 ---
 
@@ -699,9 +597,9 @@ POST /api/courses/{course_id}/recalculate
 ### 4.1. Редактор курса
 
 1. `GET /courses/{id}` — полный курс + `can`.
-2. Добавление темы → `POST .../themes` → ответ = новый полный курс,
-   заменяем состояние целиком.
-3. Все мутации состава возвращают полный `Course`. Фронт может не
+2. Правка состава (темы/уроки) → `PATCH /courses/{id}` с полем `themes` →
+   ответ = новый полный курс, заменяем состояние целиком.
+3. Все мутации возвращают полный `Course`. Фронт может не
    применять локальные патчи — просто подставляет ответ. Это дороже по
    трафику, но исключает рассинхрон.
 

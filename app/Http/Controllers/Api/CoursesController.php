@@ -8,8 +8,6 @@ use App\Application\Course\Actions\AssignCourseAction;
 use App\Application\Course\Actions\CreateCourseAction;
 use App\Application\Course\Actions\DeleteCourseAction;
 use App\Application\Course\Actions\EditCourseHeaderAction;
-use App\Application\Course\Actions\EditCourseLessonAction;
-use App\Application\Course\Actions\EditCourseThemeAction;
 use App\Application\Course\Actions\ListCoursesAction;
 use App\Application\Course\Actions\RecalculateCourseAction;
 use App\Application\Course\Actions\RecalculateCourseForAllAction;
@@ -24,13 +22,10 @@ use App\Application\Course\Ports\LessonReaderInterface;
 use App\Domain\Course\Entities\Course;
 use App\Domain\Course\ValueObjects\CourseDescription;
 use App\Domain\Course\ValueObjects\CourseId;
-use App\Domain\Course\ValueObjects\CourseThemeId;
 use App\Domain\Course\ValueObjects\CourseTitle;
-use App\Domain\Course\ValueObjects\LessonId;
 use App\Domain\Course\ValueObjects\Locale;
 use App\Domain\Course\ValueObjects\TaxonomyId;
 use App\Domain\Course\ValueObjects\ThresholdMultiplier;
-use App\Domain\Course\ValueObjects\TimeGap;
 use App\Domain\Course\ValueObjects\TimeGapMultiplier;
 use App\Domain\Course\ValueObjects\UserId;
 use App\Http\Resources\CourseAssignmentResource;
@@ -226,146 +221,6 @@ final readonly class CoursesController
         );
 
         return response()->json(null, 204);
-    }
-
-    // ------------------------------------------------------------------
-    // Темы
-    // ------------------------------------------------------------------
-
-    public function storeTheme(
-        int $courseId,
-        Request $request,
-        EditCourseThemeAction $action,
-    ): JsonResponse {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'min:1', 'max:255'],
-        ]);
-
-        $course = $action->add(
-            viewer: $this->contextResolver->resolve(),
-            courseId: new CourseId($courseId),
-            title: $validated['title'],
-        );
-
-        return response()->json($this->courseResource($course), 201);
-    }
-
-    public function updateTheme(
-        int $courseId,
-        int $themeId,
-        Request $request,
-        EditCourseThemeAction $action,
-    ): JsonResponse {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'min:1', 'max:255'],
-        ]);
-
-        $course = $action->rename(
-            viewer: $this->contextResolver->resolve(),
-            courseId: new CourseId($courseId),
-            themeId: new CourseThemeId($themeId),
-            title: $validated['title'],
-        );
-
-        return response()->json($this->courseResource($course));
-    }
-
-    public function destroyTheme(
-        int $courseId,
-        int $themeId,
-        EditCourseThemeAction $action,
-    ): JsonResponse {
-        $course = $action->remove(
-            viewer: $this->contextResolver->resolve(),
-            courseId: new CourseId($courseId),
-            themeId: new CourseThemeId($themeId),
-        );
-
-        return response()->json($this->courseResource($course));
-    }
-
-    public function moveTheme(
-        int $courseId,
-        int $themeId,
-        Request $request,
-        EditCourseThemeAction $action,
-    ): JsonResponse {
-        $validated = $request->validate([
-            'position' => ['required', 'integer', 'min:1'],
-        ]);
-
-        $course = $action->move(
-            viewer: $this->contextResolver->resolve(),
-            courseId: new CourseId($courseId),
-            themeId: new CourseThemeId($themeId),
-            toPosition: (int) $validated['position'],
-        );
-
-        return response()->json($this->courseResource($course));
-    }
-
-    // ------------------------------------------------------------------
-    // Уроки в теме
-    // ------------------------------------------------------------------
-
-    public function storeLesson(
-        int $courseId,
-        int $themeId,
-        Request $request,
-        EditCourseLessonAction $action,
-    ): JsonResponse {
-        $validated = $request->validate([
-            'lesson_id' => ['required', 'integer'],
-            'time_gap' => ['nullable', 'integer', 'min:0'],
-        ]);
-
-        $course = $action->add(
-            viewer: $this->contextResolver->resolve(),
-            courseId: new CourseId($courseId),
-            themeId: new CourseThemeId($themeId),
-            lessonId: new LessonId((int) $validated['lesson_id']),
-            timeGap: isset($validated['time_gap']) ? new TimeGap((int) $validated['time_gap']) : null,
-        );
-
-        return response()->json($this->courseResource($course), 201);
-    }
-
-    public function destroyLesson(
-        int $courseId,
-        int $themeId,
-        int $lessonId,
-        EditCourseLessonAction $action,
-    ): JsonResponse {
-        $course = $action->remove(
-            viewer: $this->contextResolver->resolve(),
-            courseId: new CourseId($courseId),
-            themeId: new CourseThemeId($themeId),
-            lessonId: new LessonId($lessonId),
-        );
-
-        return response()->json($this->courseResource($course));
-    }
-
-    public function moveLesson(
-        int $courseId,
-        int $themeId,
-        int $lessonId,
-        Request $request,
-        EditCourseLessonAction $action,
-    ): JsonResponse {
-        $validated = $request->validate([
-            'position' => ['required', 'integer', 'min:1'],
-        ]);
-
-        $course = $action->move(
-            viewer: $this->contextResolver->resolve(),
-            courseId: new CourseId($courseId),
-            themeId: new CourseThemeId($themeId),
-            lessonId: new LessonId($lessonId),
-            toPosition: (int) $validated['position'],
-        );
-
-        return response()->json($this->courseResource($course));
     }
 
     // ------------------------------------------------------------------

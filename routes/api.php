@@ -226,23 +226,6 @@ Route::middleware('auth:sanctum')->prefix('courses')->group(function () {
     Route::match(['put', 'patch'], '/{courseId}', [$c, 'update'])->whereNumber('courseId');
     Route::delete('/{courseId}', [$c, 'destroy'])->whereNumber('courseId');
 
-    // Темы
-    Route::post('/{courseId}/themes', [$c, 'storeTheme'])->whereNumber('courseId');
-    Route::match(['put', 'patch'], '/{courseId}/themes/{themeId}', [$c, 'updateTheme'])
-        ->whereNumber('courseId')->whereNumber('themeId');
-    Route::delete('/{courseId}/themes/{themeId}', [$c, 'destroyTheme'])
-        ->whereNumber('courseId')->whereNumber('themeId');
-    Route::put('/{courseId}/themes/{themeId}/position', [$c, 'moveTheme'])
-        ->whereNumber('courseId')->whereNumber('themeId');
-
-    // Уроки в теме
-    Route::post('/{courseId}/themes/{themeId}/lessons', [$c, 'storeLesson'])
-        ->whereNumber('courseId')->whereNumber('themeId');
-    Route::delete('/{courseId}/themes/{themeId}/lessons/{lessonId}', [$c, 'destroyLesson'])
-        ->whereNumber('courseId')->whereNumber('themeId')->whereNumber('lessonId');
-    Route::put('/{courseId}/themes/{themeId}/lessons/{lessonId}/position', [$c, 'moveLesson'])
-        ->whereNumber('courseId')->whereNumber('themeId')->whereNumber('lessonId');
-
     // Назначения
     Route::get('/{courseId}/assignments', [$c, 'assignments'])->whereNumber('courseId');
     Route::post('/{courseId}/assignments', [$c, 'assign'])->whereNumber('courseId');
