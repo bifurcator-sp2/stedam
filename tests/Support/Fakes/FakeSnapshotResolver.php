@@ -12,10 +12,24 @@ final class FakeSnapshotResolver implements SnapshotResolverInterface
 {
     public int $calls = 0;
 
+    public int $forceCalls = 0;
+
     public function ensureFor(LessonId $lessonId): SnapshotHash
     {
         $this->calls++;
 
         return SnapshotHash::fromContent("lesson-{$lessonId->value}");
+    }
+
+    public function forceEnsureFor(LessonId $lessonId): SnapshotHash
+    {
+        $this->forceCalls++;
+
+        return $this->ensureFor($lessonId);
+    }
+
+    public function lessonFor(SnapshotHash $hash): LessonId
+    {
+        return new LessonId(1);
     }
 }

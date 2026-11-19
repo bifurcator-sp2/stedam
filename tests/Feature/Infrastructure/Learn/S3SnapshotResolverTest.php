@@ -6,6 +6,7 @@ use App\Application\Learn\Ports\LessonSnapshotAssemblerInterface;
 use App\Domain\Blocks\Settings\SettingsNormalizer;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Infrastructure\Learn\S3SnapshotResolver;
+use App\Models\Lesson;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\Fakes\FakeSnapshotAssembler;
@@ -19,6 +20,7 @@ function resolverWith(FakeSnapshotAssembler $assembler): S3SnapshotResolver
         assembler: $assembler,
         cache: Cache::store('array'),
         filesystems: Storage::getFacadeRoot(),
+        lessons: new Lesson(),
         disk: 's3_private',
         prefix: 'learns/snapshots',
         cacheTtl: 3600,
@@ -78,4 +80,32 @@ it('is stable regardless of key order in the payload', function () {
     $b = resolverWith($second)->ensureFor(new LessonId(10));
 
     expect($a->value)->toBe($b->value);
+});
+
+it('recreates a deleted snapshot file on forceEnsureFor even with a warm cache', function () {
+    $assembler = new FakeSnapshotAssembler();
+    $resolver = resolverWith($assembler);
+
+    $hash = $resolver->ensureFor(new LessonId(10));
+    $path = 'learns/snapshots/'.substr($hash->value, 0, 2).'/'.$hash->value.'.json';
+
+    // Имитируем ручное удаление файла: хэш в Redis жив, файла нет.
+    Storage::disk('s3_private')->delete($path);
+    Storage::disk('s3_private')->assertMissing($path);
+
+    $restored = $resolver->forceEnsureFor(new LessonId(10));
+
+    expect($restored->equals($hash))->toBeTrue();
+    Storage::disk('s3_private')->assertExists($path);
+});
+
+it('does not hit storage on forceEnsureFor when the file is present', function () {
+    $assembler = new FakeSnapshotAssembler();
+    $resolver = resolverWith($assembler);
+
+    $resolver->ensureFor(new LessonId(10));
+    $resolver->forceEnsureFor(new LessonId(10));
+
+    // Снапшот построен один раз, второй вызов — из кэша с проверкой файла.
+    expect($assembler->calls)->toBe(1);
 });

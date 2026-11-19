@@ -104,13 +104,19 @@ class AppServiceProvider extends ServiceProvider
             \App\Application\Learn\Ports\SnapshotResolverInterface::class,
             function ($app) {
                 if (config('learn.snapshot.driver', 's3') === 'hash') {
-                    return $app->make(\App\Infrastructure\Learn\HashSnapshotResolver::class);
+                    return new \App\Infrastructure\Learn\HashSnapshotResolver(
+                        assembler: $app->make(\App\Application\Learn\Ports\LessonSnapshotAssemblerInterface::class),
+                        cache: $app->make(\Illuminate\Contracts\Cache\Repository::class),
+                        lessons: $app->make(\App\Models\Lesson::class),
+                        prefix: (string) config('learn.snapshot.prefix', 'learns/snapshots'),
+                    );
                 }
 
                 return new \App\Infrastructure\Learn\S3SnapshotResolver(
                     assembler: $app->make(\App\Application\Learn\Ports\LessonSnapshotAssemblerInterface::class),
                     cache: $app->make(\Illuminate\Contracts\Cache\Repository::class),
                     filesystems: $app->make(\Illuminate\Contracts\Filesystem\Factory::class),
+                    lessons: $app->make(\App\Models\Lesson::class),
                     disk: (string) config('learn.snapshot.disk', 's3_private'),
                     prefix: (string) config('learn.snapshot.prefix', 'learns/snapshots'),
                     cacheTtl: (int) config('learn.snapshot.cache_ttl', 3600),

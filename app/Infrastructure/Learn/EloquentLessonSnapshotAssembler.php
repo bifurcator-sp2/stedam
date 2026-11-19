@@ -62,10 +62,16 @@ final readonly class EloquentLessonSnapshotAssembler implements LessonSnapshotAs
         }
 
         return [
-            'lesson_id' => $lesson->id,
-            'title'     => $lesson->title,
-            'locale'    => $lesson->locale,
-            'blocks'    => $blocks,
+            'lesson_id'   => $lesson->id,
+            'title'       => $lesson->title,
+            'description' => $lesson->description,
+            'locale'      => $lesson->locale,
+            // Метаданные урока в корне снапшота: читаются «как есть» при
+            // выдаче прохождения, без запросов к lessons/lesson_taxonomy.
+            'type'         => $lesson->type,
+            'complexity'   => (float) $lesson->complexity,
+            'taxonomy_ids' => $lesson->taxonomies->pluck('id')->map(static fn ($v): int => (int) $v)->all(),
+            'blocks'       => $blocks,
         ];
     }
 

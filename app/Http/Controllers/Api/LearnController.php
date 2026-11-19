@@ -21,6 +21,10 @@ use App\Application\Learn\Actions\ScheduleLearnAction;
 use App\Application\Learn\Actions\StartLearnAction;
 use App\Application\Learn\Context\ContextResolverInterface;
 use App\Application\Learn\Context\ViewerRole;
+use App\Application\Learn\Ports\LearnRepositoryInterface;
+use App\Application\Lessons\Actions\ListLessonTypesAction;
+use App\Application\Lessons\DTOs\LessonTypeOption;
+use App\Application\Lessons\Ports\LessonRepositoryInterface;
 use App\Application\Learn\DTOs\GradeLearnData;
 use App\Application\Learn\DTOs\LearnListFilter;
 use App\Application\Learn\DTOs\MarkDoneData;
@@ -32,10 +36,13 @@ use App\Domain\Learn\Enums\LearnStatus;
 use App\Domain\Learn\ValueObjects\Grade;
 use App\Domain\Learn\ValueObjects\LearnId;
 use App\Domain\Learn\ValueObjects\LessonId;
+use App\Domain\Lessons\ValueObjects\LessonId as LessonsLessonId;
 use App\Domain\Learn\ValueObjects\ScheduleDate;
 use App\Domain\Learn\ValueObjects\UserId;
 use App\Http\Resources\LearnResource;
 use App\Http\Resources\LessonListResource;
+use App\Http\Resources\LessonTypeResource;
+use App\Models\Lesson;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -114,22 +121,52 @@ class LearnController
      *
      * GET /learn/{learn}/snapshot
      */
-    public function snapshot(Request $request, int $learn, GetLearnSnapshotAction $action): JsonResponse
-    {
+    public function snapshot(
+        Request $request,
+        int $learn,
+        GetLearnSnapshotAction $action,
+        LearnRepositoryInterface $learns,
+        LessonRepositoryInterface $lessons,
+        ListLessonTypesAction $listLessonTypes,
+    ): JsonResponse {
         $user = $request->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $data = $action(new LearnId($learn), new UserId((int) $user->id));
+        $learnId = new LearnId($learn);
+        $viewerId = new UserId((int) $user->id);
 
-        // snapshot_data — уже готовый JSON; embedding-класс отдаёт его объектом.
-        $snapshotData = json_decode($data->snapshotData);
+        $data = $action($learnId, $viewerId);
+
+        $data = $data->withLessonTypes(array_map(
+            fn (LessonTypeOption $option): array => (new LessonTypeResource($option))->resolve($request),
+            $listLessonTypes(),
+        ));
+
+        // Метаданные урока обычно уже лежат в снапшоте (отдаём как есть).
+        // Fallback — только для старых снапшотов без этих ключей.
+        $needsFallback = !$data->hasSnapshotKey('description')
+            || !$data->hasSnapshotKey('type')
+            || !$data->hasSnapshotKey('complexity')
+            || !$data->hasSnapshotKey('taxonomy_ids');
+
+        if ($needsFallback) {
+            $lesson = $learns->getById($learnId)->lessonId();
+            $lessonModel = Lesson::query()->findOrFail($lesson->value);
+
+            $data = $data->withMetadataFallback(
+                description: $lessonModel->description,
+                type: $lessonModel->type,
+                complexity: $lessonModel->complexity === null ? null : (float) $lessonModel->complexity,
+                taxonomyIds: $lessons->taxonomyIdsOf(new LessonsLessonId($lesson->value)),
+            );
+        }
 
         return response()->json([
             'learn_id'        => $data->learnId,
             'lesson_snapshot' => $data->hash->value,
-            'snapshot_data'   => $snapshotData ?? $data->snapshotData,
+            'snapshot_data'   => $data->snapshotDataArray(),
         ]);
     }
 

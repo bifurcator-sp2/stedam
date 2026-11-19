@@ -169,6 +169,11 @@ class SettingsNormalizer
      */
     protected static function updateNodeChildren(array $savedNode, array $schemaNode): array
     {
+
+        if(!empty($schemaNode['type'])){
+            $savedNode['type'] = $schemaNode['type'];
+        }
+
         $schemaChildren = $schemaNode['children'] ?? null;
 
         // Если в новой схеме у узла нет детей, убираем их из saved

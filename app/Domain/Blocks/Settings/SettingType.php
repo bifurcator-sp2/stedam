@@ -18,5 +18,6 @@ case Icon = 'icon';
 case Image = 'image';
 case ContentType = 'content-type';
 case Layout = 'layout';
+case WhiteBoardImage = 'whiteboard-image';
 
 }

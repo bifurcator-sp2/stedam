@@ -7,8 +7,10 @@ namespace App\Infrastructure\Learn;
 use App\Application\Learn\Ports\LessonSnapshotAssemblerInterface;
 use App\Application\Learn\Ports\SnapshotResolverInterface;
 use App\Domain\Blocks\Settings\SettingsNormalizer;
+use App\Domain\Learn\Exceptions\SnapshotMissing;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\SnapshotHash;
+use App\Models\Lesson;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemManager;
@@ -34,11 +36,13 @@ final readonly class S3SnapshotResolver implements SnapshotResolverInterface
 {
     private const CACHE_PREFIX = 'learn:lesson_snapshot:';
     private const LOCK_PREFIX = 'learn:lesson_snapshot:lock:';
+    private const LESSON_BY_HASH_PREFIX = 'learn:snapshot_lesson:';
 
     public function __construct(
         private LessonSnapshotAssemblerInterface $assembler,
         private Cache $cache,
         private FilesystemManager $filesystems,
+        private Lesson $lessons,
         private string $disk,
         private string $prefix,
         private int $cacheTtl,
@@ -54,6 +58,45 @@ final readonly class S3SnapshotResolver implements SnapshotResolverInterface
             return $cached;
         }
 
+        return $this->resolve($lessonId, verifyFile: false);
+    }
+
+    public function forceEnsureFor(LessonId $lessonId): SnapshotHash
+    {
+        // Кэш не доверяем: файл могли удалить, оставив «висячий» адрес.
+        $cached = $this->fromCache($lessonId);
+        if ($cached !== null && $this->disk()->exists($this->pathFor($cached))) {
+            return $cached;
+        }
+
+        return $this->resolve($lessonId, verifyFile: true);
+    }
+
+    public function lessonFor(SnapshotHash $hash): LessonId
+    {
+        $lessonId = $this->cache->get(self::LESSON_BY_HASH_PREFIX.$hash->value);
+        if (is_int($lessonId)) {
+            return new LessonId($lessonId);
+        }
+
+        // Снапшот зафиксирован в прохождении — ищем владельца по БД.
+        /** @var Lesson|null $lesson */
+        $lesson = $this->lessons->newQuery()
+            ->where('lesson_snapshot', $hash->value)
+            ->orderBy('id')
+            ->first();
+
+        if ($lesson === null) {
+            throw new SnapshotMissing("No lesson references snapshot {$hash->value}");
+        }
+
+        $this->cache->put(self::LESSON_BY_HASH_PREFIX.$hash->value, $lesson->id, $this->cacheTtl);
+
+        return new LessonId($lesson->id);
+    }
+
+    private function resolve(LessonId $lessonId, bool $verifyFile): SnapshotHash
+    {
         // 2-3. Lock + double-check.
         $lock = $this->cache->lock(
             self::LOCK_PREFIX.$lessonId->value,
@@ -61,11 +104,12 @@ final readonly class S3SnapshotResolver implements SnapshotResolverInterface
         );
 
         try {
-            $lock->block($this->lockWait, function () use ($lessonId): void {
+            $lock->block($this->lockWait, function () use ($lessonId, $verifyFile): void {
                 // завершаем всё внутри лок-хелпера через замыкание,
                 // но результат нам нужен снаружи — поэтому пишем в кэш,
                 // и после блока читаем оттуда.
-                if ($this->fromCache($lessonId) !== null) {
+                $cached = $this->fromCache($lessonId);
+                if ($cached !== null && (!$verifyFile || $this->disk()->exists($this->pathFor($cached)))) {
                     return; // кто-то уже создал, пока ждали лок
                 }
 
@@ -80,10 +124,10 @@ final readonly class S3SnapshotResolver implements SnapshotResolverInterface
         } catch (LockTimeoutException) {
             // Не дождались лока — пробуем обойтись тем, что есть.
             $cached = $this->fromCache($lessonId);
-            if ($cached !== null) {
+            if ($cached !== null && (!$verifyFile || $this->disk()->exists($this->pathFor($cached)))) {
                 return $cached;
             }
-            // Лок не взяли и кэш пуст — строим без лока (лучше так, чем упасть).
+            // Лок не взяли и кэш пуст/файла нет — строим без лока (лучше так, чем упасть).
             $hash = $this->buildAndStore($lessonId);
             $this->cache->put(self::CACHE_PREFIX.$lessonId->value, $hash->value, $this->cacheTtl);
 

@@ -604,7 +604,7 @@ class BlockSettingsRegistry
                             ),
                             new SettingDefinition(
                                 key: 'answer',
-                                type: SettingType::String,
+                                type: SettingType::WhiteBoardImage,
                                 public: false,
                                 label: 'Ответ',
                                 children: [
