@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Grade;
 
+use App\Models\Learn;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -46,6 +47,33 @@ class StrokesRender
         }
 
         return $path;
+    }
+
+    /**
+     * Рендерит все вайтборды из answers прохождения.
+     *
+     * answers — фронтенд-структура блоков: [{version, strokes, width?, height?}, ...].
+     * Блоки без strokes пропускаются. Размер холста берётся из блока,
+     * иначе — из переданных $defaultWidth/$defaultHeight.
+     *
+     * @return list<string> пути PNG относительно корня диска local
+     */
+    public function renderLearn(Learn $learn, int $defaultWidth = 854, int $defaultHeight = 314): array
+    {
+        $paths = [];
+
+        foreach ((array) ($learn->answers ?? []) as $block) {
+            if (!is_array($block) || !is_array($block['strokes'] ?? null)) {
+                continue;
+            }
+
+            $width  = is_numeric($block['width'] ?? null) ? (int) $block['width'] : $defaultWidth;
+            $height = is_numeric($block['height'] ?? null) ? (int) $block['height'] : $defaultHeight;
+
+            $paths[] = $this->render($block['strokes'], $width, $height);
+        }
+
+        return $paths;
     }
 
     /**

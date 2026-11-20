@@ -105,6 +105,21 @@ services:
             pgsql:
                 condition: service_healthy
         restart: unless-stopped
+    pre-grader:
+        image: 'sail-8.5/app'
+        entrypoint: [ ]
+        command: php /var/www/html/artisan learn:pre-grade --sleep=2
+        user: '${WWWUSER:-1337}:${WWWGROUP:-1337}'
+        environment:
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            pgsql:
+                condition: service_healthy
+        restart: unless-stopped
     redis:
         image: 'redis:alpine'
         ports:

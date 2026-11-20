@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LearnGradeStatus;
 use App\Models\Concerns\UsesTimestamptz;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +26,7 @@ class LearnGrade extends Model
         'grade',
         'grader_user_id',
         'grader_comment',
+        'error',
     ];
 
     /**
@@ -38,7 +40,7 @@ class LearnGrade extends Model
 
     protected $casts = [
         'learn_id'             => 'integer',
-        'status'               => 'string',
+        'status'               => LearnGradeStatus::class,
         'pre_grade'            => 'float',
         'pre_grade_confidence' => 'float',
         'grade'                => 'float',
