@@ -24,6 +24,7 @@ use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\ScheduleDate;
 use App\Domain\Learn\ValueObjects\SnapshotHash;
 use App\Domain\Learn\ValueObjects\UserId;
+use Tests\Support\Fakes\FakeLearnAnswersWriter;
 use Tests\Support\Fakes\FakeLessonRepository;
 use Tests\Support\Fakes\FakeStatusLogger;
 use Tests\Support\Fakes\InMemoryLearnRepository;
@@ -109,13 +110,49 @@ it('student completes own learn, carries autosaved answers', function () use ($c
     $repo->save($learn);
 
     $resolver = new StubContextResolver([5 => studentContext(5)]);
-    $action = new MarkDoneAction($repo, $resolver, new FakeStatusLogger(), $clock());
+    $writer = new FakeLearnAnswersWriter();
+    $action = new MarkDoneAction($repo, $resolver, new FakeStatusLogger(), $clock(), $writer);
 
     $result = $action(new MarkDoneData($learn->id(), new UserId(5)));
 
     expect($result->status())->toBe(LearnStatus::Done)
         ->and($result->answers()->toArray())->toBe([['index' => 1, 'file' => 'answers/1.webp']])
-        ->and($result->completedAt())->not->toBeNull();
+        ->and($result->completedAt())->not->toBeNull()
+        ->and($writer->calls)->toBe([]);
+});
+
+it('markDone writes answers from request together with status change', function () use ($clock) {
+    [$repo, $learn] = seedInProgress(5);
+
+    $resolver = new StubContextResolver([5 => studentContext(5)]);
+    $writer = new FakeLearnAnswersWriter();
+    $action = new MarkDoneAction($repo, $resolver, new FakeStatusLogger(), $clock(), $writer);
+
+    $answers = [['version' => 1, 'strokes' => [['id' => 's_1', 'points' => [['x' => 1.5, 'y' => 2.0]]]]]];
+
+    $result = $action(new MarkDoneData($learn->id(), new UserId(5), $answers));
+
+    expect($result->status())->toBe(LearnStatus::Done)
+        ->and($writer->calls)->toBe([['learnId' => $learn->id()->value, 'answers' => $answers]]);
+});
+
+it('markDone does not write answers for not started learn', function () use ($clock) {
+    $repo = new InMemoryLearnRepository();
+    $learn = $repo->save(Learn::assign(
+        userId: new UserId(5),
+        lessonId: new LessonId(10),
+        now: new DateTimeImmutable('2025-01-01 12:00:00 UTC'),
+    ));
+
+    $resolver = new StubContextResolver([5 => studentContext(5)]);
+    $writer = new FakeLearnAnswersWriter();
+    $action = new MarkDoneAction($repo, $resolver, new FakeStatusLogger(), $clock(), $writer);
+
+    expect(fn () => $action(new MarkDoneData($learn->id(), new UserId(5), [
+        ['version' => 1, 'strokes' => []],
+    ])))->toThrow(InvalidStatusTransition::class);
+
+    expect($writer->calls)->toBe([]);
 });
 
 // ==================== grade ====================

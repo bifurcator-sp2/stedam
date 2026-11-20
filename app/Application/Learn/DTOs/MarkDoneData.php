@@ -10,14 +10,19 @@ use App\Domain\Learn\ValueObjects\UserId;
 /**
  * Ученик отправляет своё прохождение на проверку.
  *
- * Тело запроса не несёт данных: отправляются уже автосохранённые ответы.
- * Финальная партия изображений приходит отдельно через автосохранение
- * (PATCH /learns/{learn}/answers или PATCH /learn/save).
+ * answers — опционально пришедшие «сырые» ответы (фронтенд-структура
+ * штрихов: [{version, strokes: [...]}, ...]). Если массив не пуст, он
+ * записывается в learns.answers перед сменой статуса; иначе фиксируются
+ * уже автосохранённые ответы.
  */
 final readonly class MarkDoneData
 {
+    /**
+     * @param list<array<string, mixed>> $answers
+     */
     public function __construct(
         public LearnId $learnId,
         public UserId $viewerId,
+        public array $answers = [],
     ) {}
 }

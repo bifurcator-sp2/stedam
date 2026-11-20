@@ -23,6 +23,7 @@ use App\Domain\Learn\ValueObjects\ScheduleDate;
 use App\Domain\Learn\ValueObjects\SnapshotHash;
 use App\Domain\Learn\ValueObjects\UserId;
 use Illuminate\Support\Facades\Event;
+use Tests\Support\Fakes\FakeLearnAnswersWriter;
 use Tests\Support\Fakes\FakeLearnQuestionsBuilder;
 use Tests\Support\Fakes\FakeLessonRepository;
 use Tests\Support\Fakes\FakeSnapshotResolver;
@@ -233,6 +234,7 @@ it('markDone публикует LearnStatusChanged со статусом done', 
         learnEventsStudent(),
         new FakeStatusLogger(),
         learnEventsClock(),
+        new FakeLearnAnswersWriter(),
     );
 
     $action(new MarkDoneData($learn->id(), new UserId(1)));

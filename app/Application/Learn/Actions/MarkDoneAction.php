@@ -8,6 +8,7 @@ use App\Application\Learn\Concerns\DrainsLearnEvents;
 use App\Application\Learn\Context\ContextResolverInterface;
 use App\Application\Learn\DTOs\MarkDoneData;
 use App\Application\Learn\Exceptions\LearnAccessDenied;
+use App\Application\Learn\Ports\LearnAnswersWriterInterface;
 use App\Application\Learn\Ports\LearnRepositoryInterface;
 use App\Application\Learn\Ports\StatusLoggerInterface;
 use App\Application\Shared\Clock;
@@ -17,7 +18,9 @@ use App\Domain\Learn\Exceptions\LearnNotFound;
 /**
  * Ученик отправляет своё прохождение на проверку (in_progress → done).
  *
- * Тело запроса не используется: фиксируются уже автосохранённые ответы.
+ * Если в запросе пришли «сырые» ответы — после смены статуса они пишутся
+ * в learns.answers (как в LearnSaveAction), иначе остаются уже
+ * автосохранённые ответы.
  */
 final readonly class MarkDoneAction
 {
@@ -28,6 +31,7 @@ final readonly class MarkDoneAction
         private ContextResolverInterface $contextResolver,
         private StatusLoggerInterface $statusLogger,
         private Clock $clock,
+        private LearnAnswersWriterInterface $answersWriter,
     ) {}
 
     public function __invoke(MarkDoneData $data): Learn
@@ -55,6 +59,14 @@ final readonly class MarkDoneAction
 
         $learn->markDone($learn->answers(), $this->clock->now());
         $learn = $this->learns->save($learn);
+
+        // Ответы из запроса пишем ПОСЛЕ смены статуса: EloquentLearnRepository::save()
+        // перезаписывает learns.answers из доменной сущности (изображения), поэтому
+        // запись до save() была бы затёрта. Домен ответы уже зафиксировал —
+        // сырые штрихи из запроса ложатся поверх как есть.
+        if ($data->answers !== []) {
+            $this->answersWriter->replaceRawAnswers($learn->id(), $data->answers);
+        }
 
         $this->drainLearnEvents($learn);
 

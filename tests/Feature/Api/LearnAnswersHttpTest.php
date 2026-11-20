@@ -123,3 +123,42 @@ it('student saves images and teacher sees them as {index,url} after grading', fu
     // Файлы реально лежат в публичном хранилище.
     Storage::disk('s3_public')->assertExists("answers/".str_pad((string) ($learnId % 1000), 3, '0', STR_PAD_LEFT)."/{$learnId}/1.webp");
 });
+
+it('done stores strokes sent with the request into learns.answers', function () {
+    $teacher = httpRoleUser('teacher');
+    $student = httpRoleUser('student');
+    httpRelate($teacher, $student);
+    $lesson = httpLesson($teacher);
+
+    Sanctum::actingAs($student);
+
+    $learnId = $this->postJson('/api/learn/begin', ['lesson_id' => $lesson->id])
+        ->assertCreated()
+        ->json('id');
+
+    $answers = [
+        [
+            'version'      => 1,
+            'answer_size'  => 75,
+            'margin_size'  => 50,
+            'whiteboard_height' => 130,
+            'strokes'      => [[
+                'id'        => 'stroke_1',
+                'startedAt' => '2026-11-20T12:06:41.751Z',
+                'color'     => '#000000',
+                'size'      => 2,
+                'eraser'    => false,
+                'points'    => [['x' => 159.5, 'y' => 37, 'pressure' => 0.5]],
+            ]],
+        ],
+    ];
+
+    $this->postJson("/api/learns/{$learnId}/done", [
+        'learn_id' => $learnId,
+        'answers'  => $answers,
+    ])->assertOk()->assertJsonPath('status', 'done');
+
+    $stored = DB::table('learns')->where('id', $learnId)->value('answers');
+
+    expect(json_decode((string) $stored, true))->toBe($answers);
+});

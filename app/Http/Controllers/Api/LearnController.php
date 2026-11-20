@@ -306,7 +306,11 @@ class LearnController
     /**
      * Ученик отправляет своё прохождение на проверку (in_progress → done).
      *
-     * Тело запроса не требуется: отправляются автосохранённые ответы.
+     * body (опционально): { answers: [ { version: int, strokes: [...] }, ... ] }
+     *
+     * Если answers переданы — они записываются в learns.answers при смене
+     * статуса (как при обычном сохранении learn); иначе фиксируются уже
+     * автосохранённые ответы.
      */
     public function markDone(Request $request, int $learn, MarkDoneAction $action): JsonResponse
     {
@@ -315,9 +319,14 @@ class LearnController
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
+        $validated = $request->validate([
+            'answers' => ['sometimes', 'array'],
+        ]);
+
         $entity = $action(new MarkDoneData(
             learnId: new LearnId($learn),
             viewerId: new UserId((int) $user->id),
+            answers: $validated['answers'] ?? [],
         ));
 
         return response()->json(new LearnResource($entity));
