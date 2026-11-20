@@ -304,7 +304,9 @@ class LearnController
     }
 
     /**
-     * Ученик завершает своё прохождение.
+     * Ученик отправляет своё прохождение на проверку (in_progress → done).
+     *
+     * Тело запроса не требуется: отправляются автосохранённые ответы.
      */
     public function markDone(Request $request, int $learn, MarkDoneAction $action): JsonResponse
     {
@@ -313,15 +315,9 @@ class LearnController
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        // Финальные ответы передаются необязательно: если тело содержит images —
-        // используем их (multipart), иначе берём уже автосохранённые.
-        $hasAnswers = $request->has('answers');
-        $answers = $hasAnswers ? $this->parseRawAnswers($request, required: false) : null;
-
         $entity = $action(new MarkDoneData(
             learnId: new LearnId($learn),
             viewerId: new UserId((int) $user->id),
-            answers: $answers,
         ));
 
         return response()->json(new LearnResource($entity));

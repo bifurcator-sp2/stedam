@@ -163,8 +163,10 @@ created → scheduled → in_progress → done → graded
   `InvalidAnswerImage` (см. §7.8, §8.1).
 - Архивация **ортогональна** статусу: доступна из любого статуса, **не меняет**
   статус и `statusDate`.
-- `markDone` и `markGraded` не требуют предварительного апдейта ответов —
-  ответы передаются явно (для `markDone`).
+- `markDone` фиксирует **уже сохранённые** ответы прохождения; новых ответов
+  он не принимает — финальная партия изображений должна быть сохранена
+  автосохранением (`updateAnswers` / `SaveAnswersAction`) **до** отправки.
+  `markGraded` ответов не требует.
 
 ### 5.1. Отклонение от плана (`startedLateFromPlanInMinutes`)
 
@@ -379,8 +381,11 @@ RawAnswer{ index, UploadedFile }[]                 (Application DTO)
 AnswerStorageInterface::replaceAll(LearnId, RawAnswer[]) → AnswerImage[]
       │  (полная замена папки прохождения; resize/convert по конфигу)
       ▼
-LearnAnswers::fromImages(...)  →  Learn::updateAnswers()/markDone()
+LearnAnswers::fromImages(...)  →  Learn::updateAnswers()
 ```
+
+`markDone` в этот поток не входит: отправка на проверку ответов не принимает
+и фиксирует уже сохранённые (`Learn::answers()`), см. §5 и §12.3.
 
 Свойства:
 
@@ -526,12 +531,12 @@ foreach ($answers->images() as $img) {
 - **`LearnQuestionsBuilderInterface::buildFor(LearnSeed, LessonId): LearnQuestions`**
   — генерирует уникальный набор заданий для прохождения (§8.2). Сид —
   `Seed::forTask(userId, learnId, blockIndex)`.
-- **`StatusLoggerInterface::log(...)`** — приёмник доменных событий смены статуса.
+- **`StatusLoggerInterface::log(...)`** — приёмник доменных событий смены статуса;
+  единственная реализация `DbStatusLogger` пишет строку в `learn_statuses`
+  синхронно (§12.4).
 - **`AnswerStorageInterface`** — сохранение/URL изображений-ответов (см. §8).
 - **`LessonRepositoryInterface`** — доступ к урокам (`isPublished(LessonId): bool`).
 - **`TeacherStudentsQueryInterface`** — список учеников учителя с агрегатами.
-- `StatusBufferInterface` / `LearnStatusBufferInterface` — буферизация статусных
-  событий (инфраструктурное ускорение записи).
 
 ### 10.3. `ViewerContext` (кто смотрит и что можно)
 
@@ -600,7 +605,7 @@ Application-понятие, строится `ContextResolverInterface` из р�
 | `StartLearnAction` | `StartLearnData` | Старт (идемпотентно по активному прохождению user+lesson), `snapshot` через порт, `questions` через `LearnQuestionsBuilderInterface` |
 | `ScheduleLearnAction` | `ScheduleLearnData` | Назначение/планирование учителем |
 | `SaveAnswersAction` | `SaveAnswersData` | Автосохранение ответов (own, `in_progress`, гейт `canSave`) через `AnswerStorage` |
-| `MarkDoneAction` | `MarkDoneData` | Завершение; ответы — явно или уже сохранённые |
+| `MarkDoneAction` | `MarkDoneData` (learnId, viewerId) | Отправка на проверку (`in_progress → done`); тело запроса не используется, фиксируются автосохранённые ответы |
 | `GradeLearnAction` | `GradeLearnData` | Оценка учителем |
 | `CancelLearnAction` | `LearnId`, `viewerId` | Отмена планирования |
 | `GetLearnAction` | `LearnId`, `viewerId` | Чтение одного прохождения в scope |
@@ -625,6 +630,39 @@ teacher/methodologist/headteacher.
 `GET /api/learn/answers/upload-config` → `{ allowed_mimes[], accept, max_bytes,
 max_side|null, converted_to_webp }`. Единый источник — `config('learn.answers.*')`,
 синхронно с серверной валидацией/обработкой.
+
+### 12.3. Отправка на проверку
+
+`POST /api/learns/{learn}/done` — ученик отправляет своё прохождение
+на проверку (`in_progress → done`).
+
+- Тело запроса **не требуется и не читается**: достаточно факта вызова.
+- Ответы берутся из автосохранения; финальную партию изображений нужно
+  сохранить (`PATCH /learns/{learn}/answers` или `PATCH /learn/save`) до вызова.
+- Гейт — `canSave` (§10.3), только владелец (own).
+- Ответ — `LearnResource` со `status = "done"`.
+- Ошибки: 401 не аутентифицирован; 403 нет `canSave` / чужое прохождение;
+  404 нет прохождения или вне scope; 422 переход не из `in_progress`.
+
+### 12.4. История статусов (`learn_statuses`)
+
+Каждая смена статуса порождает `LearnStatusChanged`; `DrainsLearnEvents`
+передаёт его в `StatusLoggerInterface`. Запись — append-only, одна строка
+на событие: `learn_id, lesson_id, status, status_date, schedule_date`.
+
+Запись **синхронная**: `DbStatusLogger` делает INSERT в той же операции, что и
+смена статуса — непосредственно перед публикацией `LearnStatusChanged` в шину
+(`DrainsLearnEvents::logLearnEvent`). Буферов, очередей и кронов для истории
+статусов нет.
+
+Следствия:
+
+- Сразу после `start` / `markDone` / `grade` и т.п. история уже в `learn_statuses`;
+  воркер очереди и scheduler для этого не нужны.
+- Аудит и смена статуса атомарны настолько, насколько это возможно без общей
+  транзакции: если запись аудита упадёт, исключение всплывёт до публикации
+  события в шину. Источник правды по текущему статусу — `learns.status`,
+  `learn_statuses` — append-only история.
 
 ---
 

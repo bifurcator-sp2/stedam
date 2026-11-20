@@ -112,7 +112,6 @@ class AppServiceProvider extends ServiceProvider
                     return new \App\Infrastructure\Learn\HashSnapshotResolver(
                         assembler: $app->make(\App\Application\Learn\Ports\LessonSnapshotAssemblerInterface::class),
                         cache: $app->make(\Illuminate\Contracts\Cache\Repository::class),
-                        lessons: $app->make(\App\Models\Lesson::class),
                         prefix: (string) config('learn.snapshot.prefix', 'learns/snapshots'),
                     );
                 }
@@ -121,7 +120,6 @@ class AppServiceProvider extends ServiceProvider
                     assembler: $app->make(\App\Application\Learn\Ports\LessonSnapshotAssemblerInterface::class),
                     cache: $app->make(\Illuminate\Contracts\Cache\Repository::class),
                     filesystems: $app->make(\Illuminate\Contracts\Filesystem\Factory::class),
-                    lessons: $app->make(\App\Models\Lesson::class),
                     disk: (string) config('learn.snapshot.disk', 's3_private'),
                     prefix: (string) config('learn.snapshot.prefix', 'learns/snapshots'),
                     cacheTtl: (int) config('learn.snapshot.cache_ttl', 3600),
@@ -150,28 +148,10 @@ class AppServiceProvider extends ServiceProvider
             },
         );
 
-        // Буфер статусов в Redis (конфигурируемый connection/key).
-        $this->app->singleton(
-            \App\Infrastructure\Learn\LearnStatusBuffer::class,
-            fn ($app) => new \App\Infrastructure\Learn\LearnStatusBuffer(
-                redis: $app->make(\Illuminate\Contracts\Redis\Factory::class),
-                connection: (string) config('learn.status_logger.connection', 'default'),
-                key: (string) config('learn.status_logger.buffer_key', 'learn:status:buffer'),
-            ),
-        );
-        $this->app->bind(
-            \App\Application\Learn\Ports\StatusBufferInterface::class,
-            \App\Infrastructure\Learn\LearnStatusBuffer::class,
-        );
-
-        // Логгер статусов: redis-буфер (async) или синхронная запись в БД.
+        // История статусов: синхронная запись в learn_statuses.
         $this->app->bind(
             \App\Application\Learn\Ports\StatusLoggerInterface::class,
-            function ($app) {
-                return config('learn.status_logger.driver', 'redis') === 'redis'
-                    ? $app->make(\App\Infrastructure\Learn\RedisStatusLogger::class)
-                    : $app->make(\App\Infrastructure\Learn\DbStatusLogger::class);
-            },
+            \App\Infrastructure\Learn\DbStatusLogger::class,
         );
 
         // Список учеников учителя с агрегатами.

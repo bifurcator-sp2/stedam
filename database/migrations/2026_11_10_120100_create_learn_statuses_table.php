@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Schema;
  * Аудит жизненного цикла Прохождения.
  *
  * Append-only лог: каждая смена статуса learn пишется отдельной строкой.
- * Пишется НЕ напрямую, а через порт StatusLoggerInterface (асинхронный
- * батч: Redis → BatchUpdateStatusesJob). См. Контекст Learn.
+ * Пишется НЕ напрямую, а через порт StatusLoggerInterface синхронно
+ * (DbStatusLogger) в момент смены статуса. См. Контекст Learn.
  *
  * Источник правды для истории; поля в learns (status/status_date/complete_date)
  * — денормализованный кэш для быстрого чтения.

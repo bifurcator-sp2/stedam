@@ -1262,7 +1262,7 @@ private function recordStatusChange(DateTimeImmutable $now): void
 Вынести это в событие — §17.5, отдельная задача, **не** блокирует курсы.
 
 **Что не меняется:** `LearnStatusChanged`, `StatusLoggerInterface`,
-`RedisStatusLogger`, `DbStatusLogger`, `FlushLearnStatusBufferJob`, схема
+`DbStatusLogger` (синхронная запись), схема
 `learns`/`learn_statuses`, домен `Learn` (ни одной строки — он остаётся
 без зависимости от Laravel).
 
@@ -1401,7 +1401,7 @@ AND started_at IS NULL` + `delete()`. Race-условие: между `SELECT` �
 | 10 | Уникальность `(course_id, student_id)` | без soft delete у назначений | удаление назначения — реальный `DELETE`, повторное назначение разрешено |
 | 11 | `Course::changeLocale` | только на курсе без уроков | смена языка программы ломает уже выданные задания |
 | 12 | Масштаб оценок Learn (0..100) vs Course (0..1) | нормализация в адаптере | стратегии живут в `[0..1]` |
-| 13 | Как курсы узнают о `graded` | трейт `DrainsLearnEvents` + `Event::dispatch` (§17.1, вариант D) | аудит (Redis) асинхронен — не годится как источник события; домен Learn остаётся без зависимости от Laravel |
+| 13 | Как курсы узнают о `graded` | трейт `DrainsLearnEvents` + `Event::dispatch` (§17.1, вариант D) | шина — единственный источник события; домен Learn остаётся без зависимости от Laravel (аудит в `learn_statuses` синхронный, но событие в шину публикует Application) |
 | 14 | `time_gap` | **целые часы** (`integer`), не минуты | ответ заказчика |
 | 15 | `course_theme_lessons.lesson_id` | `ON DELETE CASCADE` | ответ заказчика; сиротские связи на мёртвый урок ломают листинг |
 | 16 | `lesson_taxonomy` уже `unique('lesson_id')` | урок в одном узле таксономии | найдено в БД; `courses.tax_id` — по-прежнему нужен для фильтра листинга без джойнов на уроки |

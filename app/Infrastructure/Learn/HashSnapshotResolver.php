@@ -10,10 +10,10 @@ use App\Domain\Blocks\Settings\SettingsNormalizer;
 use App\Domain\Learn\Exceptions\SnapshotMissing;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\SnapshotHash;
-use App\Models\Lesson;
 use Bifurcator\FileSets\Contracts\FileStorage;
 use Bifurcator\FileSets\FileStorageKeys;
 use Illuminate\Contracts\Cache\Repository as Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Простейший резолвер снапшота урока: сериализует урок и берёт SHA-256 хэш.
@@ -33,7 +33,6 @@ final readonly class HashSnapshotResolver implements SnapshotResolverInterface
     public function __construct(
         private LessonSnapshotAssemblerInterface $assembler,
         private Cache $cache,
-        private Lesson $lessons,
         private string $prefix,
     ) {}
 
@@ -83,19 +82,18 @@ final readonly class HashSnapshotResolver implements SnapshotResolverInterface
             return new LessonId($lessonId);
         }
 
-        /** @var Lesson|null $lesson */
-        $lesson = $this->lessons->newQuery()
+        $lessonId = DB::table('learns')
             ->where('lesson_snapshot', $hash->value)
             ->orderBy('id')
-            ->first();
+            ->value('lesson_id');
 
-        if ($lesson === null) {
-            throw new SnapshotMissing("No lesson references snapshot {$hash->value}");
+        if ($lessonId === null) {
+            throw new SnapshotMissing("No learn references snapshot {$hash->value}");
         }
 
-        $this->cache->put(self::LESSON_BY_HASH_PREFIX.$hash->value, $lesson->id, self::TTL_SECONDS);
+        $this->cache->put(self::LESSON_BY_HASH_PREFIX.$hash->value, (int) $lessonId, self::TTL_SECONDS);
 
-        return new LessonId($lesson->id);
+        return new LessonId((int) $lessonId);
     }
 
     private function build(LessonId $lessonId): SnapshotHash

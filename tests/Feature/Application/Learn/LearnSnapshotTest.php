@@ -21,10 +21,10 @@ uses(RefreshDatabase::class);
 /**
  * Читатель снапшота из памяти: отдаёт заранее заданный JSON по любому хэшу.
  */
-function snapshotTestReader(array &$json): SnapshotReaderInterface
+function snapshotTestReader(string $json): SnapshotReaderInterface
 {
     return new class ($json) implements SnapshotReaderInterface {
-        public function __construct(private string &$json) {}
+        public function __construct(private readonly string $json) {}
 
         public function read(SnapshotHash $hash): string
         {
@@ -91,7 +91,7 @@ function snapshotTestLearn(User $student, Lesson $lesson, string $status = 'in_p
 
 it('returns type/complexity/taxonomy_ids from snapshot as-is', function () {
     $student = snapshotTestStudent();
-    $lesson = snapshotTestLesson(, 4.5, 1);
+    $lesson = snapshotTestLesson($student, 4.5, 1);
     $learn = snapshotTestLearn($student, $lesson);
 
     $snapshotJson = json_encode([
@@ -118,7 +118,7 @@ it('returns type/complexity/taxonomy_ids from snapshot as-is', function () {
 
 it('falls back to current lesson for old snapshots without metadata', function () {
     $student = snapshotTestStudent();
-    $lesson = snapshotTestLesson(, 4.5, 1);
+    $lesson = snapshotTestLesson($student, 4.5, 1);
     $learn = snapshotTestLearn($student, $lesson);
 
     $snapshotJson = json_encode([

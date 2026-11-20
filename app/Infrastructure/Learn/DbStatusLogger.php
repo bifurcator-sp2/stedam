@@ -14,9 +14,8 @@ use DateTimeImmutable;
 /**
  * Синхронная запись события смены статуса в append-only лог learn_statuses.
  *
- * Заглушка-реализация порта: пишет сразу в БД. Асинхронный батч
- * (Redis → BatchUpdateStatusesJob) придёт отдельным механизмом.
- * Контракт порта не меняется.
+ * Единственная реализация порта: строка пишется сразу в БД в момент
+ * смены статуса, буферов и очередей нет.
  */
 final readonly class DbStatusLogger implements StatusLoggerInterface
 {

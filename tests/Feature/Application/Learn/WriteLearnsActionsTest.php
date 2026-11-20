@@ -109,23 +109,13 @@ it('student completes own learn, carries autosaved answers', function () use ($c
     $repo->save($learn);
 
     $resolver = new StubContextResolver([5 => studentContext(5)]);
-    $action = new MarkDoneAction($repo, $resolver, new FakeStatusLogger(), new \Tests\Support\Fakes\FakeAnswerStorage(), $clock());
+    $action = new MarkDoneAction($repo, $resolver, new FakeStatusLogger(), $clock());
 
     $result = $action(new MarkDoneData($learn->id(), new UserId(5)));
 
     expect($result->status())->toBe(LearnStatus::Done)
         ->and($result->answers()->toArray())->toBe([['index' => 1, 'file' => 'answers/1.webp']])
         ->and($result->completedAt())->not->toBeNull();
-});
-
-it('student completes with overriding final answers', function () use ($clock) {
-    [$repo, $learn] = seedInProgress(5);
-    $resolver = new StubContextResolver([5 => studentContext(5)]);
-    $action = new MarkDoneAction($repo, $resolver, new FakeStatusLogger(), new \Tests\Support\Fakes\FakeAnswerStorage(), $clock());
-
-    $result = $action(new MarkDoneData($learn->id(), new UserId(5), [rawAnswer(3)]));
-
-    expect($result->answers()->toArray())->toBe([['index' => 3, 'file' => "answers/{$learn->id()->value}/3.webp"]]);
 });
 
 // ==================== grade ====================

@@ -10,20 +10,6 @@ declare(strict_types=1);
  */
 return [
     /*
-    | Логгер смены статусов (learn_statuses).
-    |
-    | driver = 'redis' — быстрый буфер в Redis, затем батч-сброс в БД
-    |                    (FlushLearnStatusBufferJob / learn:flush-statuses).
-    | driver = 'sync'  — синхронная запись в БД (DbStatusLogger), без буфера.
-    */
-    'status_logger' => [
-        'driver'      => env('LEARN_STATUS_LOGGER', 'redis'),
-        'connection'  => env('LEARN_STATUS_REDIS_CONNECTION', 'default'),
-        'buffer_key'  => env('LEARN_STATUS_BUFFER_KEY', 'learn:status:buffer'),
-        'flush_chunk' => (int) env('LEARN_STATUS_FLUSH_CHUNK', 1000),
-    ],
-
-    /*
     | Резолвер снапшота урока (для start).
     |
     | Диск S3 (приватный), кэш lessonId→hash в Redis, distributed lock

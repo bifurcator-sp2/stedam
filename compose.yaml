@@ -88,6 +88,23 @@ services:
             pgsql:
                 condition: service_healthy
         restart: unless-stopped
+    scheduler:
+        image: 'sail-8.5/app'
+        entrypoint: [ ]
+        command: php /var/www/html/artisan schedule:work
+        user: '${WWWUSER:-1337}:${WWWGROUP:-1337}'
+        environment:
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            redis:
+                condition: service_healthy
+            pgsql:
+                condition: service_healthy
+        restart: unless-stopped
     redis:
         image: 'redis:alpine'
         ports:

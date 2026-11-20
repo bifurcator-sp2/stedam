@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Тонкая Eloquent-модель «Событие смены статуса Прохождения» (Infrastructure/Persistence).
  *
  * Append-only лог аудита. Пишется через порт StatusLoggerInterface
- * (асинхронный батч), а не напрямую из домена.
+ * (синхронно, DbStatusLogger), а не напрямую из домена.
  */
 class LearnStatus extends Model
 {

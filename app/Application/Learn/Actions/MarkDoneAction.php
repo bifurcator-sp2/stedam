@@ -8,19 +8,16 @@ use App\Application\Learn\Concerns\DrainsLearnEvents;
 use App\Application\Learn\Context\ContextResolverInterface;
 use App\Application\Learn\DTOs\MarkDoneData;
 use App\Application\Learn\Exceptions\LearnAccessDenied;
-use App\Application\Learn\Ports\AnswerStorageInterface;
 use App\Application\Learn\Ports\LearnRepositoryInterface;
 use App\Application\Learn\Ports\StatusLoggerInterface;
 use App\Application\Shared\Clock;
 use App\Domain\Learn\Entities\Learn;
 use App\Domain\Learn\Exceptions\LearnNotFound;
-use App\Domain\Learn\ValueObjects\LearnAnswers;
 
 /**
- * Ученик завершает своё прохождение (in_progress → done).
+ * Ученик отправляет своё прохождение на проверку (in_progress → done).
  *
- * Ответы: если переданы в теле — перезаписывают сохранённые, иначе
- * фиксируются текущие автосохранённые.
+ * Тело запроса не используется: фиксируются уже автосохранённые ответы.
  */
 final readonly class MarkDoneAction
 {
@@ -30,7 +27,6 @@ final readonly class MarkDoneAction
         private LearnRepositoryInterface $learns,
         private ContextResolverInterface $contextResolver,
         private StatusLoggerInterface $statusLogger,
-        private AnswerStorageInterface $answerStorage,
         private Clock $clock,
     ) {}
 
@@ -39,9 +35,9 @@ final readonly class MarkDoneAction
         $context = $this->contextResolver->resolve($data->viewerId);
 
         // markDone — часть выполнения учеником (§10.3): в ViewerContext нет
-        // отдельного canComplete; право на завершение гейтится через canSave.
+        // отдельного canComplete; право на отправку гейтится через canSave.
         if (!$context->canSave) {
-            throw new LearnAccessDenied('You are not allowed to complete a learn');
+            throw new LearnAccessDenied('You are not allowed to send a learn');
         }
 
         $learn = $this->learns->findByIdWithinScope(
@@ -54,14 +50,10 @@ final readonly class MarkDoneAction
         }
 
         if (!$learn->userId()->equals($data->viewerId)) {
-            throw new LearnAccessDenied('You can only complete your own learn');
+            throw new LearnAccessDenied('You can only send your own learn');
         }
 
-        $answers = $data->answers !== null
-            ? LearnAnswers::fromImages($this->answerStorage->replaceAll($learn->id(), $data->answers))
-            : $learn->answers();
-
-        $learn->markDone($answers, $this->clock->now());
+        $learn->markDone($learn->answers(), $this->clock->now());
         $learn = $this->learns->save($learn);
 
         $this->drainLearnEvents($learn);

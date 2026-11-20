@@ -154,7 +154,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/learn/begin', [LearnController::class, 'beginLearnLesson']);
     Route::patch('/learn/save', [LearnController::class, 'saveLearn']);
     Route::get('/learn/snapshot/{learn}', [LearnController::class, 'snapshot'])->whereNumber('learn');
-
+    Route::post('/learns/{learn}/done', [LearnController::class, 'markDone'])->whereNumber('learn');
 
     Route::get('/learn/answers/upload-config', [LearnController::class, 'answerUploadConfig']);
 
@@ -166,7 +166,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/learns/schedule', [LearnController::class, 'schedule']);
     Route::get('/learns/{learn}', [LearnController::class, 'show'])->whereNumber('learn');
     Route::patch('/learns/{learn}/answers', [LearnController::class, 'saveAnswers'])->whereNumber('learn');
-    Route::post('/learns/{learn}/done', [LearnController::class, 'markDone'])->whereNumber('learn');
+
     Route::post('/learns/{learn}/grade', [LearnController::class, 'grade'])->whereNumber('learn');
     Route::post('/learns/{learn}/cancel', [LearnController::class, 'cancel'])->whereNumber('learn');
 

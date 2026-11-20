@@ -10,11 +10,11 @@ use App\Domain\Blocks\Settings\SettingsNormalizer;
 use App\Domain\Learn\Exceptions\SnapshotMissing;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Domain\Learn\ValueObjects\SnapshotHash;
-use App\Models\Lesson;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemManager;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Боевой резолвер снапшота урока.
@@ -42,7 +42,6 @@ final readonly class S3SnapshotResolver implements SnapshotResolverInterface
         private LessonSnapshotAssemblerInterface $assembler,
         private Cache $cache,
         private FilesystemManager $filesystems,
-        private Lesson $lessons,
         private string $disk,
         private string $prefix,
         private int $cacheTtl,
@@ -79,20 +78,19 @@ final readonly class S3SnapshotResolver implements SnapshotResolverInterface
             return new LessonId($lessonId);
         }
 
-        // Снапшот зафиксирован в прохождении — ищем владельца по БД.
-        /** @var Lesson|null $lesson */
-        $lesson = $this->lessons->newQuery()
+        // Снапшот зафиксирован в прохождении — ищем урок по learns.lesson_snapshot.
+        $lessonId = DB::table('learns')
             ->where('lesson_snapshot', $hash->value)
             ->orderBy('id')
-            ->first();
+            ->value('lesson_id');
 
-        if ($lesson === null) {
-            throw new SnapshotMissing("No lesson references snapshot {$hash->value}");
+        if ($lessonId === null) {
+            throw new SnapshotMissing("No learn references snapshot {$hash->value}");
         }
 
-        $this->cache->put(self::LESSON_BY_HASH_PREFIX.$hash->value, $lesson->id, $this->cacheTtl);
+        $this->cache->put(self::LESSON_BY_HASH_PREFIX.$hash->value, (int) $lessonId, $this->cacheTtl);
 
-        return new LessonId($lesson->id);
+        return new LessonId((int) $lessonId);
     }
 
     private function resolve(LessonId $lessonId, bool $verifyFile): SnapshotHash
