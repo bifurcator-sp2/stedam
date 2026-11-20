@@ -83,4 +83,12 @@ class Learn extends Model
     {
         return $this->hasMany(LearnStatus::class, 'learn_id');
     }
+
+    /**
+     * Оценки прохождения (предварительная и итоговая).
+     */
+    public function grades(): HasMany
+    {
+        return $this->hasMany(LearnGrade::class, 'learn_id');
+    }
 }

@@ -21,6 +21,13 @@ Artisan::command('inspire', function () {
     ->onOneServer()
     ->runInBackground();
 
+// Создание недостающих оценок для завершённых прохождений — раз в минуту.
+\Illuminate\Support\Facades\Schedule::command('learn:make-grades')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
 // Системная архивация устаревших прохождений — раз в сутки в 05:00.
 // Критерии — в config/learn.php (переопределяются через .env).
 \Illuminate\Support\Facades\Schedule::command('learn:archive')
