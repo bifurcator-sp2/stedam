@@ -46,6 +46,11 @@ class AppServiceProvider extends ServiceProvider
             \App\Application\Learn\Ports\LessonRepositoryInterface::class,
             \App\Infrastructure\Persistence\Repositories\EloquentLessonRepository::class,
         );
+        // Запись сырых ответов (штрихи) в learns.answers.
+        $this->app->bind(
+            \App\Application\Learn\Ports\LearnAnswersWriterInterface::class,
+            \App\Infrastructure\Persistence\Repositories\EloquentLearnAnswersWriter::class,
+        );
 
         // ===== Домен «уроки и задания» (DDD-слои) =====
         //

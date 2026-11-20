@@ -14,6 +14,7 @@ use App\Application\Learn\Actions\ListLearnsAction;
 use App\Application\Learn\Actions\ListParentChildrenAction;
 use App\Application\Learn\Actions\ListParentLearnsAction;
 use App\Application\Learn\Actions\ListTeacherStudentsAction;
+use App\Application\Learn\Actions\LearnSaveAction;
 use App\Application\Lessons\Actions\ListLessonsAction;
 use App\Application\Learn\Actions\MarkDoneAction;
 use App\Application\Learn\Actions\SaveAnswersAction;
@@ -27,6 +28,7 @@ use App\Application\Lessons\DTOs\LessonTypeOption;
 use App\Application\Lessons\Ports\LessonRepositoryInterface;
 use App\Application\Learn\DTOs\GradeLearnData;
 use App\Application\Learn\DTOs\LearnListFilter;
+use App\Application\Learn\DTOs\LearnSaveData;
 use App\Application\Learn\DTOs\MarkDoneData;
 use App\Application\Learn\DTOs\SaveAnswersData;
 use App\Application\Learn\DTOs\ScheduleLearnData;
@@ -42,6 +44,7 @@ use App\Domain\Learn\ValueObjects\UserId;
 use App\Http\Resources\LearnResource;
 use App\Http\Resources\LessonListResource;
 use App\Http\Resources\LessonTypeResource;
+use App\Models\Learn as LearnModel;
 use App\Models\Lesson;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -193,8 +196,13 @@ class LearnController
             lessonId: new LessonId((int) $validated['lesson_id']),
         ));
 
+        $learnModel = LearnModel::query()->findOrFail($learn->id()->value);
+
         return response()->json(
-            new LearnResource($learn),
+            array_merge(
+                (new LearnResource($learn))->resolve($request),
+                ['answers' => $learnModel->answers ?? []],
+            ),
             201,
         );
     }
@@ -226,6 +234,35 @@ class LearnController
         ));
 
         return response()->json(new LearnResource($entity));
+    }
+
+    /**
+     * Сохранение learn (только владелец — своё прохождение).
+     *
+     * body: { learn_id: int, answers: [ { version: int, strokes: [...] }, ... ] }
+     */
+    public function saveLearn(Request $request, LearnSaveAction $action): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'learn_id' => ['required', 'integer', 'exists:learns,id'],
+            'answers'  => ['present', 'array'],
+        ]);
+
+        $learn = $action(new LearnSaveData(
+            learnId: new LearnId((int) $validated['learn_id']),
+            viewerId: new UserId((int) $user->id),
+            answers: $validated['answers'],
+        ));
+
+        return response()->json([
+            'learn_id' => $learn->id()?->value,
+            'answers'  => $validated['answers'],
+        ]);
     }
 
     /**
