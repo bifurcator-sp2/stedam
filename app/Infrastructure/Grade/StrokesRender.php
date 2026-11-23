@@ -11,10 +11,14 @@ use Symfony\Component\Process\Process;
 /**
  * Рендер рукописных штрихов whiteboard в PNG.
  *
- * Пайплайн: strokes -> SVG -> PNG (rsvg-convert). Боевой метод — stream():
- * PNG отдаётся потоком и не копируется в память PHP. render() — отладочный:
- * сохраняет PNG в локальный temp/stroke_render, чтобы периодически глазами
- * проверять корректность рендера.
+ * Пайплайн: strokes -> SVG (с обрезкой по чернилам и масштабом во viewBox)
+ * -> PNG (rsvg-convert). Боевой метод — stream(): PNG отдаётся потоком и не
+ * копируется в память PHP. render() — отладочный: сохраняет PNG в локальный
+ * temp/stroke_render, чтобы периодически глазами проверять корректность рендера.
+ *
+ * Обрезка и увеличение выполняются ДО растеризации: в SVG выставляется
+ * viewBox по границам чернил, а рендер идёт в увеличенный холст. Векторный
+ * масштаб даёт чёткие линии без bicubic-артефактов повторной растеризации.
  */
 class StrokesRender
 {
@@ -29,13 +33,18 @@ class StrokesRender
      * то есть занимают около 1/400 кадра. При рендере 1:1 нейросеть теряет
      * детали (числитель/знаменатель дроби сливаются), поэтому PNG обрезается
      * по чернилам, масштабируется и кладётся на белый холст с полями.
+     *
+     * TARGET_WIDTH — желаемая ширина области чернил для распознавания,
+     * MAX_SCALE оберегает от раздувания крошечных чернил, MAX_OUTPUT размеры
+     * итогового PNG, чтобы не упереться в лимиты модели и в память rsvg.
      */
     private const CROP_PADDING      = 6;
-    private const MIN_SCALE         = 2;
-    private const MAX_SCALE         = 8;
+    private const MIN_SCALE         = 2.0;
+    private const MAX_SCALE         = 8.0;
     private const TARGET_WIDTH      = 1600;
     private const OUTPUT_MARGIN     = 24;
-    private const INK_LUMINANCE     = 160;
+    private const MAX_OUTPUT        = 2400;
+    private const MIN_STROKE_SIZE   = 0.5;
 
     /**
      * ОТЛАДОЧНЫЙ метод: рендерит PNG и сохраняет в локальный temp, чтобы
@@ -59,7 +68,7 @@ class StrokesRender
             $path = self::DIRECTORY . '/' . bin2hex(random_bytes(16)) . '.png';
 
             if (!Storage::disk(self::DISK)->writeStream($path, $stream)) {
-                throw new RuntimeException("Не удалось сохранить PNG в {$path}");
+                throw new RuntimeException("Не удалось сохранить PNG в $path");
             }
 
             return $path;
@@ -71,7 +80,9 @@ class StrokesRender
     /**
      * Рендерит штрихи в PNG и отдаёт поток изображения, не копируя PNG в строку.
      *
-     * Основной боевой путь. PNG ни разу не материализуется в строку PHP:
+     * Основной боевой путь. Обрезка по чернилам и увеличение выполняются в SVG
+     * (viewBox), а не по пикселям: изображение растеризуется сразу в конечный
+     * размер, поэтому нет ни двойной растеризации, ни bicubic-артефактов.
      * rsvg-convert пишет в файл в /dev/shm (-o), мы открываем его и сразу
      * удаляем — данные читаются из дескриптора и освобождаются при fclose.
      *
@@ -92,17 +103,22 @@ class StrokesRender
             throw new RuntimeException("Некорректный размер холста: {$whiteboardWidth}x{$whiteboardHeight}");
         }
 
-        $svg = $this->buildSvg($strokes, $whiteboardWidth, $whiteboardHeight);
+        $geometry = $this->canvasGeometry($strokes, $whiteboardWidth, $whiteboardHeight);
 
-        $stream = $this->rasterizeToStream($svg, $whiteboardWidth, $whiteboardHeight);
+        $svg = $this->buildSvg(
+            $strokes,
+            $geometry['width'],
+            $geometry['height'],
+            $geometry['viewBoxX'],
+            $geometry['viewBoxY'],
+            $geometry['viewBoxW'],
+            $geometry['viewBoxH'],
+        );
+
+        $stream = $this->rasterizeToStream($svg, $geometry['width'], $geometry['height']);
 
         // SVG-строка может быть крупной — не держим её до конца вызова.
         unset($svg);
-
-        // Тихие тонкие линии нейросеть не разбирает: вырезаем область чернил
-        // и увеличиваем её. Пустой холст остаётся пустым — модель должна
-        // увидеть, что решения нет.
-        $stream = $this->prepareForGrading($stream);
 
         if ($saveDebugImage) {
             $this->saveDebugCopy($stream);
@@ -112,136 +128,143 @@ class StrokesRender
     }
 
     /**
-     * Обрезает PNG по чернилам и увеличивает до читаемого размера.
+     * Геометрия холста для рендера: размер PNG и viewBox в координатах SVG.
      *
-     * Без этой подготовки штрих толщиной 2 px на холсте 854x130 занимает
-     * 1/400 кадра и при распознавании сливается: модель видит «кашу».
-     * Если чернил нет (пустой ответ), холст возвращается без изменений.
+     * Чернила обрезаются по границам штрихов и увеличиваются так, чтобы
+     * область (по горизонтали) заняла около TARGET_WIDTH пикселей. Масштаб
+     * применяется к самому холсту через viewBox — линии остаются векторами
+     * до момента растеризации, поэтому текст выходит чётким без артефактов.
      *
-     * @param resource $stream поток с PNG (читаемый, изначально в начале)
+     * Если чернил нет (пустой ответ или одни ластики), холст отдаётся 1:1:
+     * модель должна увидеть, что решения нет.
      *
-     * @return resource поток с подготовленным PNG
+     * @param array<int, array<string, mixed>> $strokes
+     *
+     * @return array{width: int, height: int, viewBoxX: float, viewBoxY: float, viewBoxW: float, viewBoxH: float}
      */
-    private function prepareForGrading($stream)
+    private function canvasGeometry(array $strokes, int $whiteboardWidth, int $whiteboardHeight): array
     {
-        $png = stream_get_contents($stream);
-        fclose($stream);
+        $bounds = $this->computeInkBounds($strokes, $whiteboardWidth, $whiteboardHeight);
 
-        if ($png === false || $png === '') {
-            throw new RuntimeException('Не удалось прочитать PNG для подготовки');
+        if ($bounds === null) {
+            return [
+                'width'    => $whiteboardWidth,
+                'height'   => $whiteboardHeight,
+                'viewBoxX' => 0.0,
+                'viewBoxY' => 0.0,
+                'viewBoxW' => (float) $whiteboardWidth,
+                'viewBoxH' => (float) $whiteboardHeight,
+            ];
         }
 
-        $image = @imagecreatefromstring($png);
-        unset($png);
+        [$minX, $minY, $maxX, $maxY] = $bounds;
 
-        if ($image === false) {
-            throw new RuntimeException('GD не смог разобрать PNG');
-        }
+        $cropW = max(1.0, $maxX - $minX);
+        $cropH = max(1.0, $maxY - $minY);
 
-        try {
-            $prepared = $this->cropInk($image);
-        } finally {
-            imagedestroy($image);
-        }
+        // Целевой масштаб по ширине чернил + пределы, чтобы не раздувать PNG:
+        // MAX_SCALE для крошечных чернил и MAX_OUTPUT по каждому измерению
+        // для огромных, иначе крупный черновик упрётся в память rsvg-convert.
+        $maxScaleByW = (self::MAX_OUTPUT - 2 * self::OUTPUT_MARGIN) / $cropW;
+        $maxScaleByH = (self::MAX_OUTPUT - 2 * self::OUTPUT_MARGIN) / $cropH;
 
-        ob_start();
-        imagepng($prepared);
-        $out = (string) ob_get_clean();
-        imagedestroy($prepared);
+        $scale = min(self::TARGET_WIDTH / $cropW, self::MAX_SCALE, $maxScaleByW, $maxScaleByH);
 
-        $result = fopen('php://temp', 'r+b');
-        if ($result === false) {
-            throw new RuntimeException('Не удалось создать поток для PNG');
-        }
+        // MIN_SCALE применяем последним: минимальное увеличение важнее
+        // лимита MAX_OUTPUT — иначе мелкие чернила останутся нечитаемыми.
+        $scale = max(self::MIN_SCALE, $scale);
 
-        fwrite($result, $out);
-        rewind($result);
+        $outputW = (int) round($cropW * $scale + 2 * self::OUTPUT_MARGIN);
+        $outputH = (int) round($cropH * $scale + 2 * self::OUTPUT_MARGIN);
 
-        return $result;
+        $innerW = $outputW - 2 * self::OUTPUT_MARGIN;
+        $innerH = $outputH - 2 * self::OUTPUT_MARGIN;
+
+        // Размер области viewBox выводим из внутренних размеров PNG, а не из
+        // scale напрямую: так пропорции PNG и viewBox совпадают точно, без
+        // белых полос при preserveAspectRatio="none".
+        $offsetX = ($innerW / $cropW - 1) / 2;
+        $offsetY = ($innerH / $cropH - 1) / 2;
+
+        return [
+            'width'    => $outputW,
+            'height'   => $outputH,
+            'viewBoxX' => $minX - $cropW * $offsetX,
+            'viewBoxY' => $minY - $cropH * $offsetY,
+            'viewBoxW' => $innerW,
+            'viewBoxH' => $innerH,
+        ];
     }
 
     /**
-     * Вырезает прямоугольник с чернилами, масштабирует его и кладёт на белый
-     * холст с полями. Если чернил нет, возвращает исходное изображение.
+     * Границы видимых чернил в координатах SVG.
      *
-     * @param \GdImage $image
-     */
-    private function cropInk($image)
-    {
-        $width  = imagesx($image);
-        $height = imagesy($image);
-
-        [$minX, $minY, $maxX, $maxY] = $this->inkBounds($image, $width, $height);
-
-        if ($maxX < $minX) {
-            return $image;
-        }
-
-        $minX = max(0, $minX - self::CROP_PADDING);
-        $minY = max(0, $minY - self::CROP_PADDING);
-        $maxX = min($width - 1, $maxX + self::CROP_PADDING);
-        $maxY = min($height - 1, $maxY + self::CROP_PADDING);
-
-        $cropW = $maxX - $minX + 1;
-        $cropH = $maxY - $minY + 1;
-
-        $scale = (int) max(self::MIN_SCALE, min(self::MAX_SCALE, floor(self::TARGET_WIDTH / max(1, $cropW))));
-
-        $crop = imagecrop($image, ['x' => $minX, 'y' => $minY, 'width' => $cropW, 'height' => $cropH]);
-        if ($crop === false) {
-            return $image;
-        }
-
-        $scaled = imagescale($crop, $cropW * $scale, $cropH * $scale, IMG_BICUBIC_FIXED);
-        imagedestroy($crop);
-
-        if ($scaled === false) {
-            return $image;
-        }
-
-        $canvasW = $cropW * $scale + 2 * self::OUTPUT_MARGIN;
-        $canvasH = $cropH * $scale + 2 * self::OUTPUT_MARGIN;
-
-        $canvas = imagecreatetruecolor($canvasW, $canvasH);
-        $white  = imagecolorallocate($canvas, 255, 255, 255);
-        imagefilledrectangle($canvas, 0, 0, $canvasW - 1, $canvasH - 1, $white);
-        imagecopy($canvas, $scaled, self::OUTPUT_MARGIN, self::OUTPUT_MARGIN, 0, 0, $cropW * $scale, $cropH * $scale);
-
-        imagedestroy($scaled);
-
-        return $canvas;
-    }
-
-    /**
-     * Границы тёмных пикселей. Если чернил нет — [$width, $height, -1, -1].
+     * Учитывает толщину каждого штриха (size/2) и CROP_PADDING.
+     * Если штрихов нет или все они ластики — возвращает null.
      *
-     * @param \GdImage $image
-     * @return array{0: int, 1: int, 2: int, 3: int}
+     * @param array<int, array<string, mixed>> $strokes
+     *
+     * @return array{0: float, 1: float, 2: float, 3: float}|null
      */
-    private function inkBounds($image, int $width, int $height): array
-    {
-        $minX = $width;
-        $minY = $height;
-        $maxX = -1;
-        $maxY = -1;
+    private function computeInkBounds(
+        array $strokes,
+        int $canvasWidth,
+        int $canvasHeight,
+    ): ?array {
+        $minX = PHP_FLOAT_MAX;
+        $minY = PHP_FLOAT_MAX;
+        $maxX = -PHP_FLOAT_MAX;
+        $maxY = -PHP_FLOAT_MAX;
 
-        for ($y = 0; $y < $height; $y++) {
-            for ($x = 0; $x < $width; $x++) {
-                $rgb = imagecolorat($image, $x, $y);
-                $luminance = (($rgb >> 16) & 0xFF) * 0.299
-                    + (($rgb >> 8) & 0xFF) * 0.587
-                    + ($rgb & 0xFF) * 0.114;
+        foreach ($strokes as $stroke) {
+            if (!is_array($stroke) || !empty($stroke['eraser'])) {
+                continue;
+            }
 
-                if ($luminance < self::INK_LUMINANCE) {
-                    $minX = min($minX, $x);
-                    $maxX = max($maxX, $x);
-                    $minY = min($minY, $y);
-                    $maxY = max($maxY, $y);
-                }
+            $points = $this->validPoints($stroke);
+            if ($points === []) {
+                continue;
+            }
+
+            $half = $this->strokeSize($stroke) / 2.0;
+
+            foreach ($points as $point) {
+                $x = (float) $point['x'];
+                $y = (float) $point['y'];
+
+                $minX = min($minX, $x - $half);
+                $maxX = max($maxX, $x + $half);
+                $minY = min($minY, $y - $half);
+                $maxY = max($maxY, $y + $half);
             }
         }
 
+        if ($minX > $maxX) {
+            return null;
+        }
+
+        $minX = max(0.0, $minX - self::CROP_PADDING);
+        $minY = max(0.0, $minY - self::CROP_PADDING);
+        $maxX = min((float) $canvasWidth, $maxX + self::CROP_PADDING);
+        $maxY = min((float) $canvasHeight, $maxY + self::CROP_PADDING);
+
+        if ($maxX <= $minX || $maxY <= $minY) {
+            return null;
+        }
+
         return [$minX, $minY, $maxX, $maxY];
+    }
+
+    /**
+     * Толщина штриха с защитой от некорректных значений из JSON.
+     *
+     * @param array<string, mixed> $stroke
+     */
+    private function strokeSize(array $stroke): float
+    {
+        $size = is_numeric($stroke['size'] ?? null) ? (float) $stroke['size'] : self::DEFAULT_SIZE;
+
+        return max(self::MIN_STROKE_SIZE, $size);
     }
 
     /**
@@ -289,12 +312,28 @@ class StrokesRender
     /**
      * @param array<int, array<string, mixed>> $strokes
      */
-    public function buildSvg(array $strokes, int $width, int $height): string
-    {
+    public function buildSvg(
+        array $strokes,
+        int $width,
+        int $height,
+        ?float $viewBoxX = null,
+        ?float $viewBoxY = null,
+        ?float $viewBoxW = null,
+        ?float $viewBoxH = null,
+    ): string {
         // Оптимизация: вместо конкатенации строки на каждом штрихе (O(n²)
         // переаллокаций на больших холстах) SVG строится по частям и
         // склеивается один раз через implode.
-        $parts = [$this->svgHeader($width, $height)];
+        $parts = [
+            $this->svgHeader(
+                $width,
+                $height,
+                $viewBoxX ?? 0.0,
+                $viewBoxY ?? 0.0,
+                $viewBoxW ?? (float) $width,
+                $viewBoxH ?? (float) $height,
+            ),
+        ];
 
         foreach ($strokes as $stroke) {
             $element = $this->buildStrokeElement($stroke);
@@ -350,7 +389,7 @@ class StrokesRender
             return null;
         }
 
-        $size  = is_numeric($stroke['size'] ?? null) ? (float) $stroke['size'] : self::DEFAULT_SIZE;
+        $size  = $this->strokeSize($stroke);
         $color = $this->normalizeColor($stroke['color'] ?? null);
 
         if (count($points) === 1) {
@@ -367,13 +406,32 @@ class StrokesRender
 
     /**
      * Открывающая часть SVG — до первого штриха.
+     *
+     * Фон рисуется по viewBox, а не по width/height: при обрезке по чернилам
+     * белый прямоугольник должен покрывать именно видимую область.
+     * preserveAspectRatio="none" — размеры viewBox и PNG в canvasGeometry()
+     * согласованы, поэтому растягивать нечего, а meet/mice дали бы полосы
+     * из-за округления размеров.
      */
-    private function svgHeader(int $width, int $height): string
-    {
+    private function svgHeader(
+        int $width,
+        int $height,
+        float $viewBoxX,
+        float $viewBoxY,
+        float $viewBoxW,
+        float $viewBoxH,
+    ): string {
+        $vbX = $this->f($viewBoxX);
+        $vbY = $this->f($viewBoxY);
+        $vbW = $this->f($viewBoxW);
+        $vbH = $this->f($viewBoxH);
+
         return '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
             . '<svg xmlns="http://www.w3.org/2000/svg" width="' . $width . '" height="' . $height . '"'
-            . ' viewBox="0 0 ' . $width . ' ' . $height . '" version="1.1">'
-            . '<rect x="0" y="0" width="' . $width . '" height="' . $height . '" fill="' . self::BACKGROUND . '"/>'
+            . ' viewBox="' . $vbX . ' ' . $vbY . ' ' . $vbW . ' ' . $vbH . '"'
+            . ' preserveAspectRatio="none" version="1.1">'
+            . '<rect x="' . $vbX . '" y="' . $vbY . '" width="' . $vbW . '" height="' . $vbH
+            . '" fill="' . self::BACKGROUND . '"/>'
             . '<g fill="none" stroke-linecap="round" stroke-linejoin="round">';
     }
 
