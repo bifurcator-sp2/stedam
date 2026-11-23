@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Lessons\DTOs;
 
+use App\Application\Lessons\Enums\ActualLessonsScope;
 use App\Domain\Lessons\ValueObjects\FullTextSearchQuery;
 use App\Domain\Lessons\ValueObjects\TaxonomyId;
 use App\Domain\Lessons\ValueObjects\UserId;
@@ -17,7 +18,10 @@ use App\Domain\Lessons\ValueObjects\UserId;
  *   — search       — уже нормализованный поисковый запрос (null — поиска нет);
  *   — ownerId      — ограничение «только мои» (для личного кабинета);
  *   — onlyPublished— ограничение «только опубликованные» (для каталога);
- *   — orderBy      — колонка сортировки (по умолчанию — по id, от новых).
+ *   — orderBy      — колонка сортировки (по умолчанию — по id, от новых);
+ *   — scope        — срез «актуальных уроков» по learns пользователя
+ *                    (null — без фильтра); сортировка задаётся срезом;
+ *   — viewerId     — пользователь, чьи learns учитывает срез.
  */
 final readonly class LessonListFilter
 {
@@ -27,6 +31,8 @@ final readonly class LessonListFilter
         public ?UserId $ownerId = null,
         public bool $onlyPublished = false,
         public string $orderBy = 'id',
+        public ?ActualLessonsScope $scope = null,
+        public ?UserId $viewerId = null,
     ) {}
 
     public static function default(): self

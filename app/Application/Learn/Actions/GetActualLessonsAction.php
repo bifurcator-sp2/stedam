@@ -5,16 +5,21 @@ declare(strict_types=1);
 namespace App\Application\Learn\Actions;
 
 use App\Application\Lessons\DTOs\LessonListFilter;
+use App\Application\Lessons\Enums\ActualLessonsScope;
 use App\Application\Lessons\Ports\LessonsQueryInterface;
 use App\Application\Shared\Pagination\PaginatedResult;
 use App\Domain\Lessons\ValueObjects\FullTextSearchQuery;
+use App\Domain\Lessons\ValueObjects\UserId;
 
 /**
  * «Актуальные уроки»: постраничный список опубликованных уроков.
  *
  * Отличие от каталога (ListLessonsAction):
- *   — не учитывается владелец (user_id) и таксономия (tax) — только поиск;
- *   — сортировка по updated_at: недавно обновлённые — вверху.
+ *   — не учитывается таксономия (tax) — только поиск;
+ *   — по умолчанию сортировка по updated_at (недавно обновлённые — вверху);
+ *   — параметр filter=unassigned|assigned|continue|grades сужает список
+ *     по learns текущего пользователя и задаёт свою сортировку
+ *     (см. ActualLessonsScope). Без filter поведение не меняется.
  */
 final readonly class GetActualLessonsAction
 {
@@ -23,16 +28,21 @@ final readonly class GetActualLessonsAction
     ) {}
 
     /**
-     * @param array<string, mixed> $input query-параметры запроса (используется только search)
+     * @param array<string, mixed> $input query-параметры запроса (search, filter)
      * @return PaginatedResult<\App\Models\Lesson>
      */
-    public function paginate(array $input, int $page, int $perPage): PaginatedResult
+    public function paginate(array $input, int $page, int $perPage, int $viewerId): PaginatedResult
     {
+        $scope = ActualLessonsScope::tryFrom((string) ($input['filter'] ?? ''));
+
         return $this->lessons->paginate(
             new LessonListFilter(
                 search: self::buildSearch($input['search'] ?? null),
                 onlyPublished: true,
                 orderBy: 'updated_at',
+                // Без filter — прежнее поведение: только поиск и updated_at.
+                scope: $scope,
+                viewerId: $scope !== null ? new UserId($viewerId) : null,
             ),
             $page,
             $perPage,

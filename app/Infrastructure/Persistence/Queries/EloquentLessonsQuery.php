@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Infrastructure\Persistence\Queries;
 
 use App\Application\Lessons\DTOs\LessonListFilter;
+use App\Application\Lessons\Enums\ActualLessonsScope;
 use App\Application\Lessons\Ports\LessonsQueryInterface;
 use App\Application\Shared\Pagination\PaginatedResult;
+use App\Domain\Learn\Enums\LearnStatus;
+use App\Models\LearnStatus as LearnStatusModel;
 use App\Models\Lesson;
 use App\Models\Taxonomy;
 use Illuminate\Database\Eloquent\Builder;
@@ -109,6 +112,87 @@ final class EloquentLessonsQuery implements LessonsQueryInterface
             $orderBy = 'id';
         }
 
-        return $query->orderByDesc($orderBy);
+        $query->orderByDesc($orderBy);
+
+        // Срез «актуальных уроков»: сужает выборку по learns пользователя
+        // и переопределяет сортировку (она задаётся срезом).
+        if ($filter->scope !== null && $filter->viewerId !== null) {
+            $this->applyScope($query, $filter->scope, $filter->viewerId->value);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Срез «актуальных уроков» по learns текущего пользователя.
+     *
+     * Сортировка внутри learn-срезов — по моменту жизни learn, поэтому
+     * основная сортировка lessons сбрасывается.
+     *
+     * @param Builder<Lesson> $query
+     */
+    private function applyScope(Builder $query, ActualLessonsScope $scope, int $viewerId): void
+    {
+        $query->reorder();
+
+        switch ($scope) {
+            case ActualLessonsScope::Unassigned:
+                // Без learns пользователя; новые уроки — выше.
+                $query
+                    ->whereNotExists(fn ($sub) => $sub
+                        ->selectRaw('1')
+                        ->from('learns')
+                        ->whereColumn('learns.lesson_id', 'lessons.id')
+                        ->where('learns.user_id', $viewerId))
+                    ->orderByDesc('lessons.created_at')
+                    ->orderByDesc('lessons.id');
+                break;
+
+            case ActualLessonsScope::Assigned:
+                // learns в статусе created; недавно назначенные — выше.
+                $query
+                    ->join('learns', 'learns.lesson_id', '=', 'lessons.id')
+                    ->where('learns.user_id', $viewerId)
+                    ->where('learns.status', LearnStatus::Created->value)
+                    ->orderByDesc('learns.created_at')
+                    ->orderByDesc('learns.id');
+                break;
+
+            case ActualLessonsScope::Continue:
+                // learns в статусе in_progress; недавно сменившие статус — выше.
+                $lastStatusDate = LearnStatusModel::query()
+                    ->selectRaw('max(learn_statuses.status_date)')
+                    ->whereColumn('learn_statuses.learn_id', 'learns.id');
+
+                $query
+                    ->join('learns', 'learns.lesson_id', '=', 'lessons.id')
+                    ->where('learns.user_id', $viewerId)
+                    ->where('learns.status', LearnStatus::InProgress->value)
+                    ->orderByDesc($lastStatusDate)
+                    ->orderByDesc('learns.id');
+                break;
+
+            case ActualLessonsScope::Grades:
+                // Есть оценка (в любом статусе); недавно обновлённая — выше.
+                // Условие — через exists (без дублей уроков), сортировка —
+                // по максимальному updated_at оценки по всем learns урока.
+                $query
+                    ->whereExists(fn ($sub) => $sub
+                        ->selectRaw('1')
+                        ->from('learns')
+                        ->join('learn_grades', 'learn_grades.learn_id', '=', 'learns.id')
+                        ->whereColumn('learns.lesson_id', 'lessons.id')
+                        ->where('learns.user_id', $viewerId))
+                    ->orderByDesc(
+                        fn ($sub) => $sub
+                            ->selectRaw('max(learn_grades.updated_at)')
+                            ->from('learns')
+                            ->join('learn_grades', 'learn_grades.learn_id', '=', 'learns.id')
+                            ->whereColumn('learns.lesson_id', 'lessons.id')
+                            ->where('learns.user_id', $viewerId),
+                    )
+                    ->orderByDesc('lessons.id');
+                break;
+        }
     }
 }

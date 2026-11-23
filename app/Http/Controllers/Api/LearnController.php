@@ -25,6 +25,7 @@ use App\Application\Learn\Context\ViewerRole;
 use App\Application\Learn\Ports\LearnRepositoryInterface;
 use App\Application\Lessons\Actions\ListLessonTypesAction;
 use App\Application\Lessons\DTOs\LessonTypeOption;
+use App\Application\Lessons\Enums\ActualLessonsScope;
 use App\Application\Lessons\Ports\LessonRepositoryInterface;
 use App\Application\Learn\DTOs\GradeLearnData;
 use App\Application\Learn\DTOs\LearnListFilter;
@@ -49,6 +50,7 @@ use App\Models\Lesson;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 
 class LearnController
 {
@@ -86,10 +88,12 @@ class LearnController
     }
 
     /**
-     * Актуальные уроки: опубликованные, без учёта автора и таксономии,
-     * сортировка по updated_at (недавно обновлённые — вверху).
+     * Актуальные уроки: опубликованные, без учёта автора и таксономии.
      *
-     * GET /lessons/actual?search=<...>&page=1&per_page=20
+     * GET /lessons/actual?search=<...>&filter=<unassigned|assigned|continue|grades>&page=1&per_page=20
+     *
+     * Без filter — сортировка по updated_at (недавно обновлённые — вверху).
+     * С filter — срез по learns текущего пользователя (см. ActualLessonsScope).
      */
     public function getActualLessons(Request $request, GetActualLessonsAction $getActualLessons): JsonResponse
     {
@@ -98,6 +102,10 @@ class LearnController
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
+        $request->validate([
+            'filter' => ['nullable', 'string', Rule::enum(ActualLessonsScope::class)],
+        ]);
+
         $page = max(1, (int) $request->integer('page', 1));
         $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
 
@@ -105,6 +113,7 @@ class LearnController
             $request->query(),
             $page,
             $perPage,
+            (int) $user->id,
         );
 
         return response()->json([
