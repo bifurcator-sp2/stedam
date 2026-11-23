@@ -573,6 +573,10 @@ class BlockSettingsRegistry
                             children: self::getContentTypes(FilePurpose::Gallery2)
                         ),
                         new SettingDefinition(
+                            /*
+                             * Это определение тестового задания
+                             * В каждом блоке оно может быть реализовано только одно
+                             * */
                             key: 'test',
                             type: SettingType::Array,
                             label: 'Задание',

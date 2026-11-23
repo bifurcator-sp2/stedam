@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Enums\LearnGradeStatus;
-use App\Infrastructure\Grade\StrokesRender;
+use App\Infrastructure\Grade\MLpregrader;
 use App\Models\LearnGrade;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -15,8 +15,8 @@ use Throwable;
  * Долгоживущий поштучный воркер предварительной оценки.
  *
  * Берёт самый старый pending LearnGrade, атомарно клеймит его
- * (pre_grading через lockForUpdate + skipLocked), рендерит вайтборды
- * из answers через StrokesRender, затем ставит pre_graded / failed.
+ * (pre_grading через lockForUpdate + skipLocked), передаёт в MLpregrader,
+ * который рендерит вайтборды и ставит pre_graded / failed.
  *
  * Один процесс, без параллелизма и без очередей.
  * Проверка:
@@ -31,7 +31,7 @@ class PreGradeLearnsCommand extends Command
 
     protected $description = 'Рендерит вайтборды pending-оценок (поштучно, синхронный цикл)';
 
-    public function handle(StrokesRender $render): int
+    public function handle(MLpregrader $pregrader): int
     {
         $sleep  = max(1, (int) $this->option('sleep'));
         $width  = max(1, (int) $this->option('width'));
@@ -59,20 +59,10 @@ class PreGradeLearnsCommand extends Command
             $this->info("Claimed LearnGrade #{$grade->id}");
 
             try {
-                $render->renderLearn($grade->learn, $width, $height);
-
-                LearnGrade::query()->whereKey($grade->id)->update([
-                    'status' => LearnGradeStatus::PreGraded->value,
-                    'error'  => null,
-                ]);
+                $pregrader->pregrade($grade, $width, $height);
 
                 $this->info("LearnGrade #{$grade->id} → pre_graded");
             } catch (Throwable $e) {
-                LearnGrade::query()->whereKey($grade->id)->update([
-                    'status' => LearnGradeStatus::Failed->value,
-                    'error'  => $e->getMessage(),
-                ]);
-
                 $this->error("LearnGrade #{$grade->id} → failed: {$e->getMessage()}");
             }
         }

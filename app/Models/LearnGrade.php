@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Доменной логики не содержит: правила выставления оценки — в Application-слое.
  * pre_grade/pre_grade_confidence — предварительная оценка и её уверенность,
  * grade — итоговая оценка преподавателя. Значения в (0..1) или NULL.
+ * pre_grade_coverage — полнота ответа; pre_grade_info — служебные данные
+ * проверки (JSON); pre_grade_cost/time/memory — затраты на проверку.
  */
 class LearnGrade extends Model
 {
@@ -23,6 +25,11 @@ class LearnGrade extends Model
         'status',
         'pre_grade',
         'pre_grade_confidence',
+        'pre_grade_coverage',
+        'pre_grade_info',
+        'pre_grade_cost',
+        'pre_grade_time',
+        'pre_grade_memory',
         'grade',
         'grader_user_id',
         'grader_comment',
@@ -43,6 +50,11 @@ class LearnGrade extends Model
         'status'               => LearnGradeStatus::class,
         'pre_grade'            => 'float',
         'pre_grade_confidence' => 'float',
+        'pre_grade_coverage'   => 'float',
+        'pre_grade_info'       => 'array',
+        'pre_grade_cost'       => 'float',
+        'pre_grade_time'       => 'float',
+        'pre_grade_memory'     => 'float',
         'grade'                => 'float',
         'grader_user_id'       => 'integer',
     ];

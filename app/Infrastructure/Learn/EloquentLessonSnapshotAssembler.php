@@ -44,6 +44,7 @@ final readonly class EloquentLessonSnapshotAssembler implements LessonSnapshotAs
         foreach ($lesson->allBlocksOrdered() as $order => $block) {
             /** @var LessonBlock $block */
             $isProc   = (bool) $block->is_proc;
+            $is_test  = $block->lesson_id === null || (bool)($block?->is_test);
             $settings = $block->settings ?? [];
 
             if ($isProc) {
@@ -55,6 +56,7 @@ final readonly class EloquentLessonSnapshotAssembler implements LessonSnapshotAs
                 'code'          => $block->block?->code,
                 'order'         => $order,
                 'is_proc'       => $isProc,
+                'is_test'       => $is_test,
                 'resolver_path' => $isProc ? $resolverPath : null,
                 'complexity'    => (float) ($block->complexity ?? 0.0),
                 'settings'      => $settings,
@@ -62,10 +64,10 @@ final readonly class EloquentLessonSnapshotAssembler implements LessonSnapshotAs
         }
 
         return [
-            'lesson_id'   => $lesson->id,
-            'title'       => $lesson->title,
-            'description' => $lesson->description,
-            'locale'      => $lesson->locale,
+            'lesson_id'    => $lesson->id,
+            'title'        => $lesson->title,
+            'description'  => $lesson->description,
+            'locale'       => $lesson->locale,
             // Метаданные урока в корне снапшота: читаются «как есть» при
             // выдаче прохождения, без запросов к lessons/lesson_taxonomy.
             'type'         => $lesson->type,

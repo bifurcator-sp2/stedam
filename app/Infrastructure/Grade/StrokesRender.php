@@ -31,12 +31,7 @@ class StrokesRender
      */
     public function render(array $strokes, int $whiteboardWidth, int $whiteboardHeight): string
     {
-        if ($whiteboardWidth <= 0 || $whiteboardHeight <= 0) {
-            throw new RuntimeException("Некорректный размер холста: {$whiteboardWidth}x{$whiteboardHeight}");
-        }
-
-        $svg = $this->buildSvg($strokes, $whiteboardWidth, $whiteboardHeight);
-        $png = $this->rasterize($svg, $whiteboardWidth, $whiteboardHeight);
+        $png = $this->stream($strokes, $whiteboardWidth, $whiteboardHeight);
 
         $path = self::DIRECTORY . '/' . bin2hex(random_bytes(16)) . '.png';
 
@@ -47,6 +42,36 @@ class StrokesRender
         }
 
         return $path;
+    }
+
+    /**
+     * Рендерит штрихи в PNG и отдаёт поток изображения из памяти, без записи на диск.
+     *
+     * @param array<int, array<string, mixed>> $strokes массив штрихов (формат JSON whiteboard)
+     * @param int                              $whiteboardWidth  ширина холста в CSS-пикселях
+     * @param int                              $whiteboardHeight высота холста в CSS-пикселях
+     *
+     * @return resource поток с бинарным содержимым PNG (читаемый с начала)
+     */
+    public function stream(array $strokes, int $whiteboardWidth, int $whiteboardHeight)
+    {
+        if ($whiteboardWidth <= 0 || $whiteboardHeight <= 0) {
+            throw new RuntimeException("Некорректный размер холста: {$whiteboardWidth}x{$whiteboardHeight}");
+        }
+
+        $svg = $this->buildSvg($strokes, $whiteboardWidth, $whiteboardHeight);
+        $png = $this->rasterize($svg, $whiteboardWidth, $whiteboardHeight);
+
+        $stream = fopen('php://temp', 'r+b');
+
+        if ($stream === false) {
+            throw new RuntimeException('Не удалось создать поток для PNG');
+        }
+
+        fwrite($stream, $png);
+        rewind($stream);
+
+        return $stream;
     }
 
     /**
@@ -161,36 +186,29 @@ class StrokesRender
             : self::DEFAULT_COLOR;
     }
 
+    /**
+     * Растеризует SVG в PNG целиком через память процесса: SVG подаётся на stdin,
+     * PNG читается из stdout. Без временных файлов на диске.
+     */
     private function rasterize(string $svg, int $width, int $height): string
     {
-        $tmpDir = sys_get_temp_dir();
-        $svgFile = $tmpDir . '/wb_' . bin2hex(random_bytes(8)) . '.svg';
-        $pngFile = $tmpDir . '/wb_' . bin2hex(random_bytes(8)) . '.png';
+        // rsvg-convert без входного файла читает SVG из stdin; без -o пишет PNG в stdout.
+        $process = new Process([
+            'rsvg-convert',
+            '-f', 'png',
+            '-w', (string) $width,
+            '-h', (string) $height,
+        ]);
+        $process->setInput($svg);
+        $process->run();
 
-        file_put_contents($svgFile, $svg);
-
-        try {
-            $process = new Process([
-                'rsvg-convert',
-                '-f', 'png',
-                '-w', (string) $width,
-                '-h', (string) $height,
-                '-o', $pngFile,
-                $svgFile,
-            ]);
-            $process->run();
-
-            if (!$process->isSuccessful()) {
-                throw new ProcessFailedException($process);
-            }
-
-            $png = file_get_contents($pngFile);
-        } finally {
-            @unlink($svgFile);
-            @unlink($pngFile);
+        if (!$process->isSuccessful()) {
+            throw new ProcessFailedException($process);
         }
 
-        if (!is_string($png) || $png === '') {
+        $png = $process->getOutput();
+
+        if ($png === '') {
             throw new RuntimeException('rsvg-convert вернул пустой PNG');
         }
 
