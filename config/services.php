@@ -38,6 +38,10 @@ return [
         'api_key'  => env('DEEPSEEK_API_KEY'),
         'base_url' => env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
         'model'    => env('DEEPSEEK_VISION_MODEL', 'deepseek-v4-flash-vision-exp'),
-        'timeout'  => env('DEEPSEEK_TIMEOUT', 120),
+        // Модель reasoning-типа: на размышления тратится больше токенов, чем
+        // на сам JSON-ответ. При маленьком лимите ответ приходит пустым
+        // (finish_reason=length, content=null) — нужен запас.
+        'max_tokens' => env('DEEPSEEK_MAX_TOKENS', 2048),
+        'timeout'    => env('DEEPSEEK_TIMEOUT', 120),
     ],
 ];

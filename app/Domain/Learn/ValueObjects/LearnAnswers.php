@@ -11,6 +11,7 @@ use JsonSerializable;
  * Ответы ученика на задания урока — список изображений-ответов.
  *
  * Каждый элемент: { index (позиция блока, >=1), file (ключ в S3) }.
+ * Для ответа «пером» file = null: штрихи лежат в learns.answers.
  * Неизменяемый value object.
  *
  * Инварианты:
@@ -52,13 +53,18 @@ final readonly class LearnAnswers implements JsonSerializable
     /**
      * Восстановление из персистентного представления (список {index,file}).
      *
+     * Ответ «пером» (whiteboard) — это блок штрихов с полем index (позиция
+     * задания, 1-based) и без file: он восстанавливается с file = null.
+     * Блоки без index (старые записи, ответы клиента без позиции) в домен
+     * не попадают — позицию выполненного задания восстановить нельзя.
+     *
      * @param array<int, array{index?: mixed, file?: mixed}> $raw
      */
     public static function fromArray(array $raw): self
     {
         $items = [];
         foreach ($raw as $entry) {
-            if (!is_array($entry) || !isset($entry['index'], $entry['file'])) {
+            if (!is_array($entry) || !isset($entry['index'])) {
                 // Чужие/старые данные считаем «нет ответа».
                 continue;
             }
@@ -68,7 +74,8 @@ final readonly class LearnAnswers implements JsonSerializable
                 // игнорируются, а не роняют гидратацию.
                 continue;
             }
-            $items[] = new AnswerImage($index, (string) $entry['file']);
+            $file = isset($entry['file']) ? (string) $entry['file'] : null;
+            $items[] = new AnswerImage($index, $file);
         }
 
         return new self($items);

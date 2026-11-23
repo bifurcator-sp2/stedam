@@ -33,21 +33,33 @@ class TestsResolver
         $snapshotJson = $this->snapshots->read($hash);
 
         //процедурные задания, если они есть в уроке
-        //каждый из learn->questions имеет index. Это положение задания в уроке, начинается с 1
+        //каждый из learn->questions имеет index = order блока + 1 (номер задания в уроке, 1-based)
         $procedureTests = $grade->learn->questions;
 
-        $snapshotWithsFilledProcTests = self::fillProcTests($snapshotJson, $procedureTests);
+        // Один декод на весь пайплайн: дальше всё идёт по ссылке (&$snapshot),
+        // без копий массива на каждом шаге — в долгоживущем воркере это
+        // иначе даёт 2-3 копии JSON снапшота плюс base64 всех картинок.
+        $snapshot = is_array($snapshotJson)
+            ? $snapshotJson
+            : json_decode((string) $snapshotJson, true);
+
+        if (!is_array($snapshot) || !isset($snapshot['blocks']) || !is_array($snapshot['blocks'])) {
+            return [];
+        }
+
+        self::fillProcTests($snapshot, $procedureTests);
 
         //массив объектов с ответами ученика на все задания в уроке
-        //естественный порядок ответов стрго соответствует порядку заданий в уроке
-        $studentAnswers = $grade->learn->answers;
+        //естественный порядок ответов строго соответствует порядку блоков в уроке:
+        //ответ на позиции i адресует блок с order = i.
+        //Берём сырой JSON из Eloquent-модели: whiteboard-блоки не содержат index,
+        //и доменный LearnAnswers (только {index, file}) их бы отбросил.
+        $studentAnswers = $grade->learn->getAttribute('answers');
 
-        $snapshotWithsFilledProcTestsAndStudentAnswers = $this->fillStudentAnswers($snapshotWithsFilledProcTests, $studentAnswers);
+        $this->fillStudentAnswers($snapshot, $studentAnswers);
+        unset($snapshotJson, $procedureTests, $studentAnswers);
 
-        $allTestsWithQuestionsEthalonsAndStudentAnswers = self::extractTestsWithQuestionsEthalonsAndStudentAnswers($snapshotWithsFilledProcTestsAndStudentAnswers);
-
-        return $allTestsWithQuestionsEthalonsAndStudentAnswers;
-
+        return self::extractTestsWithQuestionsEthalonsAndStudentAnswers($snapshot);
     }
 
     /*
@@ -55,15 +67,17 @@ class TestsResolver
      * заполняет ими содержание процедурных заданий из $procedureTests
      *
      * $procedureTests — массив learn->questions: [{index, question, answer, solution, ...}],
-     * где index — положение задания в уроке, начиная с 1 (order блока + 1).
+     * где index = order блока + 1 (номер задания в уроке, 1-based; та же
+     * нумерация, что у answers[].index, см. LearnQuestionsBuilder).
      * В снапшоте генеративный текст proc-узла обнулён ассемблером, поэтому
      * условие задачи и эталон подставляются из $procedureTests.
+     *
+     * Модифицирует переданный snapshot по ссылке (без копии массива).
      * */
-    public static function fillProcTests($snapshotJson, $procedureTests)
+    public static function fillProcTests(&$snapshot, $procedureTests): void
     {
-        $snapshot = is_array($snapshotJson) ? $snapshotJson : json_decode((string) $snapshotJson, true);
         if (!is_array($snapshot) || !isset($snapshot['blocks']) || !is_array($snapshot['blocks'])) {
-            return $snapshotJson;
+            return;
         }
 
         $byIndex = [];
@@ -73,55 +87,67 @@ class TestsResolver
             }
         }
 
+        if ($byIndex === []) {
+            return;
+        }
+
+        $position = 0;
         foreach ($snapshot['blocks'] as $k => $block) {
+            $currentPosition = $position++;
             if (!is_array($block) || empty($block['is_proc'])) {
                 continue;
             }
 
             $order = (int) ($block['order'] ?? $k);
-            // index задания 1-based, order блока 0-based
-            $procedureTest = $byIndex[$order + 1] ?? null;
+            // index задания 1-based, order блока 0-based. У глобальных заданий
+            // order = 0, поэтому их номер берём по позиции в снапшоте (= позиция
+            // в Lesson::allBlocksOrdered(), из которой строится QuestionItem::index).
+            $procedureTest = $byIndex[$order + 1] ?? $byIndex[$currentPosition + 1] ?? null;
             if ($procedureTest === null) {
                 continue;
             }
 
-            $block['settings'] = self::fillBlockSettings(
+            $snapshot['blocks'][$k]['settings'] = self::fillBlockSettings(
                 is_array($block['settings'] ?? null) ? $block['settings'] : [],
                 (string) ($procedureTest['question'] ?? ''),
                 self::buildEthalon($procedureTest),
             );
-
-            $snapshot['blocks'][$k] = $block;
         }
-
-        // массивы blocks/children после фильтра сохраняют дырявые ключи — нормализуем
-        $snapshot['blocks'] = array_values($snapshot['blocks']);
-
-        return $snapshot;
     }
 
     /*
-     * Все задания которые есть снапшоте урока заполняет ответами ученика из $studentAnswers в строгом сответствии с их порядком
+     * Все задания, которые есть в снапшоте урока, заполняет ответами ученика
+     * из $studentAnswers в строгом соответствии с их порядком.
      *
-     * $studentAnswers — массив learn->answers: [{index, file}], index 1-based
-     * соответствует order блока + 1. Изображение читается с диска ответов
-     * (config('learn.answers.disk')) и кодируется в data URI, чтобы дальше
-     * уйти в нейросеть.
+     * $studentAnswers — массив learn->answers: JSON-блоки whiteboard либо
+     * [{index, file}] для ответов-картинок.
+     *
+     * Ответы на ВСЕ задания (а не только на процедурные) идут в натуральном
+     * порядке блоков: ответ на позиции i адресует блок с order = i. Это та же
+     * нумерация, что у вопросов (QuestionItem::index = order + 1) и у
+     * AnswerImage::index: элемент с явным index ставится в блок order = index - 1.
+     *
+     * Изображение читается с диска ответов (config('learn.answers.disk'))
+     * и кодируется в data URI, чтобы дальше уйти в нейросеть.
+     *
+     * Модифицирует переданный snapshot по ссылке (без копии массива).
      * */
-    public function fillStudentAnswers($snapshotWithsFilledProcTests, $studentAnswers)
+    public function fillStudentAnswers(&$snapshot, $studentAnswers): void
     {
-        $snapshot = is_array($snapshotWithsFilledProcTests) ? $snapshotWithsFilledProcTests : json_decode((string) $snapshotWithsFilledProcTests, true);
         if (!is_array($snapshot) || !isset($snapshot['blocks']) || !is_array($snapshot['blocks'])) {
-            return $snapshotWithsFilledProcTests;
+            return;
         }
 
         if (!(array) $studentAnswers) {
-            return $snapshotWithsFilledProcTests;
+            return;
         }
 
         $disk = Storage::disk((string) config('learn.answers.disk', 's3_public'));
 
+        // $byIndex — только ответы с явным index (позиция задания в уроке, 1-based)
         $byIndex = [];
+        // $positional — ответы без index, в том порядке, в котором пришли (1-based)
+        $positional = [];
         foreach (array_values((array) $studentAnswers) as $position => $answer) {
             if (!is_array($answer)) {
                 continue;
@@ -133,49 +159,69 @@ class TestsResolver
                 continue;
             }
 
-            if (isset($answer['strokes']) && is_array($answer['strokes'])) {
-                // если index не сохранён, блок whiteboard идёт по порядку (1-based)
-                $index = isset($answer['index']) ? (int) $answer['index'] : $position + 1;
-                $byIndex[$index] = ['file' => null, 'strokes' => $answer];
-            }
-        }
-
-        foreach ($snapshot['blocks'] as $k => $block) {
-            if (!is_array($block) || empty($block['is_test'])) {
+            // Ответ на whiteboard хранится по-разному: блоком ({strokes: [...],
+            // whiteboard_width, ...}), голым списком штрихов или одним штрихом.
+            $entry = ['file' => null, 'strokes' => self::normalizeStrokeSource($answer)];
+            if ($entry['strokes'] === null) {
                 continue;
             }
 
-            $order  = (int) ($block['order'] ?? $k);
+            if (isset($answer['index'])) {
+                $byIndex[(int) $answer['index']] = $entry;
+            } else {
+                $positional[] = $entry;
+            }
+        }
+
+        // Ответы без index (whiteboard-блоки) адресуют задания по их порядку:
+        // ответ на позиции i относится к i-му заданию урока. Задание — это блок
+        // с формулировкой (testLabel, его ставит процедурное задание) или
+        // процедурный блок (is_proc). Опираться на order/позицию среди ВСЕХ
+        // блоков нельзя: между заданиями стоят статические блоки, а у глобальных
+        // заданий из pivot order вообще равен 0, из-за чего позиционные ответы
+        // раньше уезжали в статические блоки 0..4 вместо заданий 20..24.
+        $taskPositions = [];
+        foreach ($snapshot['blocks'] as $k => $block) {
+            if (!self::isLessonTask($block)) {
+                continue;
+            }
+            $taskPositions[] = $k;
+        }
+
+        $answerIndex = 0;
+        foreach ($snapshot['blocks'] as $k => $block) {
+            if (!is_array($block)) {
+                continue;
+            }
+
+            $order = (int) ($block['order'] ?? $k);
+            // Явный index адресует задание по order + 1 (его проставляет клиент),
+            // позиционный ответ — по порядку заданий в уроке.
             $answer = $byIndex[$order + 1] ?? null;
+            if ($answer === null && ($taskPositions[$answerIndex] ?? null) === $k) {
+                $answer = $positional[$answerIndex] ?? null;
+                $answerIndex++;
+            }
+
             if ($answer === null) {
                 continue;
             }
 
             if ($answer['strokes'] !== null) {
-                // strokes может быть плоским списком штрихов, а может — списком блоков whiteboard
-                $strokes = $answer['strokes'];
-                if (isset($strokes['points'])) {
-                    $strokes = [$strokes];
-                }
-                $strokeBlocks = array_values($strokes);
-                if (is_array($strokeBlocks[0]['strokes'] ?? null)) {
-                    $strokeBlocks = $strokeBlocks[0]['strokes'];
-                }
+                $source = $answer['strokes'];
 
-                $width  = (int) ($answer['whiteboard_width'] ?? 854);
-                $height = (int) ($answer['whiteboard_height'] ?? 314);
-                //$svg    = $this->render->buildSvg($strokeBlocks, $width, $height);
+                $strokeBlocks = is_array($source['strokes'] ?? null) ? $source['strokes'] : [];
 
+                $width  = (int) ($source['whiteboard_width'] ?? 854);
+                $height = (int) ($source['whiteboard_height'] ?? 314);
 
-                    $block['student_answer'] = [
-                        'strokeBlocks'=>$strokeBlocks,
-                        'width'=>$width,
-                        'height'=>$height
-                    ];
+                $block['student_answer'] = [
+                    'strokeBlocks' => $strokeBlocks,
+                    'width'        => $width,
+                    'height'       => $height,
+                ];
 
-                    $snapshot['blocks'][$k] = $block;
-
-
+                $snapshot['blocks'][$k] = $block;
                 continue;
             }
 
@@ -191,25 +237,57 @@ class TestsResolver
 
             $mime = $disk->mimeType($file) ?: (str_ends_with(strtolower($file), '.webp') ? 'image/webp' : 'image/png');
 
+            $dataUri = 'data:' . $mime . ';base64,' . base64_encode($binary);
+            unset($binary);
+
             $block['student_answer'] = [
                 'file'     => $file,
                 'mime'     => $mime,
-                'data_uri' => 'data:' . $mime . ';base64,' . base64_encode($binary),
+                'data_uri' => $dataUri,
             ];
 
             $snapshot['blocks'][$k] = $block;
         }
+    }
 
-        $snapshot['blocks'] = array_values($snapshot['blocks']);
+    /**
+     * Приводит ответ на whiteboard к блоку {strokes: [...], whiteboard_width, whiteboard_height}.
+     *
+     * Поддерживаются три формы: блок whiteboard, плоский список штрихов
+     * и один штрих без обёртки. null — если это не ответ на whiteboard.
+     *
+     * @param mixed $answer
+     * @return array<string, mixed>|null
+     */
+    private static function normalizeStrokeSource($answer): ?array
+    {
+        if (!is_array($answer)) {
+            return null;
+        }
 
-        return $snapshot;
+        // блок whiteboard
+        if (isset($answer['strokes']) && is_array($answer['strokes'])) {
+            return $answer;
+        }
+
+        // плоский список штрихов
+        if (array_is_list($answer) && isset($answer[0]['points']) && is_array($answer[0]['points'])) {
+            return ['strokes' => $answer];
+        }
+
+        // один штрих без обёртки
+        if (isset($answer['points']) && is_array($answer['points'])) {
+            return ['strokes' => [$answer]];
+        }
+
+        return null;
     }
 
     /*
      * Забирает из полностью актуализированного снапшта с заданиями и ответами ученика данные для отправки на оценку нейросетью
      *
      * */
-    public static function extractTestsWithQuestionsEthalonsAndStudentAnswers($snapshotWithsFilledProcTestsAndStudentAnswers)
+    public static function extractTestsWithQuestionsEthalonsAndStudentAnswers($snapshotWithsFilledProcTestsAndStudentAnswers): array
     {
         /* формат элемена списка
          *  [
@@ -235,6 +313,14 @@ class TestsResolver
                 continue;
             }
 
+            // Задание — это блок с формулировкой (testLabel). У обычных статических
+            // блоков и у блоков-заглушек с is_test=true testLabel нет, хотя в
+            // настройках может лежать посторонний ethalon. Без такой проверки в
+            // оценку попадали блоки с чужим эталоном-заглушкой.
+            if (self::extractText($block['settings'] ?? null) === '') {
+                continue;
+            }
+
             $ethalon = self::extractEthalon($block['settings'] ?? null);
             if ($ethalon === null) {
                 continue;
@@ -247,7 +333,11 @@ class TestsResolver
                 'complexity'     => (float) ($block['complexity'] ?? 0.0),
                 'task'           => self::extractText($block['settings'] ?? null),
                 'solution'       => $ethalon,
-                'student_answer' => is_array($studentAnswer) ? (string) ($studentAnswer['data_uri'] ?? '') : '',
+                // Ответ ученика либо картинкой ({file, mime, data_uri}),
+                // либо штрихами ({strokeBlocks, width, height}). Отдаём
+                // структуру как есть: MLpregrader сам решает, рендерить ли
+                // штрихи или брать готовый data URI.
+                'student_answer' => is_array($studentAnswer) ? $studentAnswer : null,
             ];
         }
 
@@ -362,6 +452,24 @@ class TestsResolver
     }
 
     /**
+     * Задание ли это: блок с формулировкой (testLabel) либо процедурный блок.
+     *
+     * @param mixed $block
+     */
+    private static function isLessonTask($block): bool
+    {
+        if (!is_array($block)) {
+            return false;
+        }
+
+        if (!empty($block['is_proc'])) {
+            return true;
+        }
+
+        return self::extractText($block['settings'] ?? null) !== '';
+    }
+
+    /**
      * @param array<string, mixed> $node
      */
     private static function hasChildKey(array $node, string $key): bool
@@ -374,5 +482,4 @@ class TestsResolver
 
         return false;
     }
-
 }

@@ -12,14 +12,16 @@ class DeepSeekAnswerGrader
     private string $apiKey;
     private string $baseUrl;
     private string $model;
+    private int $maxTokens;
     private int $timeout;
 
     public function __construct()
     {
-        $this->apiKey  = (string) config('services.deepseek.api_key');
-        $this->baseUrl = rtrim((string) config('services.deepseek.base_url'), '/');
-        $this->model   = (string) config('services.deepseek.model');
-        $this->timeout = (int) config('services.deepseek.timeout', 120);
+        $this->apiKey    = (string) config('services.deepseek.api_key');
+        $this->baseUrl   = rtrim((string) config('services.deepseek.base_url'), '/');
+        $this->model     = (string) config('services.deepseek.model');
+        $this->maxTokens = (int) config('services.deepseek.max_tokens', 2048);
+        $this->timeout   = (int) config('services.deepseek.timeout', 120);
 
         if ($this->apiKey === '') {
             throw new RuntimeException('DeepSeek API key is not configured.');
@@ -47,7 +49,7 @@ class DeepSeekAnswerGrader
                 'messages'        => $messages,
                 'response_format' => ['type' => 'json_object'],
                 'temperature'     => 0.0,
-                'max_tokens'      => 512,
+                'max_tokens'      => $this->maxTokens,
             ]);
 
         if ($response->failed()) {
@@ -61,7 +63,13 @@ class DeepSeekAnswerGrader
         $content = $response->json('choices.0.message.content');
 
         if (!is_string($content) || trim($content) === '') {
-            throw new RuntimeException('DeepSeek returned an empty response.');
+            // Пустой content у reasoning-модели означает, что весь бюджет
+            // max_tokens ушёл на размышления (finish_reason=length).
+            throw new RuntimeException(sprintf(
+                'DeepSeek returned an empty response (finish_reason=%s, completion_tokens=%d).',
+                (string) $response->json('choices.0.finish_reason', 'unknown'),
+                (int) $response->json('usage.completion_tokens', 0),
+            ));
         }
 
         $data = json_decode($content, true);
