@@ -77,6 +77,16 @@ class AppServiceProvider extends ServiceProvider
             \App\Application\Lessons\Ports\LessonTypeQueryInterface::class,
             \App\Infrastructure\Persistence\Queries\EloquentLessonTypeQuery::class,
         );
+        // Read-side: срез «актуальных уроков» (learns пользователя) по уроку.
+        $this->app->bind(
+            \App\Application\Learn\Ports\ActualLessonScopeBuilderInterface::class,
+            \App\Infrastructure\Persistence\Queries\EloquentActualLessonScopeBuilder::class,
+        );
+        // Read-side: последняя оценка по уроку для пользователя (срез grades).
+        $this->app->bind(
+            \App\Application\Learn\Ports\ActualLessonGradeQueryInterface::class,
+            \App\Infrastructure\Persistence\Queries\EloquentActualLessonGradeQuery::class,
+        );
         $this->app->bind(
             \App\Application\LessonBlocks\Ports\LessonBlockRepositoryInterface::class,
             \App\Infrastructure\Persistence\Repositories\EloquentLessonBlockRepository::class,

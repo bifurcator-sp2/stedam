@@ -41,6 +41,11 @@ enum LearnStatus: string
         return $this === self::InProgress;
     }
 
+    public function isInProgress(): bool
+    {
+        return $this === self::InProgress;
+    }
+
     public function isOpen(): bool
     {
         return $this === self::Created || $this === self::Scheduled;

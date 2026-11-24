@@ -29,6 +29,18 @@ class LessonListResource extends JsonResource
             'updated_at' => $this->updated_at?->toISOString(),
             // Возвращаем массив ID таксономий
             'taxonomy_ids' => $this->whenLoaded('taxonomies', fn () => $this->taxonomies->pluck('id')->toArray()),
+            // Срез «актуальных уроков» для текущего ученика (unassigned/
+            // assigned/continue/grades). Вычисляется только в списках,
+            // где он реально нужен; иначе ключа в ответе нет.
+            'actual_lesson_scope' => $this->when(
+                $this->getAttribute('actual_lesson_scope') !== null,
+                fn () => $this->getAttribute('actual_lesson_scope'),
+            ),
+            // Оценка по уроку ({grade, status}) — только для среза grades.
+            'grade' => $this->when(
+                $this->getAttribute('actual_lesson_grade') !== null,
+                fn () => $this->getAttribute('actual_lesson_grade'),
+            ),
         ];
     }
 }

@@ -70,6 +70,11 @@ final readonly class ViewerContext
         return in_array($role, $this->roles, true);
     }
 
+    public function isStudent(): bool
+    {
+        return $this->hasRole(ViewerRole::Student);
+    }
+
     public function isReadOnly(): bool
     {
         return !$this->canGrade && !$this->canAssign && !$this->canSchedule
