@@ -875,3 +875,183 @@ Event::listen(ActionError::class,    SendErrorNotifications::class);
 - **SoftDeletes** — не вводится (п.23).
 
 **Заключение:** все содержательные и организационные вопросы закрыты — раздел 1 дополнен по attempts-таблице, `N=6`/`M=30`, `lock_timeout=5с`, HTTP-кодам 422/409 и каналу `database`. Feature/Unit-тесты **вне scope** текущей задачи; сценарии из 2.8.1/2.8.2/2.9 остаются приёмочными критериями этапа QA. План `2.14` выполняется без прогонов `migrate`/`pest` (только по явному указанию заказчика). **Документ готов к передаче исполнителю.**
+
+---
+
+# 3. Статус выполнения
+
+> Раздел ведётся исполнителем. Источник истины — разделы 1 и 2 (не меняются). Здесь фиксируется фактическое состояние работ, чтобы продолжить реализацию в новом окне без повторного анализа.
+>
+> Ветка: `feature/requested-actions` (от `learn_domain`).
+> Окружение: Laravel 13.8 / PHP 8.3 / PostgreSQL 17.11 / Sail (WSL2). `QUEUE_CONNECTION=database`.
+> Прогоны `artisan migrate` и `pest` — **только по явному указанию заказчика** (пока не выполнялись).
+
+## 3.1. Итог по этапам `2.14`
+
+| Этап | Состав | Статус |
+|------|--------|--------|
+| 1 | Домен: Enum `RequestedActionStatus`, `ApprovalResult`, `VoteDecision`; VO `RequestedActionId`, `UserId`, `RequestedActionRef`, `RequestedActionPayload`, `QuorumSnapshot`, `ApprovalMessage`; агрегат `RequestedAction`; DTO `RegisterApprovalOutcome`; исключения; события; `ErrorCollector` | **готово** |
+| 2 | Порты `Application/RequestedActions/Ports/*` + контракт `RequestedActionHandler` | **готово** |
+| 3 | Инфраструктура: конфиг, 4 миграции, 3 тонкие модели, маппер, 3 Eloquent-репозитория, реестр, менеджер партиций | **готово** |
+| 4 | Application-действия: `EnsureRequestedActionPartitionAction`, `CreateRequestedActionAction`, `RegisterApprovalAction`, `HandleApprovedAction`, `SendRequestNotificationsAction`, `GetRequestFormAction`, `GetApprovalFormAction` | **готово** |
+| 5 | MVP-обработчик `RequestedActionStudentToTeacher` + нотификация `RequestedActionNotification` + `TeacherDeletedException`, `UserRelationAlreadyExistsException` | **готово** |
+| 6 | `RequestedActionServiceProvider` (биндинги портов/`ErrorCollector`), листенеры уведомлений `ActionApproved/Rejected/Done/Error`, регистрация в `bootstrap/providers.php` | **готово** (см. 3.7) |
+| 7 | 5 Artisan-команд (messaging, handle-approved, retention, prune-complete, stale-recovery) + расписание в `routes/console.php` | **готово** (см. 3.9) |
+| 8 | HTTP: контроллер, маршруты (`request-action/*`, `approve-action/*`), маппинг исключений в `bootstrap/app.php` | **готово** (см. 3.10) |
+| 9 | Application-действия retention / prune-complete / stale-recovery (внутри команд этапа 7) | **готово** (см. 3.8) |
+| 10 | Финальный `pint`, обновление этого раздела | **готово** (см. 3.11) |
+
+## 3.2. Созданные файлы (факт)
+
+**Домен (`app/Domain/RequestedActions/`)**
+- `Enums/RequestedActionStatus.php`, `Enums/ApprovalResult.php`, `Enums/VoteDecision.php`
+- `Entities/RequestedAction.php` (иммутабельный агрегат: `create/restore`, `ref()` бросает `LogicException` до сохранения, `withId`, `markPending`, `markApproved`, `reject`, `markDone`, `markError`, `markComplete`)
+- `ValueObjects/`: `RequestedActionId`, `UserId`, `RequestedActionRef`, `RequestedActionPayload`, `QuorumSnapshot`, `ApprovalMessage`
+- `DTOs/RegisterApprovalOutcome.php`
+- `Events/`: `ActionRequested`, `ActionApproved`, `ActionRejected`, `ActionDone`, `ActionError`
+- `Errors/ErrorCollector.php` (константа `FATAL_UNCLASSIFIED`, `isDomain`, `collect`, `errorEvent`)
+- `Exceptions/`: `RequestedActionDomainException`, `RequestedActionRetryableException`, `RequestedActionFatalException` (`errorCode()` без суффикса `Exception`), `HandlerNotFoundException`, `RequestedActionNotFoundException`, `NotAConsumerException`, `AlreadyVotedException`, `RequestedActionAlreadyClosedException` (`currentStatus()`), `InvalidStatusTransitionException`, `ConcurrentModificationException`, **`TeacherDeletedException`**, **`UserRelationAlreadyExistsException`**
+- `Handlers/RequestedActionHandler.php` (контракт), **`Handlers/RequestedActionStudentToTeacher.php`**
+
+**Application (`app/Application/RequestedActions/`)**
+- `Ports/`: `RequestedActionRepositoryInterface`, `RequestedActionVotesRepositoryInterface`, `RequestedActionHandleAttemptsRepositoryInterface`, `RequestedActionHandlerRegistryInterface`
+- `Actions/`: `EnsureRequestedActionPartitionAction`, `CreateRequestedActionAction`, `RegisterApprovalAction`, `HandleApprovedAction`, `SendRequestNotificationsAction`, `GetRequestFormAction`, `GetApprovalFormAction`
+
+**Инфраструктура (`app/Infrastructure/`)**
+- `Persistence/Repositories/EloquentRequestedActionRepository.php`, `EloquentRequestedActionVotesRepository.php`, `EloquentRequestedActionHandleAttemptsRepository.php`
+- `Persistence/Mappers/RequestedActionMapper.php`
+- `RequestedActions/RequestedActionHandlerRegistry.php`, `RequestedActions/RequestedActionPartitionManager.php`
+
+**Прочее**
+- `app/Models/RequestedAction.php`, `app/Models/RequestedActionVote.php`, `app/Models/RequestedActionHandleAttempt.php`
+- **`app/Notifications/RequestedActions/RequestedActionNotification.php`** (канал `database` по умолчанию, `ShouldQueue`)
+- `config/requested_actions.php`
+- Миграции: `2026_12_01_100000_create_requested_actions_table.php`, `2026_12_01_100100_create_requested_action_votes_table.php`, `2026_12_01_100200_create_requested_action_handle_attempts_table.php`, **`2026_12_01_100300_create_notifications_table.php`** (таблицы `notifications` в проекте до задачи не было)
+
+## 3.3. Ключевые технические решения, зафиксированные в коде
+
+- **Идемпотентность (п.21):** только через generated column `payload_hash = md5(payload::text)`. `CreateRequestedActionAction` считает хэш локально (рекурсивный `ksort` + NFC через `Normalizer` + `json_encode`) только для read-back после вставки; в INSERT не участвует.
+- **`ON CONFLICT DO NOTHING` без списка колонок** (п.13) — и в `insertActive`, и в `record()` голосов.
+- **Оптимистичная блокировка `save()`:** `WHERE id = ? AND status = <предыдущий>`, предыдущий статус выводится из целевого (`Approved/Rejected→Pending`, `Done→Approved`, `Pending→Created`, `Error→Approved`, `Created→Created`). 0 строк → `ConcurrentModificationException`.
+- **Раздельные UPDATE `status` и `complete`** (п.19): `complete` — ключ LIST-партиционирования; переезд в завершённую ветку (`markComplete`) — отдельный UPDATE после `ensureCompleteFor()` (DDL вне транзакции UPDATE).
+- **`HandleApprovedAction`:** транзакция A — фиксация attempt (`attempts->start`) перед работой; транзакция B — `findForUpdate` + `handler->handle()`; `RequestedActionRetryableException` → rollback B, `finish(errorCode)`, rethrow (retry воркером); прочие `Throwable` → `markError` (без смены `complete`); успех → `markDone` → `saveDone` (отдельная транзакция) → `ensureCompleteFor` → `markComplete`. После — `finish()` и одно событие `ActionDone`/`ActionError`.
+- **DDL партиций — только raw `DB::statement`** (п.28), вне транзакций INSERT/UPDATE.
+- **События — только после commit**, из Application-слоя (конвенция проекта).
+- **MVP handler `StudentToTeacher`:** payload `student_id`, `teacher_id`, `consumers=[teacher_id]`, `quorum=1`. `handle()` создаёт `UserRelation(parent_user_id=teacher, child_user_id=student, relation='teacher')`, идемпотентность: связи нет → INSERT; связь создана не раньше агрегата → успех; старше агрегата → `UserRelationAlreadyExistsException` (fatal). Удалённый преподаватель → `TeacherDeletedException` (fatal). Уведомления — через `RequestedActionNotification` (`database`), ошибки доставки не пробрасываются.
+- **Партиционирование:** корень `requested_actions` `PARTITION BY LIST(complete)` → ветки `requested_actions_active` / `requested_actions_complete`, каждая `PARTITION BY RANGE(created_at)` по месяцам. Миграция создаёт только лист текущего месяца в активной ветке (с UNIQUE `(user_id, handler, payload_hash)` и частичным индексом `status, updated_at WHERE status='approved'`). Остальные листья — `RequestedActionPartitionManager` во время работы.
+
+## 3.4. Что осталось сделать
+
+**В рамках кода — всё закрыто.** Этапы 6–10 выполнены (3.7–3.11). Открытые пункты — только вне кода, по указанию заказчика / на QA:
+
+- [ ] `./vendor/bin/sail artisan migrate` — создать партиционированные таблицы + `notifications` (не запускалось).
+- [ ] Приёмочные сценарии 2.8.1 / 2.8.2 / 2.9 на чистой БД (этап QA).
+- [ ] (Опционально) `php artisan route:list` / `schedule:list` для визуальной проверки регистрации маршрутов и расписания.
+5. **Этап 10:** финальный `php vendor/bin/pint` по всему скоупу и обновление таблицы в 3.1.
+
+## 3.5. Проверки и окружение
+
+- `php vendor/bin/pint` по написанному скоупу (`app/Domain/RequestedActions`, `app/Application/RequestedActions`, `app/Infrastructure/RequestedActions`, элокуент-репозитории, маппер, модели, нотификация, `config/requested_actions.php`) — выполнен: **53 файла, 22 исправления стиля**.
+- IDE-диагностика: ошибок в `RequestedActionStudentToTeacher`, `EloquentRequestedActionRepository`, `RequestedActionPartitionManager`, `RequestedActionMapper`, миграции `create_requested_actions`, `HandleApprovedAction`, `CreateRequestedActionAction` нет.
+- **НЕ выполнялись** (запрещено без прямого указания заказчика): `artisan migrate`, `pest`.
+- Особенности окружения/инструментов:
+  - команды в WSL запускать как `cd /d C:\ && cmd.exe /c "wsl -d Ubuntu --cd /home/stedam <cmd>" 2>nul`; простые команды работают, вложенные кавычки/`bash -lc` — нет;
+  - Pint запускать как `php vendor/bin/pint ...` (вызов `./vendor/bin/pint` блокируется политикой);
+  - `TodoWrite` требует статусы `PENDING`/`IN_PROGRESS`/`COMPLETED` (заглавными);
+  - PHP CLI в WSL: есть `intl` (`Normalizer`), `pdo_pgsql`, `pcntl`.
+
+## 3.6. Напоминания о конвенциях проекта
+
+- Слои: `app/Domain` (без Laravel), `app/Application` (`final readonly class *Action` c `execute(...)`, порты в `Ports`), `app/Infrastructure` (Eloquent-репозитории, мапперы, адаптеры), `app/Models` (тонкие модели), `app/Console/Commands`, `app/Listeners`, `app/Providers`.
+- Обязательные биндинги уже есть в `AppServiceProvider`: `Clock → SystemClock`, `TransactionManagerInterface → EloquentTransactionManager`.
+- Тонкие модели timestamptz используют трейт `App\Models\Concerns\UsesTimestamptz`.
+- В проекте нет `app/Jobs`; периодические воркеры — Artisan-команды + `Schedule::command(...)` в `routes/console.php`.
+- `App\Models\User` — `Notifiable` (нужно для канала `database`); связь с `user_relations` напрямую через таблицу (FK `parent_user_id`/`child_user_id` → `users`).
+
+## 3.7. Журнал выполнения (этапы 6–10, все закрыты)
+
+> Все 10 этапов `2.14` закрыты. Ниже — журнал по каждому этапу. `artisan migrate` / `pest` не выполнялись (запрет без указания заказчика); функциональная проверка на чистой БД — за этапом QA.
+
+### Этап 6 — провайдер и листенеры уведомлений — ГОТОВО (3.7)
+
+Создано:
+- `app/Providers/RequestedActionServiceProvider.php` (зарегистрирован в `bootstrap/providers.php`):
+  - биндинги портов: `RequestedActionRepositoryInterface → EloquentRequestedActionRepository`, `RequestedActionVotesRepositoryInterface → EloquentRequestedActionVotesRepository`, `RequestedActionHandleAttemptsRepositoryInterface → EloquentRequestedActionHandleAttemptsRepository`, `RequestedActionHandlerRegistryInterface → RequestedActionHandlerRegistry`;
+  - `singleton(ErrorCollector::class)` (stateless);
+  - в `boot()` — `Event::listen(...)` для `ActionApproved` / `ActionRejected` / `ActionDone` / `ActionError`.
+- Листенеры `app/Listeners/RequestedActions/` (все `ShouldQueueAfterCommit`, `$tries = 3`, `$backoff = 30`, по образцу `RecalculateOnCourseChanged`):
+  - `SendApprovalNotifications` → `handler->sendApprovalNotifications()`;
+  - `SendRejectionNotifications` → `handler->sendRejectionNotifications()`;
+  - `SendDoneNotifications` → `handler->sendDoneNotifications()`;
+  - `SendErrorNotifications` → `handler->sendErrorNotifications()`.
+  - Каждый: `actions->find($event->requestedActionId)`; агрегат не найден → `Log::warning` и выход (без исключения — пометка «уведомления не должны ронять воркер»); handler резолвится через реестр по `$event->handler`.
+- `bootstrap/providers.php`: добавлен `App\Providers\RequestedActionServiceProvider::class`.
+
+Проверки: IDE-диагностика — без ошибок; `php vendor/bin/pint` по провайдеру/листенерам/`bootstrap/providers.php` — 1 автоисправление (`bootstrap/providers.php`: `fully_qualified_strict_types`).
+
+Дальше: этап 9 (Application-действия retention/prune/stale-recovery), затем этап 7 (команды + расписание), этап 8 (HTTP).
+
+## 3.8. Этап 9 — Application-действия retention / prune / stale-recovery — ГОТОВО
+
+Созданы в `app/Application/RequestedActions/Actions/`:
+- `RetainActiveLeavesAction::execute(?int $months = null): array` — листья активной ветки, у которых верхняя граница месяца ≤ `now first day of -{active_months} month` → `votes->deleteForLeaf`, `attempts->deleteForLeaf`, `partitions->detachAndDrop`. Текущий и `active_months-1` предыдущих месяцев не трогаются.
+- `PruneCompleteLeavesAction::execute(?int $days = null): array` — листья завершённой ветки с верхней границей ≤ `now - complete_days` → спутники + `detachAndDrop`.
+- `DropOrphanLeavesAction::execute(): array` — `partitions->orphanLeaves()` → `partitions->dropOrphan()` (добивание сирот после сбоя между `DETACH CONCURRENTLY` и `DROP`).
+- `RecoverStaleApprovedAction::execute(?int $limit = null): array{T1:int,T2:int}` — `lockStaleApprovedCandidates` под транзакцией (FOR UPDATE SKIP LOCKED); для каждой строки: `markStaleError` (status=error, complete не меняется) в своей транзакции → `markCompleteById` (complete=true) в отдельной транзакции (п.19) → событие `ActionError` после commit (п.18). Коды: `HANDLE_STALE_NOT_STARTED` (T1) / `HANDLE_STALE_RETRY_EXHAUSTED` (T2).
+- Пороги берутся из `config/requested_actions.php` (`retention.active_months`, `retention.complete_days`, `stale.not_started_hours`, `stale.retry_exhausted_days`, `workers.batch_size`), параметры методов — для ручного прогона/тестов.
+
+Проверки: IDE-диагностика — без ошибок; `php vendor/bin/pint app/Application/RequestedActions/Actions` — 11 файлов, 1 автоисправление.
+
+Дальше: этап 7 (команды + расписание).
+
+## 3.9. Этап 7 — 5 Artisan-команд + расписание — ГОТОВО
+
+Созданы в `app/Console/Commands/` (стиль как `learn:make-grades`; зависимости через DI в `handle()`):
+- `RequestedActionsMessagingCommand` — `requested-actions:messaging {--limit=}` → `SendRequestNotificationsAction::execute(limit)`; печатает число обработанных.
+- `RequestedActionsHandleApprovedCommand` — `requested-actions:handle-approved {--limit=} {--dry-run}` → `nextApprovedBatch(limit)` + `HandleApprovedAction::execute(id)` по каждому; ошибка одного агрегата не останавливает остальные (`try/catch`, `warn`); при ошибках возвращает `FAILURE`.
+- `RequestedActionsRetainCommand` — `requested-actions:retain {--months=}` → `DropOrphanLeavesAction` (до) → `RetainActiveLeavesAction::execute(months)` → `DropOrphanLeavesAction` (после); печатает удалённые листья.
+- `RequestedActionsPruneCompleteCommand` — `requested-actions:prune-complete {--days=}` → сироты до/после + `PruneCompleteLeavesAction::execute(days)`.
+- `RequestedActionsStaleRecoveryCommand` — `requested-actions:stale-recovery {--limit=}` → `RecoverStaleApprovedAction::execute(limit)`; печатает счётчики T1/T2.
+
+Расписание в `routes/console.php` (все `withoutOverlapping()->onOneServer()->runInBackground()`):
+- `requested-actions:messaging` — `everyMinute()`;
+- `requested-actions:handle-approved` — `everyMinute()`;
+- `requested-actions:retain` — `hourly()` (п.20);
+- `requested-actions:prune-complete` — `dailyAt('02:30')`;
+- `requested-actions:stale-recovery` — `dailyAt('02:00')`.
+
+Проверки: IDE-диагностика — без ошибок; `php vendor/bin/pint` по командам и `routes/console.php` — 6 файлов, 1 автоисправление (`routes/console.php`: `fully_qualified_strict_types`). `artisan list`/`schedule:list` не запускались (не требуется без указания заказчика).
+
+Дальше: этап 8 (HTTP).
+
+## 3.10. Этап 8 — HTTP — ГОТОВО
+
+**Контроллер** `app/Http/Controllers/Api/RequestedActionsController.php` (final readonly; только валидация + вызов Action):
+- `form()` — `GET request-action/form` → `GetRequestFormAction::execute(userId, action, arguments)`.
+- `request()` — `POST request-action/request` → `CreateRequestedActionAction::execute(...)`; `null` (handler вернул отказ) → **422** `{message, code: USER_REQUEST_DECLINED}`; успех → **201** `{id, handler, status}`.
+- `approvalForm()` — `GET approve-action/form` → `GetApprovalFormAction::execute(id, userId, arguments)`; `id` обязателен (`required|integer|min:1`) → невалидный = 422.
+- `approve()` — `POST approve-action/approve` → `RegisterApprovalAction::execute(id, userId, arguments)`; ответ `{id, result, status}`; при `ApprovalResult::CLOSED` → **409** `{message, code: REQUESTED_ACTION_CLOSED}`.
+- Обязательный параметр `action` (`required|string|max:64`); инициатор/отвечающий — из `auth()`; остальные плоские ключи уходят в `arguments` (и далее в payload через handler).
+
+**Маршруты** `routes/api.php` — группа `Route::middleware('auth:sanctum')`: `request-action/form`, `request-action/request`, `approve-action/form`, `approve-action/approve` (имена `api.request-action.form|request`, `api.approve-action.form|approve`).
+
+**Маппинг исключений** `bootstrap/app.php` — карта `$requestedActionErrors` (по образцу `$courseErrors`, формат `{message, code}`):
+- `NotAConsumerException` → 403 `NOT_A_CONSUMER`;
+- `RequestedActionNotFoundException` → 404 `REQUESTED_ACTION_NOT_FOUND`;
+- `AlreadyVotedException` → 409 `ALREADY_VOTED`;
+- `RequestedActionAlreadyClosedException` → 409 `REQUESTED_ACTION_CLOSED`;
+- `ConcurrentModificationException` → 409 `CONCURRENT_MODIFICATION`;
+- `RequestedActionDomainException` → 422 `REQUESTED_ACTION_INVALID` (регистрируется после специализированных — те проверяются первыми).
+
+Проверки: IDE-диагностика по контроллеру и `bootstrap/app.php` — без ошибок; `php vendor/bin/pint` по контроллеру, `routes/api.php`, `bootstrap/app.php` — 3 файла, 3 автоисправления.
+
+## 3.11. Этап 10 — финальная проверка и закрытие — ГОТОВО
+
+- Финальный `php vendor/bin/pint` по всему скоупу фичи (Domain/Application/Infrastructure RequestedActions, HTTP-контроллер, листенеры, 5 команд, провайдер, нотификация, 3 модели, конфиг, `routes/api.php`, `routes/console.php`, `bootstrap/app.php`, `bootstrap/providers.php`) — **PASS, 68 файлов, 0 исправлений**.
+- `php -l`: контроллер, `RecoverStaleApprovedAction`, `RequestedActionsHandleApprovedCommand`, `routes/api.php`, `bootstrap/app.php`, `PruneCompleteLeavesAction` — синтаксис OK.
+- IDE-диагностика: без ошибок.
+
+**Итог: все этапы 2.14 закрыты.** Остаются только действия вне кода (выполняются по явному указанию заказчика / на этапе QA):
+1. `./vendor/bin/sail artisan migrate` (создание партиционированных таблиц и `notifications`).
+2. `./vendor/bin/pest` / приёмочные сценарии 2.8.1, 2.8.2, 2.9.
+3. Ветка `feature/requested-actions` — уже создана; merge/PR — по решению заказчика.

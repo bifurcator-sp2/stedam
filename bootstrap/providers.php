@@ -1,8 +1,15 @@
 <?php
 
+use App\Providers\AppServiceProvider;
+use App\Providers\CourseServiceProvider;
+use App\Providers\Filament\StedamPanelProvider;
+use App\Providers\RequestedActionServiceProvider;
+use App\Providers\TestGeneratorServiceProvider;
+
 return [
-    App\Providers\AppServiceProvider::class,
-    App\Providers\CourseServiceProvider::class,
-    App\Providers\Filament\StedamPanelProvider::class,
-    App\Providers\TestGeneratorServiceProvider::class,
+    AppServiceProvider::class,
+    CourseServiceProvider::class,
+    StedamPanelProvider::class,
+    RequestedActionServiceProvider::class,
+    TestGeneratorServiceProvider::class,
 ];
