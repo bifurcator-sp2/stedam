@@ -49,6 +49,11 @@ final readonly class CreateRequestedActionAction
     {
         $handler = $this->handlers->resolve($handlerAlias);
 
+        // Инициатор — из auth(), а не из тела запроса: handler собирает
+        // payload (student_id/user_id) по `user_id`. Явный `user_id` в
+        // аргументах от клиента игнорируется (не даём подменить инициатора).
+        $arguments = ['user_id' => $initiator->value] + $arguments;
+
         $payloadData = $handler->registerUserRequest($arguments);
 
         if ($payloadData === null) {
@@ -127,7 +132,9 @@ final readonly class CreateRequestedActionAction
      * Ключ идемпотентности должен совпадать с generated column
      * `payload_hash = md5(payload::text)` (2.8.1). jsonb канонизирует порядок
      * ключей и экранирование, поэтому локально повторяем каноническую форму:
-     * сортировка ключей рекурсивно, `json_encode` без unicode-эскейпа.
+     * сортировка ключей рекурсивно, `json_encode` без unicode-эскейпа и
+     * постобработка в формат `jsonb::text` — `{"a": 1, "b": [1, 2]}`
+     * (PG печатает пробел после `:` и `,`; PHP по умолчанию — без пробелов).
      */
     private function payloadHash(RequestedAction $action): string
     {
@@ -136,13 +143,66 @@ final readonly class CreateRequestedActionAction
 
     /**
      * Каноническая форма payload, совпадающая с jsonb::text:
-     * ключи отсортированы рекурсивно, строки — в NFC, без unicode-эскейпа.
+     * ключи отсортированы рекурсивно, строки — в NFC, без unicode-эскейпа,
+     * пробелы после `:` и `,` как у jsonb.
      *
      * @param  array<string, mixed>  $data
      */
     private function canonicalize(array $data): string
     {
-        return json_encode($this->prepare($data), JSON_THROW_ON_ERROR);
+        $json = json_encode(
+            $this->prepare($data),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+        );
+
+        return $this->jsonbFormat($json);
+    }
+
+    /**
+     * Заменить разделители вне строковых литералов форматом jsonb:
+     * `:` → `: `, `,` → `, `.
+     */
+    private function jsonbFormat(string $json): string
+    {
+        $result = '';
+        $length = strlen($json);
+        $inString = false;
+        $escaped = false;
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $json[$i];
+
+            if ($inString) {
+                $result .= $char;
+
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ($char === '\\') {
+                    $escaped = true;
+                } elseif ($char === '"') {
+                    $inString = false;
+                }
+
+                continue;
+            }
+
+            if ($char === '"') {
+                $inString = true;
+                $result .= $char;
+
+                continue;
+            }
+
+            if ($char === ':' || $char === ',') {
+                $result .= $char.' ';
+
+                continue;
+            }
+
+            $result .= $char;
+        }
+
+        return $result;
     }
 
     private function prepare(mixed $value): mixed

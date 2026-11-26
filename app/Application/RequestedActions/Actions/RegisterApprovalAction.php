@@ -34,6 +34,7 @@ final readonly class RegisterApprovalAction
     public function __construct(
         private RequestedActionRepositoryInterface $repository,
         private RequestedActionHandlerRegistryInterface $handlers,
+        private EnsureRequestedActionPartitionAction $partitions,
         private TransactionManagerInterface $transactions,
         private Dispatcher $events,
         private Clock $clock,
@@ -56,16 +57,23 @@ final readonly class RegisterApprovalAction
 
             if ($outcome->result->isDecisive()) {
                 // Решение уже принято: pending → approved/rejected.
-                // Смена complete — отдельный UPDATE после save (LIST-партиция).
                 $this->repository->save($outcome->action);
-
-                if ($outcome->action->isComplete()) {
-                    $this->repository->markComplete($outcome->action);
-                }
             }
 
             return $outcome;
         });
+
+        // Переезд в завершённую ветку (rejected): `complete` — ключ
+        // партиционирования LIST, поэтому это отдельный UPDATE и отдельная
+        // транзакция, а DDL листа завершённой ветки выполняется между ними
+        // (как в HandleApprovedAction::saveDone).
+        if ($outcome->result->isDecisive() && $outcome->action->isComplete()) {
+            $this->partitions->executeComplete(
+                $outcome->action->createdAt() ?? $this->clock->now(),
+            );
+
+            $this->repository->markComplete($outcome->action);
+        }
 
         $action = $outcome->action;
         $now = $this->clock->now();

@@ -37,6 +37,7 @@ it('GET /api/lessons/{id} возвращает справочник типов �
         ['Accept-Language' => 'ru'],
     )->assertOk();
 
+    // Справочник один, как и у списка: все типы в порядке sort.
     expect($response->json('type'))->toBe('home_work')
         ->and($response->json('lesson_types'))->toHaveCount(4)
         ->and(collect($response->json('lesson_types'))->pluck('code')->all())
@@ -133,18 +134,14 @@ it('GET /api/lessons отдаёт справочник типов урока д�
         ->assertOk()
         ->assertJsonCount(2, 'data');
 
+    // Справочник — как в БД: по sort, без перестановки «тип первого урока».
     expect(collect($response->json('lesson_types'))->pluck('code')->all())
-        ->toBe(['home_work', 'class_work', 'ind_work', 'control_work'])
-        ->and($response->json('lesson_types.0.title'))->toBe('Домашняя работа')
+        ->toBe(['class_work', 'home_work', 'ind_work', 'control_work'])
+        ->and($response->json('lesson_types.0.code'))->toBe('class_work')
+        ->and($response->json('lesson_types.0.title'))->toBe('Классная работа')
         ->and(collect($response->json('data'))->pluck('type')->all())
         // Список отсортирован по id DESC (свежие первыми).
-        ->toBe(['ind_work', 'home_work'])
-        // Первый элемент справочника — тип показываемого урока с локализованным
-        // названием, дальше остальные типы без дублей.
-        ->and($response->json('lesson_types.0.code'))->toBe('home_work')
-        ->and($response->json('lesson_types.0.title'))->toBe('Домашняя работа')
-        ->and(collect($response->json('lesson_types'))->pluck('code')->all())
-        ->toBe(['home_work', 'class_work', 'ind_work', 'control_work']);
+        ->toBe(['ind_work', 'home_work']);
 
     // Справочник — один на ответ, а не в каждом элементе списка.
     $response->assertJsonPath('data.0.lesson_types', null);

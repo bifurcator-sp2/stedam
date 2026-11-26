@@ -32,7 +32,6 @@ function strategyCourse(array $lessonIds, float $threshold = 0.6, float $multipl
         $lessons[] = CourseLesson::create(
             new LessonId($lessonId),
             $index + 1,
-            null,
             TimeGap::zero(),
         );
     }

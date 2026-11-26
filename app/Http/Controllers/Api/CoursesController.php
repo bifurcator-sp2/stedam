@@ -151,7 +151,9 @@ final readonly class CoursesController
             taxId: isset($validated['tax_id']) ? new TaxonomyId((int) $validated['tax_id']) : null,
         );
 
-        return response()->json($this->courseResource($course), 201);
+        // JSON_PRESERVE_ZERO_FRACTION: коэффициенты (0.0, 100.0) должны
+        // оставаться float в JSON, а не превращаться в int.
+        return response()->json($this->courseResource($course), 201, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     public function update(int $courseId, Request $request, EditCourseHeaderAction $action): JsonResponse
@@ -210,7 +212,7 @@ final readonly class CoursesController
                 : null,
         );
 
-        return response()->json($this->courseResource($course));
+        return response()->json($this->courseResource($course), 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     public function destroy(int $courseId, DeleteCourseAction $action): JsonResponse

@@ -15,11 +15,10 @@ use App\Models\LessonType;
  * `description` считаются аксессорами модели LessonType. Остальные локали
  * загружать незачем — они не попадают в ответ.
  *
- * Правило выбора перевода (текущая локаль → `app.fallback_locale` → первая
- * доступная) реализовано здесь, а не в аксессорах модели: аксессор видит базу
- * лишь для всей таблицы переводов — предел `with()` теряет последний случай,
- * если в базе нет ни текущей, ни fallback-локали. Ключи локалей предзагружены,
- * поэтому три прохода — без запросов к БД.
+ * Правило выбора перевода — текущая локаль → `app.fallback_locale`; прочие
+ * локали не подставляются, чтобы ответ был предсказуем (при отсутствии обоих
+ * `title`/`description` остаются null). `ru` подгружается всегда — он нужен
+ * форме редактирования справочника и не зависит от Accept-Language.
  */
 final class EloquentLessonTypeQuery implements LessonTypeQueryInterface
 {
@@ -50,8 +49,7 @@ final class EloquentLessonTypeQuery implements LessonTypeQueryInterface
         $fallback = (string) config('app.fallback_locale', 'en');
 
         $translation = $type->translations->firstWhere('locale', $locale)
-            ?? $type->translations->firstWhere('locale', $fallback)
-            ?? $type->translations->first();
+            ?? $type->translations->firstWhere('locale', $fallback);
 
         return new LessonTypeOption(
             id: (int) $type->id,

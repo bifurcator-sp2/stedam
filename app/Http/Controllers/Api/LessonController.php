@@ -363,7 +363,8 @@ class LessonController
                 'from'           => $result->items === [] ? null : ($result->page - 1) * $result->perPage + 1,
                 'to'             => $result->items === [] ? null : ($result->page - 1) * $result->perPage + count($result->items),
             ],
-            // Справочник типов — один на весь ответ: фронт отображает
+            // Справочник типов — один на весь ответ и общий для detail
+            // (порядок задаётся колонкой sort): фронт отображает
             // локализованное название вместо кода `type`.
             'lesson_types' => array_map(
                 fn (LessonTypeOption $option) => (new LessonTypeResource($option))->resolve($request),

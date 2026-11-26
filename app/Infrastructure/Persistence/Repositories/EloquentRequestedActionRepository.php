@@ -50,14 +50,14 @@ final readonly class EloquentRequestedActionRepository implements RequestedActio
 
     public function findForUpdate(int $id): ?RequestedAction
     {
-        $row = $this->db->connection()->selectOne(
-            'SELECT * FROM requested_actions WHERE complete = false AND id = ?
-             UNION ALL
-             SELECT * FROM requested_actions WHERE complete = true AND id = ?
-             LIMIT 1
-             FOR UPDATE',
-            [$id, $id],
-        );
+        // Запреты PG: FOR UPDATE нельзя применить ни к UNION, ни к
+        // партиционированному родителю. Поэтому две точки блокировки —
+        // активная и завершённая ветки, каждая через листья (FROM ONLY
+        // вызывать нельзя), и возвращается первая найденная строка.
+        $sql = 'SELECT * FROM requested_actions WHERE complete = %s AND id = ? LIMIT 1 FOR UPDATE';
+
+        $row = $this->db->connection()->selectOne(sprintf($sql, 'false'), [$id])
+            ?? $this->db->connection()->selectOne(sprintf($sql, 'true'), [$id]);
 
         return $row === null ? null : $this->hydrate($row);
     }
@@ -119,9 +119,11 @@ final readonly class EloquentRequestedActionRepository implements RequestedActio
 
     public function markComplete(RequestedAction $action): void
     {
+        // Микросекунды обязательны: timestamptz хранит их, а `created_at = ?`
+        // с точностью до секунды не совпадёт и UPDATE обновил бы 0 строк.
         $this->markCompleteById(
             $this->requireId($action)->value,
-            $this->requireCreatedAt($action)->format('Y-m-d H:i:sP'),
+            $this->requireCreatedAt($action)->format('Y-m-d H:i:s.uP'),
         );
     }
 
@@ -219,10 +221,11 @@ final readonly class EloquentRequestedActionRepository implements RequestedActio
 
     private function hydrate(object $row): RequestedAction
     {
-        $model = new RequestedActionModel;
-        $model->setRawAttributes((array) $row, true);
-
-        return RequestedActionMapper::toDomain($model);
+        // Собираем агрегат из «сырой» строки, минуя касты Eloquent: $dateFormat
+        // моделей (`Y-m-d H:i:s P`) обнуляет микросекунды timestamptz, а по
+        // `created_at = ?` (с микросекундами) идут UPDATE-ы markCompleteById и
+        // stale-recovery — со «срезанной» секундой они не находят строку.
+        return RequestedActionMapper::toDomainFromRow((array) $row);
     }
 
     /**

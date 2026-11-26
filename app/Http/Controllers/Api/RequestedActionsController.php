@@ -37,12 +37,21 @@ final readonly class RequestedActionsController
     ];
 
     /**
-     * GET request-action/form?action=StudentToTeacher&...
+     * GET request-action/form — описание формы запроса на действие.
+     *
+     * Параметры (query-строка):
+     *  - `action`    — обязательный alias обработчика (`StudentToTeacher`).
+     *  - domain-параметры handler'а — любые плоские ключи; для
+     *    `StudentToTeacher` обязателен `teacher_id` (int > 0), иначе 422.
+     *    Инициатор (`user_id`) в аргументы подставляется из `auth()`,
+     *    значение из запроса игнорируется.
+     *
+     * Ответ: `{title, text, approve}` — описание полей формы.
      */
     public function form(Request $request, GetRequestFormAction $action): JsonResponse
     {
         $validated = $request->validate(self::RULES);
-        $arguments = $this->arguments($validated);
+        $arguments = $this->arguments($request, $validated);
 
         return response()->json(
             $action->execute($this->userId($request), $validated['action'], $arguments),
@@ -50,17 +59,25 @@ final readonly class RequestedActionsController
     }
 
     /**
-     * POST request-action/request — создаёт агрегат.
+     * POST request-action/request — создаёт агрегат (запрос на действие).
      *
-     * `registerUserRequest=false` → 422 USER_REQUEST_DECLINED, агрегат не
-     * создаётся. Успех — 201 с краткой карточкой агрегата.
+     * Параметры (тело запроса):
+     *  - `action`    — обязательный alias обработчика (`StudentToTeacher`).
+     *  - `approve`   — ответ пользователя на форму: `true` создаёт агрегат,
+     *    `false`/отсутствие → 422 USER_REQUEST_DECLINED, агрегат не создаётся.
+     *  - domain-параметры handler'а — любые плоские ключи; для
+     *    `StudentToTeacher` обязателен `teacher_id` (int > 0).
+     *    Инициатор (`user_id`) подставляется из `auth()`.
+     *
+     * Успех — 201 `{id, handler, status}`; повторный запрос идемпотентен
+     * (возвращает тот же активный агрегат).
      */
     public function request(
         Request $request,
         CreateRequestedActionAction $action,
     ): JsonResponse {
         $validated = $request->validate(self::RULES);
-        $arguments = $this->arguments($validated);
+        $arguments = $this->arguments($request, $validated);
 
         $created = $action->execute($this->userId($request), $arguments, $validated['action']);
 
@@ -79,16 +96,22 @@ final readonly class RequestedActionsController
     }
 
     /**
-     * GET approve-action/form?action=StudentToTeacher&id=123
+     * GET approve-action/form — описание формы принятия запроса.
      *
-     * `id` обязателен (п.8). Невалидный `id` → 422 (правило валидации).
+     * Параметры (query-строка):
+     *  - `action` — обязательный alias обработчика (`StudentToTeacher`).
+     *  - `id`     — обязательный id агрегата (int ≥ 1). Отсутствует или
+     *    невалиден → 422 (правило валидации).
+     *  - domain-параметры handler'а передаются в `arguments` как есть.
+     *
+     * Отвечающий берётся из `auth()`; не приёмщик → 403, закрытый запрос → 409.
      */
     public function approvalForm(Request $request, GetApprovalFormAction $action): JsonResponse
     {
         $validated = $request->validate(self::RULES + [
             'id' => ['required', 'integer', 'min:1'],
         ]);
-        $arguments = $this->arguments($validated);
+        $arguments = $this->arguments($request, $validated);
 
         return response()->json($action->execute(
             (int) $validated['id'],
@@ -98,11 +121,18 @@ final readonly class RequestedActionsController
     }
 
     /**
-     * POST approve-action/approve?action=StudentToTeacher&id=123
+     * POST approve-action/approve — голос приёмщика по запросу.
      *
-     * Тело запроса — `id` и (опционально) `approve`. Итог отдаётся как
-     * `{id, result, status}`; `CLOSED` → 409 (п.10), реализуется маппингом
-     * или явной проверкой ниже.
+     * Параметры (тело запроса):
+     *  - `action`  — обязательный alias обработчика (`StudentToTeacher`).
+     *  - `id`      — обязательный id агрегата (int ≥ 1); невалиден → 422.
+     *  - `approve` — необязательный boolean: `true` — голос «за», `false`
+     *    или отсутствие — «против» (голос всё равно записывается).
+     *
+     * Отвечающий берётся из `auth()`: не приёмщик → 403, не найдено → 404,
+     * повторный голос/закрытый запрос → 409. Ответ `{id, result, status}`,
+     * где `result` — значение enum `ApprovalResult` (accepted/declined/
+     * waiting/closed); `CLOSED` → 409 REQUESTED_ACTION_CLOSED.
      */
     public function approve(Request $request, RegisterApprovalAction $action): JsonResponse
     {
@@ -110,7 +140,7 @@ final readonly class RequestedActionsController
             'id' => ['required', 'integer', 'min:1'],
             'approve' => ['nullable', 'boolean'],
         ]);
-        $arguments = $this->arguments($validated);
+        $arguments = $this->arguments($request, $validated);
 
         $result = $action->execute(
             (int) $validated['id'],
@@ -147,13 +177,20 @@ final readonly class RequestedActionsController
      * Плоские параметры запроса без служебных ключей — уходят в handler
      * как `arguments` и затем в payload.
      *
+     * Берутся все входные данные (query + body), а не только `$validated`:
+     * `validate()` возвращает лишь поля с объявленными правилами (`action`,
+     * `id`, `approve`), а domain-специфичные ключи (`teacher_id` и т.п.)
+     * правил не имеют и иначе терялись бы.
+     *
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    private function arguments(array $validated): array
+    private function arguments(Request $request, array $validated): array
     {
-        unset($validated['action']);
+        $arguments = array_merge($request->all(), $validated);
 
-        return $validated;
+        unset($arguments['action'], $arguments['id']);
+
+        return $arguments;
     }
 }

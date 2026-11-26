@@ -944,10 +944,9 @@ Event::listen(ActionError::class,    SendErrorNotifications::class);
 
 **В рамках кода — всё закрыто.** Этапы 6–10 выполнены (3.7–3.11). Открытые пункты — только вне кода, по указанию заказчика / на QA:
 
-- [ ] `./vendor/bin/sail artisan migrate` — создать партиционированные таблицы + `notifications` (не запускалось).
+- [x] `./vendor/bin/sail artisan migrate` — создать партиционированные таблицы + `notifications` — **выполнено заказчиком**.
 - [ ] Приёмочные сценарии 2.8.1 / 2.8.2 / 2.9 на чистой БД (этап QA).
 - [ ] (Опционально) `php artisan route:list` / `schedule:list` для визуальной проверки регистрации маршрутов и расписания.
-5. **Этап 10:** финальный `php vendor/bin/pint` по всему скоупу и обновление таблицы в 3.1.
 
 ## 3.5. Проверки и окружение
 
@@ -1050,8 +1049,33 @@ Event::listen(ActionError::class,    SendErrorNotifications::class);
 - Финальный `php vendor/bin/pint` по всему скоупу фичи (Domain/Application/Infrastructure RequestedActions, HTTP-контроллер, листенеры, 5 команд, провайдер, нотификация, 3 модели, конфиг, `routes/api.php`, `routes/console.php`, `bootstrap/app.php`, `bootstrap/providers.php`) — **PASS, 68 файлов, 0 исправлений**.
 - `php -l`: контроллер, `RecoverStaleApprovedAction`, `RequestedActionsHandleApprovedCommand`, `routes/api.php`, `bootstrap/app.php`, `PruneCompleteLeavesAction` — синтаксис OK.
 - IDE-диагностика: без ошибок.
+- Повторная проверка (`pint --test`) по списку только файлов фичи (67 файлов) — **PASS**. Замечания стиля `pint` показываются лишь в ранее существовавших файлах `app/Console/Commands/*` (не относятся к фиче) — их не трогаем.
 
 **Итог: все этапы 2.14 закрыты.** Остаются только действия вне кода (выполняются по явному указанию заказчика / на этапе QA):
-1. `./vendor/bin/sail artisan migrate` (создание партиционированных таблиц и `notifications`).
+1. ~~`./vendor/bin/sail artisan migrate`~~ — **выполнено заказчиком** (партиционированные таблицы и `notifications` созданы).
 2. `./vendor/bin/pest` / приёмочные сценарии 2.8.1, 2.8.2, 2.9.
+
+### 3.12. Проверка схемы в БД после `migrate` — ПРОЙДЕНО
+
+`migrate` выполнен заказчиком (4 миграции фичи, batch 36, `pgsql` = PostgreSQL 17). Проверка через `psql` (`pg_catalog` / `information_schema`), только чтение:
+
+| Проверка | Результат |
+|---|---|
+| `requested_actions` — `PARTITION BY LIST (complete)`, PK `(id, complete, created_at)` | OK |
+| Ветки `requested_actions_active` (LIST false) / `requested_actions_complete` (LIST true), обе `RANGE (created_at)` | OK |
+| Лист `requested_actions_active_2026_11` с границей `['2026-11-01','2026-12-01')` | OK |
+| `payload_hash` — `GENERATED ALWAYS AS (md5(payload::text)) STORED` | OK |
+| Лист активной ветки: `*_identity_unique` `(user_id, handler, payload_hash)` + `*_approved_idx` `(status, updated_at) WHERE status='approved'` | OK |
+| CHECK `status IN (...)` и `complete IN (false, true)` на родителе | OK |
+| FK на `requested_actions*` у votes/attempts — **отсутствуют** (по дизайну 2.4.1) | OK |
+| `requested_action_votes`: UNIQUE `(requested_action_id, requested_action_complete, requested_action_created_at, responder_user_id)`, индекс по `requested_action_created_at` | OK |
+| `requested_action_handle_attempts`: `ref_idx` + `created_at_idx` | OK |
+| `notifications`: uuid PK, `morphs`, `text data`, `read_at` | OK |
+
+Замечание по пустой `requested_actions_complete`: у веток нет строк — таблицы-ветки в `pg_class` отображаются как partitioned, лист завершённой ветки создаёт `ensureCompleteFor()` при первом `markComplete` (по дизайну миграции).
+
+Технические заметки по окружению:
+- `bash vendor/bin/sail ...` работает, но вывод через `sail` не доходит до piping — для проверок вызывался `docker exec stedam-laravel.test-1 psql -U sail -d laravel -h pgsql` с `-e PGPASSWORD=password`.
+- Массовые DDL/скрипты удобнее запускать из файла-обёртки в `storage/app/` (прямые редиректы через `cmd.exe /c` ломаются).
+- Временные файлы проверки (`storage/app/verify_schema*.sql|sh|out`) — удалить после приёмки.
 3. Ветка `feature/requested-actions` — уже создана; merge/PR — по решению заказчика.

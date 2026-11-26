@@ -17,6 +17,13 @@ use DateInterval;
  */
 final readonly class TimeGap
 {
+    /**
+     * Разрыв по умолчанию, в часах. Домен не читает конфиг: политика
+     * «сколько даёт урок без явного разрыва» — его собственное правило.
+     * Внешняя конфигурация применяется в инфраструктуре.
+     */
+    public const DEFAULT_HOURS = 2;
+
     public function __construct(public int $hours)
     {
         if ($hours < 0) {
@@ -31,7 +38,7 @@ final readonly class TimeGap
 
     public static function default(): self
     {
-        return new self((int) config('course.lessons.time_gap', 2));
+        return new self(self::DEFAULT_HOURS);
     }
 
     public function toInterval(): DateInterval

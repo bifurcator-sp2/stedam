@@ -160,5 +160,6 @@ it('done stores strokes sent with the request into learns.answers', function () 
 
     $stored = DB::table('learns')->where('id', $learnId)->value('answers');
 
-    expect(json_decode((string) $stored, true))->toBe($answers);
+    // Порядок ключей в JSON не значим — сверяем по значениям.
+    expect(json_decode((string) $stored, true))->toEqual($answers);
 });

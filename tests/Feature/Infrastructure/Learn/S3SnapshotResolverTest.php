@@ -6,7 +6,6 @@ use App\Application\Learn\Ports\LessonSnapshotAssemblerInterface;
 use App\Domain\Blocks\Settings\SettingsNormalizer;
 use App\Domain\Learn\ValueObjects\LessonId;
 use App\Infrastructure\Learn\S3SnapshotResolver;
-use App\Models\Lesson;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\Fakes\FakeSnapshotAssembler;
@@ -20,7 +19,6 @@ function resolverWith(FakeSnapshotAssembler $assembler): S3SnapshotResolver
         assembler: $assembler,
         cache: Cache::store('array'),
         filesystems: Storage::getFacadeRoot(),
-        lessons: new Lesson(),
         disk: 's3_private',
         prefix: 'learns/snapshots',
         cacheTtl: 3600,

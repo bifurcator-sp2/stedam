@@ -55,6 +55,39 @@ final class RequestedActionMapper
     }
 
     /**
+     * Гидрация из «сырой» строки БД (ассоциативный массив), без Eloquent-кастов.
+     *
+     * Даты берутся как есть (строки timestamptz с микросекундами), чтобы
+     * дальше `created_at` участвовал в UPDATE-условиях с полной точностью.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    public static function toDomainFromRow(array $row): DomainRequestedAction
+    {
+        $payload = $row['payload'] ?? [];
+
+        if (is_string($payload)) {
+            $payload = json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
+        }
+
+        /** @var array<string, mixed> $payload */
+        $payload = is_array($payload) ? $payload : [];
+
+        return DomainRequestedAction::restore(
+            id: new RequestedActionId((int) $row['id']),
+            userId: new UserId((int) $row['user_id']),
+            handler: (string) $row['handler'],
+            payload: new RequestedActionPayload($payload),
+            status: RequestedActionStatus::from((string) $row['status']),
+            complete: (bool) $row['complete'],
+            errorCode: ($row['error_code'] ?? null) !== null ? (string) $row['error_code'] : null,
+            errorDetail: ($row['error_detail'] ?? null) !== null ? (string) $row['error_detail'] : null,
+            createdAt: new DateTimeImmutable((string) $row['created_at']),
+            updatedAt: new DateTimeImmutable((string) $row['updated_at']),
+        );
+    }
+
+    /**
      * Атрибуты для INSERT (без id/payload_hash/created_at — их задаёт БД).
      *
      * @return array<string, mixed>
