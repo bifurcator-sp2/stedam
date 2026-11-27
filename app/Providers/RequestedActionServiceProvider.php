@@ -8,6 +8,7 @@ use App\Application\RequestedActions\Ports\RequestedActionHandleAttemptsReposito
 use App\Application\RequestedActions\Ports\RequestedActionHandlerRegistryInterface;
 use App\Application\RequestedActions\Ports\RequestedActionRepositoryInterface;
 use App\Application\RequestedActions\Ports\RequestedActionVotesRepositoryInterface;
+use App\Application\RequestedActions\Ports\RequestedActionsQueryInterface;
 use App\Domain\RequestedActions\Errors\ErrorCollector;
 use App\Domain\RequestedActions\Events\ActionApproved;
 use App\Domain\RequestedActions\Events\ActionDone;
@@ -16,6 +17,7 @@ use App\Domain\RequestedActions\Events\ActionRejected;
 use App\Infrastructure\Persistence\Repositories\EloquentRequestedActionHandleAttemptsRepository;
 use App\Infrastructure\Persistence\Repositories\EloquentRequestedActionRepository;
 use App\Infrastructure\Persistence\Repositories\EloquentRequestedActionVotesRepository;
+use App\Infrastructure\Persistence\Queries\EloquentRequestedActionsQuery;
 use App\Infrastructure\RequestedActions\RequestedActionHandlerRegistry;
 use App\Listeners\RequestedActions\SendApprovalNotifications;
 use App\Listeners\RequestedActions\SendDoneNotifications;
@@ -45,6 +47,7 @@ final class RequestedActionServiceProvider extends ServiceProvider
             EloquentRequestedActionHandleAttemptsRepository::class,
         );
         $this->app->bind(RequestedActionHandlerRegistryInterface::class, RequestedActionHandlerRegistry::class);
+        $this->app->bind(RequestedActionsQueryInterface::class, EloquentRequestedActionsQuery::class);
 
         // Сборщик ошибок не хранит состояния — один экземпляр на запрос.
         $this->app->singleton(ErrorCollector::class);

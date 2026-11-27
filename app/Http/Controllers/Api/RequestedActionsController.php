@@ -7,9 +7,12 @@ namespace App\Http\Controllers\Api;
 use App\Application\RequestedActions\Actions\CreateRequestedActionAction;
 use App\Application\RequestedActions\Actions\GetApprovalFormAction;
 use App\Application\RequestedActions\Actions\GetRequestFormAction;
+use App\Application\RequestedActions\Actions\ListRequestedActionsAction;
 use App\Application\RequestedActions\Actions\RegisterApprovalAction;
 use App\Domain\RequestedActions\Enums\ApprovalResult;
 use App\Domain\RequestedActions\ValueObjects\UserId;
+use App\Http\Resources\RequestedActionListResource;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -17,7 +20,8 @@ use Illuminate\Http\Response;
 /**
  * HTTP-слой контекста RequestedAction (раздел 1 «http слой», 2.13).
  *
- * Четыре маршрута:
+ * Пять маршрутов:
+ *  - GET  requested-actions      → index (мои заявки, поиск + пагинация);
  *  - GET  request-action/form    → getRequestForm;
  *  - POST request-action/request → registerUserRequest (создание агрегата);
  *  - GET  approve-action/form    → getApprovalForm;
@@ -35,6 +39,51 @@ final readonly class RequestedActionsController
     private const RULES = [
         'action' => ['required', 'string', 'max:64'],
     ];
+
+    /**
+     * GET requested-actions — «мои заявки»: поиск + фильтры + пагинация.
+     *
+     * GET /requested-actions?search=<...>&statuses[]=pending&handlers[]=StudentToTeacher&page=1&per_page=20
+     *
+     *   — search: сначала пробуем привести к int — при успехе поиск по
+     *     requested_actions.id; иначе ищем вхождения (от 3 символов) по
+     *     id/email/ФИО получателей из payload.consumers;
+     *   — statuses: фильтр по статусам (created/pending/approved/rejected/done/error);
+     *   — handlers: фильтр по типам заявок (alias обработчика).
+     *
+     * Автор заявок всегда берётся из `auth()` — query-параметры его не
+     * переопределяют. Порядок — от самых свежих к старым.
+     *
+     * Ответ: `{data, meta, types}`; `types` — справочник типов заявок с
+     * локализованными названиями, один на весь ответ.
+     */
+    public function index(Request $request, ListRequestedActionsAction $action): JsonResponse
+    {
+        $page = max(1, (int) $request->integer('page', 1));
+        $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
+
+        $result = $action->paginate($this->userId($request), $request->query(), $page, $perPage);
+
+        // Получатели всех заявок страницы — одним запросом (без N+1).
+        $recipients = $this->recipientsOf($result->items);
+
+        RequestedActionListResource::withRecipients(
+            $recipients === [] ? collect() : User::query()->whereIn('id', $recipients)->get(),
+        );
+
+        return response()->json([
+            'data' => RequestedActionListResource::collection(collect($result->items))->resolve($request),
+            'meta' => [
+                'current_page'   => $result->page,
+                'per_page'       => $result->perPage,
+                'has_more_pages' => $result->hasMorePages(),
+                'from'           => $result->items === [] ? null : ($result->page - 1) * $result->perPage + 1,
+                'to'             => $result->items === [] ? null : ($result->page - 1) * $result->perPage + count($result->items),
+            ],
+            // Справочник типов заявок с локализованными названиями — один на весь ответ.
+            'types' => $this->requestedActionTypes(),
+        ]);
+    }
 
     /**
      * GET request-action/form — описание формы запроса на действие.
@@ -171,6 +220,46 @@ final readonly class RequestedActionsController
     private function userId(Request $request): UserId
     {
         return new UserId((int) $request->user()->getAuthIdentifier());
+    }
+
+    /**
+     * Список типов заявок: alias обработчика + локализованное название
+     * (ключ `notifications.requested_action_types.<alias>`).
+     *
+     * @return list<array{alias: string, label: string}>
+     */
+    private function requestedActionTypes(): array
+    {
+        return array_map(
+            static fn (string $alias): array => [
+                'alias' => $alias,
+                'label' => trans("notifications.requested_action_types.{$alias}"),
+            ],
+            array_values((array) config('requested_actions.handlers', [])),
+        );
+    }
+
+    /**
+     * Уникальные id получателей из payload.consumers всех заявок страницы.
+     *
+     * @param  list<\App\Models\RequestedAction>  $items
+     * @return list<int>
+     */
+    private function recipientsOf(array $items): array
+    {
+        $ids = [];
+
+        foreach ($items as $item) {
+            $consumers = $item->payload['consumers'] ?? [];
+
+            if (is_array($consumers)) {
+                foreach ($consumers as $id) {
+                    $ids[(int) $id] = true;
+                }
+            }
+        }
+
+        return array_keys($ids);
     }
 
     /**

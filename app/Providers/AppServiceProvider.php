@@ -3,9 +3,12 @@
 
 namespace App\Providers;
 
+use App\Support\Testing\EnsureTestingDatabase;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -76,6 +79,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             \App\Application\Lessons\Ports\LessonTypeQueryInterface::class,
             \App\Infrastructure\Persistence\Queries\EloquentLessonTypeQuery::class,
+        );
+        // Read-side контекста Users: постраничный список с поиском и ролями.
+        $this->app->bind(
+            \App\Application\Users\Ports\UsersQueryInterface::class,
+            \App\Infrastructure\Persistence\Queries\EloquentUsersQuery::class,
+        );
+        // Read-side: стандартные (database) уведомления получателя.
+        $this->app->bind(
+            \App\Application\Notifications\Ports\NotificationsQueryInterface::class,
+            \App\Infrastructure\Persistence\Queries\EloquentNotificationsQuery::class,
         );
         // Read-side: срез «актуальных уроков» (learns пользователя) по уроку.
         $this->app->bind(
@@ -192,6 +205,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Гейт `artisan test --env=...` / `pest --env=...`: рабочая база
+        // защищена от RefreshDatabase. Регистрация через withEvents(discover)
+        // не работает (автопоиск смотрит в app/Listeners), а withEvents()
+        // в этом релизе принимает только $discover — поэтому Event::listen.
+        Event::listen(
+            CommandStarting::class,
+            [EnsureTestingDatabase::class, 'listen'],
+        );
+
         ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
             return config('app.frontend_url')."/password-reset/$token?email={$notifiable->getEmailForPasswordReset()}";
         });

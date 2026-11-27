@@ -29,6 +29,7 @@ use App\Domain\RequestedActions\Exceptions\RequestedActionAlreadyClosedException
 use App\Domain\RequestedActions\Exceptions\RequestedActionDomainException;
 use App\Domain\RequestedActions\Exceptions\RequestedActionNotFoundException;
 use App\Http\Middleware\EnsureEmailIsVerified;
+use App\Http\Middleware\ImpersonateFromHeader;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -44,6 +45,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [
+            // ВАЖНО: ImpersonateFromHeader идёт ПЕРВЫМ — до SetLocale и до
+            // throttle. Он подменяет пользователя запроса на target, чтобы
+            // rate-limit'ы (user-check, files-upload) и все контроллеры
+            // считали лимиты/данные от лица target, а не админа.
+            // Подробно см. app/Http/Middleware/ImpersonateFromHeader.php.
+            ImpersonateFromHeader::class,
             SetLocale::class,
             EnsureFrontendRequestsAreStateful::class,
         ]);
@@ -54,6 +61,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         //
     })
+    // Не даём `artisan test` / pest прогоняться по рабочей базе: RefreshDatabase
+    // сотрёт её (так 26–27.11.2026 потерялись данные laravel). Регистрация
+    // через withEvents(discover: [...]) не срабатывает — автопоиск смотрит
+    // в app/Listeners, поэтому слушатель CommandStarting подключается явно
+    // в AppServiceProvider::boot().
     ->withExceptions(function (Exceptions $exceptions): void {
         // Application-исключения контекста Learn → HTTP.
         $exceptions->render(function (LearnNotFound $e) {

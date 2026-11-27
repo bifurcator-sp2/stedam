@@ -32,6 +32,7 @@
 - handler - string - Alias  обработчика действий агрегата.
 - payload - jsonb - дфнные, необходимые обработчику агрегата. Иммутабелен, не влияет на status
 - status - enum [created, pending, approved, rejected, done, error] not null default 'created'
+- decision - string nullable, enum ['accepted','declined'] - строковое представление результата обработки кворума по данным `requested_action_votes`; заполняется при закрытии кворума (approved → 'accepted', rejected → 'declined'), иначе null
 - complete - bool default 0 - признак завершенности агрегата. Признак для Retention.
 - error_code
 - error_detail
@@ -235,6 +236,137 @@ post: approve-action/approve для **registerApproval**
 Осталные ключи - это обязательные для конкретного обработчика параметры, которые потом лягут в payload.
 RequestedActionsController реализует фабрику, которая решает какой минно обработчик использовать и адресует вызов в соответствующий метод из него.
 Коды ответов: `registerUserRequest=false` → 422 (`USER_REQUEST_DECLINED`, агрегат не создаётся); `ApprovalResult.CLOSED` и повторный голос (`AlreadyVoted`) → 409; доменные ошибки → 4xx.
+
+## Запуск воркеров: локально (Sail) и на проде (Supervisor)
+
+Асинхронную часть механизма обслуживают Artisan-команды. Каждая command — **периодическая**: она забирает батч, делает шаг и завершается. Цикл «как часто запускать» накладывается снаружи; в коде его держат `routes/console.php` (`Schedule::command(...)->everyMinute()/->hourly()/->dailyAt(...)`, все с `withoutOverlapping()->onOneServer()->runInBackground()`).
+
+| Команда | Назначение | Где крутится |
+|---|---|---|
+| `requested-actions:messaging` | `created` → уведомления в очередь → `pending` | каждую минуту |
+| `requested-actions:handle-approved` | физическое `handle()` для `approved` | каждую минуту |
+| `requested-actions:retain` | `DETACH CONCURRENTLY` + `DROP` старых листьев активной ветки | раз в час |
+| `requested-actions:prune-complete` | то же для завершённой ветки | раз в сутки |
+| `requested-actions:stale-recovery` | зависшие `approved` → `error` | раз в сутки |
+
+> `schedule:run` только **ставит** команды в очередь (`runInBackground`) — их исполняет `queue-worker`. Поэтому на проде обязательны **и** шедулер, **и** queue-worker, иначе `messaging`/`handle-approved` не выполнятся.
+
+### Локально: Sail (`compose.yaml`)
+
+Автостарт вместе с `./vendor/bin/sail up`. `scheduler` уже в `compose.yaml`; отдельный сервис `requested-actions-worker` (по образцу `pre-grader`) крутит каждую команду в shell-цикле (у команд нет `--sleep`-опции):
+
+```yaml
+requested-actions-worker:
+    image: 'sail-8.5/app'
+    entrypoint: [ '/bin/sh', '-c' ]
+    command:
+        - >
+          while true; do sleep 5; php artisan requested-actions:handle-approved >/proc/1/fd/1 2>&1; php artisan requested-actions:messaging >/proc/1/fd/1 2>&1; done &
+          while true; do sleep 60; php artisan requested-actions:retain >/proc/1/fd/1 2>&1; php artisan requested-actions:prune-complete >/proc/1/fd/1 2>&1; php artisan requested-actions:stale-recovery >/proc/1/fd/1 2>&1; done &
+          wait
+    depends_on:
+        redis: { condition: service_healthy }
+        pgsql:  { condition: service_healthy }
+    restart: unless-stopped
+```
+
+Это локальный аналог «supervisor + расписание»: быстро (5с) — горячий путь, раз в минуту — тяжёлые retention/stale.
+
+### Прод: Supervisor (Linux/VM, не Docker)
+
+1. **Пользователь и каталог.** Супервизор держит процессы под системным пользователем (не root), `directory` — корень Laravel; `WWWUSER`-по-аналогии это владелец `storage/`/`bootstrap/cache`.
+2. **Шедулер.** Один процесс: `php artisan schedule:work` (в Laravel live, под restart) **или** крон `* * * * * cd /var/www/app && php artisan schedule:run >> /dev/null 2>&1`. Не дублируйте оба способа.
+3. **Очереди.** Слушатель `queue:work` на connection `redis` (прод), с `--tries`/`--backoff`/`--max-time`; перезапуск по деплою через `queue:restart`.
+4. **Воркеры заявок.** Две программы: `retain`/`prune`/`stale` — `numprocs=1` (переключатель без наложения) или `numprocs=1` + цикл с `sleep`; `messaging`/`handle-approved` — можно `numprocs>1`, потому что батчи берутся под `FOR UPDATE SKIP LOCKED` и **идемпотентны** (`withoutOverlapping` в супервизоре сузит параллелизм — если нужен throughput, снимайте `numprocs=1`).
+
+Пример `/etc/supervisor/conf.d/requested-actions.conf`:
+
+```ini
+[program:schedule]
+command=php artisan schedule:work
+directory=/var/www/app
+autostart=true
+autorestart=true
+user=www-data
+numprocs=1
+stopasgroup=true
+killasgroup=true
+redirect_stderr=true
+stdout_logfile=/var/log/app/ledger-schedule.log
+
+[program:queue]
+command=php artisan queue:work redis --tries=3 --backoff=10 --max-time=3600
+directory=/var/www/app
+autostart=true
+autorestart=true
+user=www-data
+numprocs=2
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=3600
+redirect_stderr=true
+stdout_logfile=/var/log/app/ledger-queue.log
+
+[program:ra-messaging]
+command=php artisan requested-actions:messaging
+directory=/var/www/app
+autostart=true
+autorestart=true
+user=www-data
+startsecs=10
+redirect_stderr=true
+stdout_logfile=/var/log/app/ledger-ra-messaging.log
+
+[program:ra-handle-approved]
+command=php artisan requested-actions:handle-approved
+directory=/var/www/app
+autostart=true
+autorestart=true
+user=www-data
+startsecs=10
+redirect_stderr=true
+stdout_logfile=/var/log/app/ledger-ra-handle-approved.log
+
+[program:ra-retain]
+command=php artisan requested-actions:retain
+directory=/var/www/app
+autostart=true
+autorestart=true
+user=www-data
+startsecs=10
+redirect_stderr=true
+stdout_logfile=/var/log/app/ledger-ra-retain.log
+
+[program:ra-prune-complete]
+command=php artisan requested-actions:prune-complete
+directory=/var/www/app
+autostart=true
+autorestart=true
+user=www-data
+startsecs=10
+redirect_stderr=true
+stdout_logfile=/var/log/app/ledger-ra-prune-complete.log
+
+[program:ra-stale-recovery]
+command=php artisan requested-actions:stale-recovery
+directory=/var/www/app
+autostart=true
+autorestart=true
+user=www-data
+startsecs=10
+redirect_stderr=true
+stdout_logfile=/var/log/app/ledger-ra-stale-recovery.log
+```
+
+Особенности:
+- **`stopwaitsecs` для `ra-*`** должен быть больше `lock_timeout` retention (5с) + `SHARE UPDATE EXCLUSIVE`, но меньше окна деплоя; при `autorestart` супервизор «дёргает» программу после `sleep`-шага, а `withoutOverlapping` (mutex) не даст двум экземплярам пересечься на одной машине.
+- **`queue:restart`** после `composer install`/`migrate` + `supervisorctl reread && supervisorctl update`.
+- **`user=www-data`** и `filesystems` — владелец `storage/`; лог-каталог создаётся заранее.
+- **`onOneServer()`** требует общего кэша (redis/database); при нескольких app-хостах каждый держит свой `schedule`/`queue`, а mutex в общем кэше разведёт `withoutOverlapping` на кластере.
+- **Healthcheck**: `supervisorctl status requested-actions:*` + алерты по логам на `HANDLE_STALE_*`.
+- Прод-конфигурация `.env`: `QUEUE_CONNECTION=redis`, `CACHE_STORE=redis`, `APP_ENV=production` (иначе `withoutOverlapping` берёт file-кэш и однохостовый режим).
+
+> В Docker-проде супервизор заменяют отдельными сервисами как в `compose.yaml` (только с `--sleep`-циклом, но лучше — `supervisord` внутри контейнера или Kubernetes CronJob для `retain`/`prune-complete`/`stale-recovery`).
 
 
 # 2. Спецификации для агентной разработки
@@ -533,7 +665,7 @@ RegisterApprovalAction::execute(id, responder, arguments): ApprovalResult
   - Идемпотентность — UNIQUE-индекс **на каждом помесячном листе активной ветки**: `UNIQUE (user_id, handler, payload_hash)` + `INSERT … ON CONFLICT DO NOTHING` (без колонок). Детали, ограничения и проверки — 2.8.1.
   - Индексы на листе: `UNIQUE (user_id, handler, payload_hash)` (идемпотентность); `INDEX (status, updated_at) WHERE status = 'approved'` (для воркера handle); PK по `(id, complete, created_at)` уже покрывает `created_at` для retention.
   - `payload_hash` — генерируемая колонка `GENERATED ALWAYS AS (md5(payload::text)) STORED` (PG 17.11, проверено на Sail). **Нельзя** использовать как ключ партиционирования (`cannot use generated column in partition key`) — но в UNIQUE и `ON CONFLICT` работает.
-  - `CHECK (status IN (...))`, `CHECK (complete IN (false, true))`.
+  - `CHECK (status IN (...))`, `CHECK (complete IN (false, true))`, `CHECK (decision IN ('accepted','declined'))` (nullable, см. 3.13).
 - Управление партициями реализуется через Application Action (`EnsureRequestedActionPartitionAction`) — создание очередной помесячной субпартиции перед INSERT (idempotent `CREATE TABLE IF NOT EXISTS ... PARTITION OF ...`). Вызывается из `CreateRequestedActionAction`.
 - Retention (раздел 1): `requested_actions_retention_worker` (раз в час) и `prune_complete_requested_actions` (раз в сутки) — команды Artisan, реализуют `DETACH CONCURRENTLY` + `DROP` **помесячных листьев**. `DETACH` целой ветки `requested_actions_complete` и `DELETE` по завершённой ветке **не используются**. Детали, порядок восстановления после сбоя, stale-recovery — 2.8.2.
 
@@ -1079,3 +1211,29 @@ Event::listen(ActionError::class,    SendErrorNotifications::class);
 - Массовые DDL/скрипты удобнее запускать из файла-обёртки в `storage/app/` (прямые редиректы через `cmd.exe /c` ломаются).
 - Временные файлы проверки (`storage/app/verify_schema*.sql|sh|out`) — удалить после приёмки.
 3. Ветка `feature/requested-actions` — уже создана; merge/PR — по решению заказчика.
+
+## 3.13. Поле `decision` у агрегата — ГОТОВО (код) / ожидает `migrate`
+
+**Требование (часть 1):** `requested_actions.decision` — строковое представление результата обработки кворума по данным `requested_action_votes`; `accepted`/`declined` либо `NULL`.
+
+**Как выполнено:**
+- **Схема** — колонка `decision VARCHAR(16)` (nullable) + `CHECK (decision IN ('accepted','declined'))` (`requested_actions_decision_check`). CHECK допускает `NULL` (PG: `NULL IN (...)` → `NULL` → PASS).
+  - в `2026_12_01_100000_create_requested_actions_table.php` — для чистой установки;
+  - `2026_12_04_100000_add_decision_to_requested_actions.php` — инкрементальная миграция для уже применённой схемы (raw `ALTER TABLE requested_actions ADD COLUMN` + CHECK; на партиционированном родителе колонка/констрейнт распространяются на все листья; `down()` снимает CHECK и колонку).
+- **Тип** — переиспользован `App\Domain\RequestedActions\Enums\VoteDecision` (`accepted|declined`), значения совпадают с `ApprovalResult`. Отдельный enum не вводился.
+- **Доменный агрегат** `app/Domain/RequestedActions/Entities/RequestedAction.php`:
+  - поле `?VoteDecision $decision`, геттер `decision(): ?VoteDecision`;
+  - `markApproved()` ставит `VoteDecision::Accepted`, `reject()` — `VoteDecision::Declined` (переходы кворума закрывают решение);
+  - `create()` — `null`, `restore()` принимает `decision`, `withId()`/`copy()` сохраняют значение. Прочие переходы (`markPending`, `markDone`, `markError`, `markComplete`) `decision` не меняют.
+- **Enum** `ApprovalResult::toVoteDecision(): ?VoteDecision` — ACCEPTED→Accepted, DECLINED→Declined, WAITING/CLOSED→`null`.
+- **Маппер** `RequestedActionMapper`: `toDomain`/`toDomainFromRow` читают `decision` (enum или `null`), `toInsertAttributes`/`toUpdateAttributes` пишут `decision->value`.
+- **Репозиторий** `EloquentRequestedActionRepository::insertActive()` — колонка `decision` добавлена в INSERT.
+- **Eloquent-модель** `App\Models\RequestedAction` — `decision` в `$fillable` и `$casts => VoteDecision::class`.
+- **API** `RequestedActionListResource` отдаёт `decision` (значение enum или `null`).
+- **API уведомлений** `GET /api/notifications` (`NotificationsController` → `ListNotificationsAction` → `EloquentNotificationsQuery`): в `data` уведомлений RequestedAction рядом с актуальным `data.status` подмешивается актуальный `data.decision` (`accepted`/`declined`/`null`) — вторым коррелированным подзапросом `requested_actions.decision` (тот же ключ `data.requested_action_id`, тот же индексный `id + LIMIT 1`).
+- **Источник значения** — сами голоса: `registerApproval` пишет голос в `requested_action_votes` и по `QuorumSnapshot` выбирает ACCEPTED/DECLINED; эти же исходы выставляют `decision`, поэтому он согласован с содержимым `requested_action_votes`.
+
+**Статус выполнения:**
+- ✅ Код и миграции (create + incremental) изменены (IDE-диагностика по затронутым файлам — без ошибок).
+- ⏳ `./vendor/bin/sail artisan migrate` **не запускался** — нужно применить `2026_12_04_100000_add_decision_to_requested_actions` в рабочей БД.
+- ⏳ `pint`/`pest` не запускались (без указания заказчика).

@@ -11,6 +11,82 @@ abstract class TestCase extends BaseTestCase
         self::prepareFakeDisks();
 
         parent::setUp();
+
+        $this->guardAgainstProductionDatabase();
+    }
+
+    /**
+     * Рабочие базы, по которым прогонять тесты запрещено. Список закрытый:
+     * любая база вне него считается рабочей.
+     */
+    protected const TESTING_ALLOWED_DATABASES = ['testing', 'testing_*'];
+
+    /**
+     * Защита от прогона тестов по рабочей БД: 26/27.11.2026 `php artisan test`
+     * c рабочим .env (DB_DATABASE=laravel) через RefreshDatabase сносил базу
+     * laravel, а свежие дампы делают эту потерю невосстановимой.
+     *
+     * Проверяем именно подключение по умолчанию, а не env: phpunit.xml задаёт
+     * DB_DATABASE=testing, но при запуске на хосте переменные .env могут
+     * перекрывать его. Это должно совпадать с основным гейтом приложения
+     * (app/Support/Testing/EnsureTestingDatabase).
+     */
+    protected function guardAgainstProductionDatabase(): void
+    {
+        $default = (string) config('database.default');
+
+        // В тестах Laravel переключает соединение по умолчанию на `testing`
+        // (phpunit.xml: DB_CONNECTION=testing). Если такого соединения нет,
+        // значит переключения не было — тесты пойдут по рабочему соединению.
+        // Проверяем оба: гейт должен срабатывать при любом рабочем соединении.
+        $targets = array_values(array_unique([
+            (string) (getenv('DB_CONNECTION') ?: env('DB_CONNECTION')),
+            $default,
+        ]));
+
+        foreach ($targets as $target) {
+            if ($target === '') {
+                continue;
+            }
+
+            $this->guardConnection($target);
+        }
+    }
+
+    /**
+     * Отдельное соединение-цель: если оно есть в конфиге и это SQL-база,
+     * название базы должно входить в TESTING_ALLOWED_DATABASES.
+     */
+    private function guardConnection(string $target): void
+    {
+        if (config("database.connections.{$target}") === null) {
+            return;
+        }
+
+        $driver = (string) config("database.connections.{$target}.driver");
+
+        if (! in_array($driver, ['pgsql', 'mysql', 'mariadb', 'sqlsrv'], true)) {
+            return;
+        }
+
+        $database = (string) config("database.connections.{$target}.database");
+
+        foreach (self::TESTING_ALLOWED_DATABASES as $allowed) {
+            $matches = str_ends_with($allowed, '*')
+                ? str_starts_with($database, rtrim($allowed, '*'))
+                : $database === $allowed;
+
+            if ($matches) {
+                return;
+            }
+        }
+
+        throw new \RuntimeException(
+            "Тесты подключены к базе «{$database}» (соединение {$target}), а разрешены только: "
+            .implode(', ', self::TESTING_ALLOWED_DATABASES)
+            .'. Прогон отменён, чтобы тесты не стёрли данные. '
+            .'Запускайте тесты в контейнере: docker exec stedam-laravel.test-1 php artisan test'
+        );
     }
 
     /**

@@ -6,8 +6,11 @@ use App\Http\Controllers\Api\BlockTypeController;
 use App\Http\Controllers\Api\CountryController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\DeviceAccessController;
+use App\Http\Controllers\Api\ImpersonationController;
 use App\Http\Controllers\Api\LearnController;
 use App\Http\Controllers\Api\LessonController;
+use App\Http\Controllers\Api\NotificationsController;
+use App\Http\Controllers\Api\PushSubscriptionsController;
 use App\Http\Controllers\Api\RequestedActionsController;
 use App\Http\Controllers\Api\ResolversController;
 use App\Http\Controllers\Api\RoleController;
@@ -17,6 +20,7 @@ use App\Http\Controllers\Api\TaskResolversCatalogController;
 use App\Http\Controllers\Api\TaxonomyController;
 use App\Http\Controllers\Api\TestsController;
 use App\Http\Controllers\Api\UserDataController;
+use App\Http\Controllers\Api\UsersController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
@@ -156,6 +160,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/user-data', [UserDataController::class, 'update']);
     Route::delete('/user-data', [UserDataController::class, 'destroy']);
 
+    Route::get('/users', [UsersController::class, 'list']);
+
     Route::get('/taxonomies/tree', [TaxonomyController::class, 'tree']);
 
     Route::get('/blocks-index', BlocksIndexController::class);
@@ -240,7 +246,7 @@ Route::middleware('auth:sanctum')->prefix('files')->group(function () {
 // --- RequestedActions (раздел 1 «http слой», 2.13) ---
 Route::middleware('auth:sanctum')->group(function () {
     $ra = RequestedActionsController::class;
-
+    Route::get('/requested-actions', [$ra, 'index'])->name('api.request-actions.index');
     Route::get('/request-action/form', [$ra, 'form'])->name('api.request-action.form');
     Route::post('/request-action/request', [$ra, 'request'])->name('api.request-action.request');
     Route::get('/approve-action/form', [$ra, 'approvalForm'])->name('api.approve-action.form');
@@ -249,6 +255,41 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::get('/countries', [CountryController::class, 'index']);
 Route::get('/countries/{country}', [CountryController::class, 'show']);
+
+/*
+|--------------------------------------------------------------------------
+| Impersonation («Смотреть как пользователь»)
+|--------------------------------------------------------------------------
+|
+| Сценарий (подробно — в App\Http\Controllers\Api\ImpersonationController):
+|
+|   1. Вкладка A (админ): POST /admin/impersonate/start {user_id}
+|        → {token: <handoff>, accept_url}
+|   2. Nuxt: window.open(accept_url, '_blank') — открывает вторую вкладку B
+|        на /impersonate?token=<handoff>
+|   3. Вкладка B: POST /admin/impersonate/accept {token: <handoff>}
+|        → {token: <session>, user: target, read_only: true}
+|      Nuxt кладёт <session> в sessionStorage вкладки B (НЕ в cookie!)
+|   4. Все запросы вкладки B несут X-Impersonate-Token: <session>
+|      middleware ImpersonateFromHeader подменяет пользователя на target.
+|
+| ВАЖНО: эти роуты идут БЕЗ middleware ImpersonateFromHeader — иначе
+| accept/stop (POST из вкладки B) были бы перехвачены «фейковым write».
+| Подмену пользователя middleware делает уже на остальных маршрутах.
+|
+*/
+Route::middleware('auth:sanctum')->prefix('admin/impersonate')->group(function () {
+    $impersonation = ImpersonationController::class;
+
+    // Начать просмотр — вернёт одноразовый handoff + URL для новой вкладки.
+    Route::post('/start', [$impersonation, 'start']);
+    // Обмен handoff → session во вкладке B.
+    Route::post('/accept', [$impersonation, 'accept']);
+    // Статус текущей смотровой сессии (для плашки в UI).
+    Route::get('/status', [$impersonation, 'status']);
+    // Завершить просмотр (кнопка «Вернуться»).
+    Route::post('/stop', [$impersonation, 'stop']);
+});
 
 // --- Курсы (контракт: docs/course-api-spec.md) ---
 Route::middleware('auth:sanctum')->prefix('courses')->group(function () {
@@ -271,4 +312,16 @@ Route::middleware('auth:sanctum')->prefix('courses')->group(function () {
     Route::post('/{courseId}/assignments/{studentId}/recalculate', [$c, 'recalculate'])
         ->whereNumber('courseId')->whereNumber('studentId');
     Route::post('/{courseId}/recalculate', [$c, 'recalculateAll'])->whereNumber('courseId');
+});
+Route::middleware('auth:sanctum')->prefix('notifications')->group(function () {
+    $c = NotificationsController::class;
+    Route::get('/', [$c, 'index']);
+});
+
+// --- Браузерные push (WebPush / VAPID), контракт: docs/browser-push-spec.md ---
+Route::get('/push/vapid-public-key', [PushSubscriptionsController::class, 'vapidPublicKey']);
+Route::middleware('auth:sanctum')->prefix('push')->group(function () {
+    $c = PushSubscriptionsController::class;
+    Route::post('/subscriptions', [$c, 'store'])->middleware('throttle:30,1');
+    Route::delete('/subscriptions', [$c, 'destroy']);
 });

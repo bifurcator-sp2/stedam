@@ -301,9 +301,9 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
     private function persistThemes(CourseModel $courseModel, Course $course): void
     {
         // Уникальный индекс (course_id, order) не переживает построчный upsert
-        // при перестановке тем: сразу снимаем order с существующих строк и
+        // при перестановке тем: сразу снимаем order со всех строк курса и
         // расставляем их заново на этапе persistTheme.
-        $this->clearThemeOrders($courseModel, $course);
+        $this->clearThemeOrders($courseModel);
 
         $keptThemeIds = [];
         $keptLessonIdsByTheme = [];
@@ -331,23 +331,20 @@ final readonly class EloquentCourseRepository implements CourseRepositoryInterfa
     }
 
     /**
-     * Сдвигает order уже существующих тем курса в «безопасную» зону,
-     * чтобы уникальный индекс (course_id, order) не мешал перестановке.
+     * Сдвигает order всех тем курса в «безопасную» зону, чтобы уникальный
+     * индекс (course_id, order) не мешал перестановке.
+     *
+     * Сдвигаем именно все строки курса, а не только id из агрегата: клиент
+     * может не прислать id темы (тогда она создаётся заново), и старая строка
+     * с тем же order останется в БД — новый insert упрётся в индекс
+     * (course_id, order). «Безопасная зона» — отрицательные значения, чтобы
+     * гарантированно не пересечься с 1..N, которые проставит persistTheme.
      */
-    private function clearThemeOrders(CourseModel $courseModel, Course $course): void
+    private function clearThemeOrders(CourseModel $courseModel): void
     {
-        $existingIds = array_values(array_filter(
-            array_map(fn (CourseTheme $theme) => $theme->id()?->value, $course->themes()),
-            fn (?int $id) => $id !== null,
-        ));
-
-        if ($existingIds === []) {
-            return;
-        }
-
         ThemeModel::query()
-            ->whereIn('id', $existingIds)
-            ->update(['order' => DB::raw('"order" + 1000')]);
+            ->where('course_id', $courseModel->id)
+            ->update(['order' => DB::raw('-"order"')]);
     }
 
     private function persistTheme(CourseModel $courseModel, CourseTheme $theme): ThemeModel

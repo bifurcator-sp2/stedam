@@ -34,5 +34,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="PUSH_ENABLED" value="true"/>
+        <env name="PUSH_VAPID_SUBJECT" value="mailto:test@example.com"/>
     </php>
 </phpunit>

@@ -40,6 +40,9 @@ services:
             POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
         volumes:
             - 'sail-pgsql:/var/lib/postgresql/data'
+            # При создании пустого data-каталога создаём и testing-базу.
+            # (initdb-скрипты выполняются только на пустом каталоге.)
+            - './docker/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql:ro'
         networks:
             - sail
         healthcheck:
@@ -117,6 +120,52 @@ services:
         networks:
             - sail
         depends_on:
+            pgsql:
+                condition: service_healthy
+        restart: unless-stopped
+    # Локальный бэкап при каждом `sail up`: крон в 01:30 бесполезен, если
+    # компьютер на ночь выключен. Контейнер стартует, ждёт готовности БД,
+    # делает проверенный дамп и выходит; падение не блокирует остальной стек.
+    backup:
+        image: 'sail-8.5/app'
+        entrypoint: [ ]
+        command: >-
+            sh -c "php /var/www/html/artisan db:backup --verify
+            || echo 'db:backup завершился с ошибкой — см. вывод выше'"
+        user: '${WWWUSER:-1337}:${WWWGROUP:-1337}'
+        environment:
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            pgsql:
+                condition: service_healthy
+        restart: 'no'
+    # RequestedActions: воркеры механизма заявок (docs/RequestedActions/
+    # requested-actions.md, раздел 2.12). Команды периодические: каждая сама
+    # забирает батч и завершается, и --sleep-опции у них нет — поэтому крутим
+    # каждую в shell-цикле, как локальный аналог «супервизор + расписание».
+    # В проде то же самое делает supervisor (см. раздел 1 спеки).
+    requested-actions-worker:
+        image: 'sail-8.5/app'
+        entrypoint: [ '/bin/sh', '-c' ]
+        command:
+            - >
+              while true; do sleep 5; php /var/www/html/artisan requested-actions:handle-approved >/proc/1/fd/1 2>&1; php /var/www/html/artisan requested-actions:messaging >/proc/1/fd/1 2>&1; done &
+              while true; do sleep 60; php /var/www/html/artisan requested-actions:retain >/proc/1/fd/1 2>&1; php /var/www/html/artisan requested-actions:prune-complete >/proc/1/fd/1 2>&1; php /var/www/html/artisan requested-actions:stale-recovery >/proc/1/fd/1 2>&1; done &
+              wait
+        user: '${WWWUSER:-1337}:${WWWGROUP:-1337}'
+        environment:
+            LARAVEL_SAIL: 1
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            redis:
+                condition: service_healthy
             pgsql:
                 condition: service_healthy
         restart: unless-stopped

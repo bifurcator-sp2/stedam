@@ -6,6 +6,7 @@ namespace App\Infrastructure\Persistence\Mappers;
 
 use App\Domain\RequestedActions\Entities\RequestedAction as DomainRequestedAction;
 use App\Domain\RequestedActions\Enums\RequestedActionStatus;
+use App\Domain\RequestedActions\Enums\VoteDecision;
 use App\Domain\RequestedActions\ValueObjects\RequestedActionId;
 use App\Domain\RequestedActions\ValueObjects\RequestedActionPayload;
 use App\Domain\RequestedActions\ValueObjects\UserId;
@@ -42,6 +43,11 @@ final class RequestedActionMapper
             status: $status instanceof RequestedActionStatus
                 ? $status
                 : RequestedActionStatus::from((string) $status),
+            decision: $model->decision !== null
+                ? ($model->decision instanceof VoteDecision
+                    ? $model->decision
+                    : VoteDecision::from((string) $model->decision))
+                : null,
             complete: (bool) $model->complete,
             errorCode: $model->error_code !== null ? (string) $model->error_code : null,
             errorDetail: $model->error_detail !== null ? (string) $model->error_detail : null,
@@ -79,6 +85,9 @@ final class RequestedActionMapper
             handler: (string) $row['handler'],
             payload: new RequestedActionPayload($payload),
             status: RequestedActionStatus::from((string) $row['status']),
+            decision: ($row['decision'] ?? null) !== null
+                ? VoteDecision::from((string) $row['decision'])
+                : null,
             complete: (bool) $row['complete'],
             errorCode: ($row['error_code'] ?? null) !== null ? (string) $row['error_code'] : null,
             errorDetail: ($row['error_detail'] ?? null) !== null ? (string) $row['error_detail'] : null,
@@ -101,6 +110,7 @@ final class RequestedActionMapper
             // (md5 от канонической формы jsonb) считается сервером одинаково.
             'payload' => json_encode($action->payload()->toArray(), JSON_THROW_ON_ERROR),
             'status' => $action->status()->value,
+            'decision' => $action->decision()?->value,
             'complete' => $action->isComplete(),
             'error_code' => $action->errorCode(),
             'error_detail' => $action->errorDetail(),
@@ -110,12 +120,16 @@ final class RequestedActionMapper
     /**
      * Атрибуты для UPDATE (payload иммутабелен — не входит, 2.15 п.3).
      *
+     * `decision` здесь не передаётся: неизменяемый агрегат не знает
+     * предыдущего значения, а `markApproved()/reject()` его перезаписывают.
+     *
      * @return array<string, mixed>
      */
     public static function toUpdateAttributes(DomainRequestedAction $action): array
     {
         return [
             'status' => $action->status()->value,
+            'decision' => $action->decision()?->value,
             'error_code' => $action->errorCode(),
             'error_detail' => $action->errorDetail(),
             'updated_at' => $action->updatedAt(),

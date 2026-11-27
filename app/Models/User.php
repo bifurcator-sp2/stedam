@@ -21,13 +21,18 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
-
-
 class User extends Authenticatable implements FilamentUser
 {
     use HasApiTokens, HasRoles;
     public function canAccessPanel(Panel $panel): bool
     {
+        // В режиме «просмотра от лица» в Filament не пускаем: даже если
+        // target окажется админом, мы не хотим, чтобы имперсонация давала
+        // доступ в админку под чужим именем. Флаг ставит middleware
+        // ImpersonateFromHeader.
+        if (request()->attributes->get('impersonating') === true) {
+            return false;
+        }
 
         return $this->hasRole(['admin']);
     }
@@ -96,6 +101,16 @@ class User extends Authenticatable implements FilamentUser
     public function userData(): HasOne
     {
         return $this->hasOne(UserData::class);
+    }
+
+    /**
+     * Браузерные push-подписки (WebPush).
+     *
+     * @return HasMany<PushSubscription, $this>
+     */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 
 

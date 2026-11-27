@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\RequestedActions\Entities;
 
 use App\Domain\RequestedActions\Enums\RequestedActionStatus;
+use App\Domain\RequestedActions\Enums\VoteDecision;
 use App\Domain\RequestedActions\Exceptions\InvalidStatusTransitionException;
 use App\Domain\RequestedActions\ValueObjects\RequestedActionId;
 use App\Domain\RequestedActions\ValueObjects\RequestedActionPayload;
@@ -43,6 +44,7 @@ final class RequestedAction
         private string $handler,
         private RequestedActionPayload $payload,
         private RequestedActionStatus $status,
+        private ?VoteDecision $decision,
         private bool $complete,
         private ?string $errorCode,
         private ?string $errorDetail,
@@ -68,6 +70,7 @@ final class RequestedAction
             handler: $handler,
             payload: $payload,
             status: RequestedActionStatus::Created,
+            decision: null,
             complete: false,
             errorCode: null,
             errorDetail: null,
@@ -85,6 +88,7 @@ final class RequestedAction
         string $handler,
         RequestedActionPayload $payload,
         RequestedActionStatus $status,
+        ?VoteDecision $decision,
         bool $complete,
         ?string $errorCode,
         ?string $errorDetail,
@@ -97,6 +101,7 @@ final class RequestedAction
             handler: $handler,
             payload: $payload,
             status: $status,
+            decision: $decision,
             complete: $complete,
             errorCode: $errorCode,
             errorDetail: $errorDetail,
@@ -135,6 +140,15 @@ final class RequestedAction
     public function isComplete(): bool
     {
         return $this->complete;
+    }
+
+    /**
+     * Итоговое решение кворума по данным requested_action_votes (раздел 1).
+     * null — кворум ещё не принял решения (created/pending/error).
+     */
+    public function decision(): ?VoteDecision
+    {
+        return $this->decision;
     }
 
     public function errorCode(): ?string
@@ -195,6 +209,7 @@ final class RequestedAction
             handler: $this->handler,
             payload: $this->payload,
             status: $this->status,
+            decision: $this->decision,
             complete: $this->complete,
             errorCode: $this->errorCode,
             errorDetail: $this->errorDetail,
@@ -226,6 +241,8 @@ final class RequestedAction
 
         return $this->copy(
             status: RequestedActionStatus::Approved,
+            decision: VoteDecision::Accepted,
+            decisionIsSet: true,
             updatedAt: $now,
         );
     }
@@ -240,6 +257,8 @@ final class RequestedAction
 
         return $this->copy(
             status: RequestedActionStatus::Rejected,
+            decision: VoteDecision::Declined,
+            decisionIsSet: true,
             complete: true,
             completeIsSet: true,
             updatedAt: $now,
@@ -304,6 +323,8 @@ final class RequestedAction
 
     private function copy(
         ?RequestedActionStatus $status = null,
+        ?VoteDecision $decision = null,
+        bool $decisionIsSet = false,
         bool $complete = false,
         bool $completeIsSet = false,
         ?string $errorCode = null,
@@ -318,6 +339,7 @@ final class RequestedAction
             handler: $this->handler,
             payload: $this->payload,
             status: $status ?? $this->status,
+            decision: $decisionIsSet ? $decision : $this->decision,
             complete: $completeIsSet ? $complete : $this->complete,
             errorCode: $errorCodeIsSet ? $errorCode : $this->errorCode,
             errorDetail: $errorDetailIsSet ? $errorDetail : $this->errorDetail,

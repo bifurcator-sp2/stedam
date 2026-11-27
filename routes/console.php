@@ -38,18 +38,18 @@ Schedule::command('learn:archive')
     ->runInBackground();
 
 // RequestedActions: messaging — рассылка запросов приёмщикам (created → pending).
-Schedule::command('requested-actions:messaging')
+/*Schedule::command('requested-actions:messaging')
     ->everyMinute()
     ->withoutOverlapping()
     ->onOneServer()
-    ->runInBackground();
+    ->runInBackground();*/
 
 // RequestedActions: handle-approved — физическое выполнение approved.
-Schedule::command('requested-actions:handle-approved')
+/*Schedule::command('requested-actions:handle-approved')
     ->everyMinute()
     ->withoutOverlapping()
     ->onOneServer()
-    ->runInBackground();
+    ->runInBackground();*/
 
 // RequestedActions: retention активной ветки — раз в час (п.20).
 Schedule::command('requested-actions:retain')
@@ -61,6 +61,14 @@ Schedule::command('requested-actions:retain')
 // RequestedActions: prune завершённой ветки — раз в сутки в 02:30.
 Schedule::command('requested-actions:prune-complete')
     ->dailyAt('02:30')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+// Логический бэкап PostgreSQL (pg_dump -Fc) — раз в сутки в 01:30.
+// Куда и сколько хранить — config/database.php → backup (BACKUP_* в .env).
+Schedule::command('db:backup --verify')
+    ->dailyAt('01:30')
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();

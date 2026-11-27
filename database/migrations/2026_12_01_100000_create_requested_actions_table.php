@@ -42,6 +42,7 @@ return new class extends Migration
                 payload      JSONB       NOT NULL,
                 payload_hash VARCHAR(32) GENERATED ALWAYS AS (md5(payload::text)) STORED,
                 status       VARCHAR(16) NOT NULL DEFAULT 'created',
+                decision     VARCHAR(16),
                 complete     BOOLEAN     NOT NULL DEFAULT false,
                 error_code   VARCHAR(64),
                 error_detail TEXT,
@@ -50,6 +51,8 @@ return new class extends Migration
                 CONSTRAINT requested_actions_pkey PRIMARY KEY (id, complete, created_at),
                 CONSTRAINT requested_actions_status_check
                     CHECK (status IN ('created','pending','approved','rejected','done','error')),
+                CONSTRAINT requested_actions_decision_check
+                    CHECK (decision IN ('accepted','declined')),
                 CONSTRAINT requested_actions_complete_check CHECK (complete IN (false, true))
             ) PARTITION BY LIST (complete)
         SQL);

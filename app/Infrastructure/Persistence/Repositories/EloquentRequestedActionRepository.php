@@ -83,8 +83,8 @@ final readonly class EloquentRequestedActionRepository implements RequestedActio
         // ON CONFLICT DO NOTHING — БЕЗ списка колонок (2.8.1, 2.15 п.13).
         $row = $this->db->connection()->selectOne(
             'INSERT INTO requested_actions_active
-                (user_id, handler, payload, status, complete, error_code, error_detail)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
+                (user_id, handler, payload, status, decision, complete, error_code, error_detail)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT DO NOTHING
              RETURNING id',
             [
@@ -92,6 +92,7 @@ final readonly class EloquentRequestedActionRepository implements RequestedActio
                 $attributes['handler'],
                 $attributes['payload'],
                 $attributes['status'],
+                $attributes['decision'],
                 $attributes['complete'],
                 $attributes['error_code'],
                 $attributes['error_detail'],

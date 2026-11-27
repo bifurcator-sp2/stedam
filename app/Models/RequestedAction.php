@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Domain\RequestedActions\Enums\RequestedActionStatus;
+use App\Domain\RequestedActions\Enums\VoteDecision;
 use App\Models\Concerns\UsesTimestamptz;
 use Illuminate\Database\Eloquent\Model;
 
@@ -28,6 +29,7 @@ class RequestedAction extends Model
         'handler',
         'payload',
         'status',
+        'decision',
         'complete',
         'error_code',
         'error_detail',
@@ -37,6 +39,7 @@ class RequestedAction extends Model
         'user_id' => 'integer',
         'payload' => 'array',
         'status' => RequestedActionStatus::class,
+        'decision' => VoteDecision::class,
         'complete' => 'boolean',
     ];
 }
