@@ -20,6 +20,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *   parent        parent         → student
  *   methodologist methodologist  → teacher
  *   headteacher   headteacher    → methodologist
+ *
+ * Источник правды для значений и человеко-понятных названий —
+ * App\Domain\Community\ValueObjects\RelationType.
  */
 class UserRelation extends Model
 {

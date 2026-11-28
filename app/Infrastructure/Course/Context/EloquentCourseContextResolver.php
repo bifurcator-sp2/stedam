@@ -8,6 +8,7 @@ use App\Application\Course\Context\CourseViewerContext;
 use App\Application\Course\Context\CourseViewerRole;
 use App\Application\Learn\Context\RelationType;
 use App\Domain\Course\ValueObjects\UserId;
+use App\Infrastructure\Persistence\Queries\ActiveUserRelation;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Support\Facades\DB;
@@ -81,13 +82,11 @@ final readonly class EloquentCourseContextResolver
      */
     private function childStudentIds(int $parentId): array
     {
-        return DB::table('user_relations')
-            ->where('parent_user_id', $parentId)
-            ->where('relation', RelationType::Parent->value)
-            ->where(function ($q): void {
-                $q->whereNull('active_to')
-                    ->orWhere('active_to', '>', now());
-            })
+        return ActiveUserRelation::notEnded(
+            DB::table('user_relations')
+                ->where('parent_user_id', $parentId)
+                ->where('relation', RelationType::Parent->value),
+        )
             ->orderBy('child_user_id')
             ->pluck('child_user_id')
             ->map(static fn ($id): UserId => new UserId((int) $id))

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\BlockController;
 use App\Http\Controllers\Api\BlocksIndexController;
 use App\Http\Controllers\Api\BlockTypeController;
+use App\Http\Controllers\Api\CommunityController;
 use App\Http\Controllers\Api\CountryController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\DeviceAccessController;
@@ -20,7 +21,6 @@ use App\Http\Controllers\Api\TaskResolversCatalogController;
 use App\Http\Controllers\Api\TaxonomyController;
 use App\Http\Controllers\Api\TestsController;
 use App\Http\Controllers\Api\UserDataController;
-use App\Http\Controllers\Api\UsersController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
@@ -160,8 +160,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/user-data', [UserDataController::class, 'update']);
     Route::delete('/user-data', [UserDataController::class, 'destroy']);
 
-    Route::get('/users', [UsersController::class, 'list']);
-
     Route::get('/taxonomies/tree', [TaxonomyController::class, 'tree']);
 
     Route::get('/blocks-index', BlocksIndexController::class);
@@ -241,6 +239,17 @@ Route::middleware('auth:sanctum')->prefix('files')->group(function () {
 
     Route::get('/preload/{modelName}/{modelId}', [FilesController::class, 'list']);
     Route::delete('/preload/{modelName}/{modelId}', [FilesController::class, 'deleteTemp']);
+});
+
+// --- Community: социальный граф (связи между пользователями) ---
+Route::middleware('auth:sanctum')->group(function () {
+    // Типы связей текущего пользователя с количеством по каждому.
+    Route::get('/my-relations', [CommunityController::class, 'myRelations'])
+        ->name('api.my-relations');
+
+    // Пользователи из связей: ?relation=teacher&counterpart_role=student.
+    Route::get('/users', [CommunityController::class, 'users'])
+        ->name('api.users');
 });
 
 // --- RequestedActions (раздел 1 «http слой», 2.13) ---

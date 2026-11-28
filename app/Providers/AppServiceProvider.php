@@ -85,6 +85,11 @@ class AppServiceProvider extends ServiceProvider
             \App\Application\Users\Ports\UsersQueryInterface::class,
             \App\Infrastructure\Persistence\Queries\EloquentUsersQuery::class,
         );
+        // Read-side контекста Community: агрегаты по графу user_relations.
+        $this->app->bind(
+            \App\Application\Community\Ports\RelationsQueryInterface::class,
+            \App\Infrastructure\Community\Persistence\EloquentRelationsQuery::class,
+        );
         // Read-side: стандартные (database) уведомления получателя.
         // Через декоратор, который подмешивает в `data` RequestedAction
         // актуальные status/decision/recipient_role; базовое чтение

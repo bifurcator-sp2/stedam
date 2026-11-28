@@ -9,6 +9,7 @@ use App\Application\Learn\Context\RelationType;
 use App\Application\Learn\Context\ViewerContext;
 use App\Application\Learn\Context\ViewerRole;
 use App\Domain\Learn\ValueObjects\UserId;
+use App\Infrastructure\Persistence\Queries\ActiveUserRelation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -114,13 +115,11 @@ final class EloquentContextResolver implements ContextResolverInterface
      */
     private function directChildren(int $parentId, RelationType $relation): array
     {
-        return DB::table('user_relations')
-            ->where('parent_user_id', $parentId)
-            ->where('relation', $relation->value)
-            ->where(function ($q): void {
-                $q->whereNull('active_to')
-                    ->orWhere('active_to', '>', now());
-            })
+        return ActiveUserRelation::notEnded(
+            DB::table('user_relations')
+                ->where('parent_user_id', $parentId)
+                ->where('relation', $relation->value),
+        )
             ->pluck('child_user_id')
             ->map(static fn ($id): int => (int) $id)
             ->all();
