@@ -18,9 +18,9 @@ interface NotificationsQueryInterface
     /**
      * Постраничный список уведомлений получателя.
      *
-     * Элементы — ассоциативные массивы с ключами id, type, data.
+     * Элементы — ассоциативные массивы с ключами id, type, data, created_at, read_at.
      *
-     * @return PaginatedResult<array{id: string, type: string, data: array<string, mixed>}>
+     * @return PaginatedResult<array{id: string, type: string, data: array<string, mixed>, created_at: string, read_at: string|null}>
      */
     public function paginate(NotificationListFilter $filter, int $page, int $perPage): PaginatedResult;
 }

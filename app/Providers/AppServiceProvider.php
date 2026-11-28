@@ -86,9 +86,19 @@ class AppServiceProvider extends ServiceProvider
             \App\Infrastructure\Persistence\Queries\EloquentUsersQuery::class,
         );
         // Read-side: стандартные (database) уведомления получателя.
+        // Через декоратор, который подмешивает в `data` RequestedAction
+        // актуальные status/decision/recipient_role; базовое чтение
+        // `notifications` — EloquentNotificationsQuery.
         $this->app->bind(
             \App\Application\Notifications\Ports\NotificationsQueryInterface::class,
-            \App\Infrastructure\Persistence\Queries\EloquentNotificationsQuery::class,
+            fn ($app) => new \App\Infrastructure\Notifications\RequestedActionNotificationsQuery(
+                $app->make(\App\Infrastructure\Persistence\Queries\EloquentNotificationsQuery::class),
+            ),
+        );
+        // Write-side: отметка о прочтении стандартных (database) уведомлений.
+        $this->app->bind(
+            \App\Application\Notifications\Ports\NotificationsWriteInterface::class,
+            \App\Infrastructure\Notifications\EloquentNotificationsWrite::class,
         );
         // Read-side: срез «актуальных уроков» (learns пользователя) по уроку.
         $this->app->bind(

@@ -53,11 +53,15 @@ final readonly class RegisterApprovalAction
             }
 
             $handler = $this->handlers->resolve($action->handler());
+            $fromStatus = $action->status();
             $outcome = $handler->registerApproval($action, $responder, $arguments);
 
+            // Решение уже принято: pending → approved/rejected. CLOSED сюда
+            // не попадает — для него перехода нет и save() не нужен
+            // (иначе повтор под уже approved/done-агрегат писал бы статус
+            // без реального перехода).
             if ($outcome->result->isDecisive()) {
-                // Решение уже принято: pending → approved/rejected.
-                $this->repository->save($outcome->action);
+                $this->repository->save($outcome->action, $fromStatus);
             }
 
             return $outcome;

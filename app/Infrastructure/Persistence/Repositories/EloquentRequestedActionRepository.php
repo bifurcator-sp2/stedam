@@ -102,13 +102,13 @@ final readonly class EloquentRequestedActionRepository implements RequestedActio
         return $row !== null;
     }
 
-    public function save(RequestedAction $action): RequestedAction
+    public function save(RequestedAction $action, RequestedActionStatus $fromStatus): RequestedAction
     {
         $id = $this->requireId($action)->value;
 
         $affected = $this->db->connection()->table('requested_actions')
             ->where('id', $id)
-            ->where('status', $this->originalStatus($action)->value)
+            ->where('status', $fromStatus->value)
             ->update(RequestedActionMapper::toUpdateAttributes($action));
 
         if ($affected === 0) {
@@ -227,23 +227,6 @@ final readonly class EloquentRequestedActionRepository implements RequestedActio
         // `created_at = ?` (с микросекундами) идут UPDATE-ы markCompleteById и
         // stale-recovery — со «срезанной» секундой они не находят строку.
         return RequestedActionMapper::toDomainFromRow((array) $row);
-    }
-
-    /**
-     * Статус, который был в строке до мутации. Агрегат иммутабелен и не
-     * хранит предыдущий статус, поэтому оптимистичное условие выводится
-     * из целевого статуса (2.15 п.2, 2.7).
-     */
-    private function originalStatus(RequestedAction $action): RequestedActionStatus
-    {
-        return match ($action->status()) {
-            RequestedActionStatus::Approved => RequestedActionStatus::Pending,
-            RequestedActionStatus::Rejected => RequestedActionStatus::Pending,
-            RequestedActionStatus::Done => RequestedActionStatus::Approved,
-            RequestedActionStatus::Pending => RequestedActionStatus::Created,
-            RequestedActionStatus::Error => RequestedActionStatus::Approved,
-            RequestedActionStatus::Created => RequestedActionStatus::Created,
-        };
     }
 
     private function hasAttempts(int $id, bool $complete, string $createdAt): bool

@@ -11,6 +11,7 @@ use App\Domain\RequestedActions\Entities\RequestedAction;
 use App\Domain\RequestedActions\Enums\ApprovalResult;
 use App\Domain\RequestedActions\Enums\RequestedActionStatus;
 use App\Domain\RequestedActions\Enums\VoteDecision;
+use App\Domain\RequestedActions\Exceptions\AlreadyStudentOfTeacherException;
 use App\Domain\RequestedActions\Exceptions\AlreadyVotedException;
 use App\Domain\RequestedActions\Exceptions\NotAConsumerException;
 use App\Domain\RequestedActions\Exceptions\RequestedActionDomainException;
@@ -19,6 +20,7 @@ use App\Domain\RequestedActions\Exceptions\TeacherDeletedException;
 use App\Domain\RequestedActions\Exceptions\UserRelationAlreadyExistsException;
 use App\Domain\RequestedActions\ValueObjects\QuorumSnapshot;
 use App\Domain\RequestedActions\ValueObjects\UserId;
+use App\Enums\RecipientRole;
 use App\Models\User;
 use App\Notifications\RequestedActions\RequestedActionNotification;
 use DateTimeImmutable;
@@ -64,18 +66,24 @@ final readonly class RequestedActionStudentToTeacher implements RequestedActionH
     public function getRequestForm(array $arguments): array
     {
         $teacherId = $this->teacherId($arguments);
-        $name = $this->fullNameOf($teacherId);
+        $studentId = (int) ($arguments['user_id'] ?? 0);
 
-        return [
-            'title' => ['type' => 'string', 'value' => 'Запись к преподавателю.'],
-            'text' => [
-                'type' => 'string',
-                'value' => $name === null
-                    ? 'Вы действительно хотите отправить запрос преподавателю?'
-                    : "Вы действительно хотите стать учеником {$name}?",
-            ],
-            'approve' => ['type' => 'boolean', 'value' => false],
-        ];
+        // Преподаватель не найден → форма без данных контрагента.
+        if (! $this->userExists($teacherId)) {
+            return $this->requestForm('Вы действительно хотите отправить запрос преподавателю?');
+        }
+
+        $teacher = $this->userRef($teacherId);
+
+        // Уже ученик этого преподавателя — форма не нужна → 409 с данными
+        // преподавателя (маппинг в bootstrap/app.php).
+        if ($studentId > 0 && $this->hasTeacher($studentId, $teacherId)) {
+            throw AlreadyStudentOfTeacherException::forTeacher($teacher['id'], $teacher['name']);
+        }
+
+        // `$user` — токен, как в текстах уведомлений RequestedAction: фронт
+        // подставляет по нему ссылку на пользователя из `user`.
+        return $this->requestForm('Вы действительно хотите стать учеником $user?', $teacher);
     }
 
     public function registerUserRequest(array $arguments): ?array
@@ -119,14 +127,17 @@ final readonly class RequestedActionStudentToTeacher implements RequestedActionH
 
     public function getRequestNotificationMessage(UserId $consumer, RequestedAction $action): array
     {
+        // Запрос адресован преподавателю (одобряющему) — второй стороной
+        // выступает ученик-инициатор.
+        $student = $this->userRef($this->studentId($action));
+
         return [
             'type' => 'request',
             'requested_action_id' => $action->id()?->value,
+            'recipient_role' => $this->recipientRole($action, $consumer)->value,
             'title' => 'Запрос на запись к преподавателю',
-            'text' => sprintf(
-                'Пользователь %s просит принять его в ученики.',
-                $this->displayNameOf($action->userId()->value) ?? "#{$action->userId()->value}",
-            ),
+            'text' => 'Пользователь $user просит принять его в ученики.',
+            'user' => $student,
             'approve_url' => sprintf(
                 'approve-action/form?action=%s&id=%d',
                 self::ALIAS,
@@ -233,11 +244,17 @@ final readonly class RequestedActionStudentToTeacher implements RequestedActionH
 
     public function getApprovedNotificationMessage(UserId $consumer, RequestedAction $action): array
     {
+        // Уведомление идёт инициатору-ученику; $user — принявший преподаватель
+        // (единственный приёмщик в MVP 1-of-1).
+        $teacher = $this->userRef($this->approverId($action));
+
         return [
             'type' => 'approved',
             'requested_action_id' => $action->id()?->value,
+            'recipient_role' => $this->recipientRole($action, $consumer)->value,
             'title' => 'Запрос принят',
-            'text' => 'Ваш запрос на запись к преподавателю принят.',
+            'text' => 'Преподаватель $user принял ваш запрос на запись.',
+            'user' => $teacher,
         ];
     }
 
@@ -251,11 +268,16 @@ final readonly class RequestedActionStudentToTeacher implements RequestedActionH
 
     public function getRejectedNotificationMessage(UserId $consumer, RequestedAction $action): array
     {
+        // Уведомление идёт инициатору-ученику; $user — отклонивший преподаватель.
+        $teacher = $this->userRef($this->approverId($action));
+
         return [
             'type' => 'rejected',
             'requested_action_id' => $action->id()?->value,
+            'recipient_role' => $this->recipientRole($action, $consumer)->value,
             'title' => 'Запрос отклонён',
-            'text' => 'Ваш запрос на запись к преподавателю отклонён.',
+            'text' => 'Преподаватель $user отклонил ваш запрос на запись.',
+            'user' => $teacher,
         ];
     }
 
@@ -269,11 +291,27 @@ final readonly class RequestedActionStudentToTeacher implements RequestedActionH
 
     public function getDoneNotificationMessage(UserId $consumer, RequestedAction $action): array
     {
+        // Текст зависит от стороны: та же пара «ученик — преподаватель», но для
+        // инициатора-ученика контрагент — преподаватель, для одобряющего —
+        // ученик. `$user` — токен для фронта, подставляется ссылкой с данными.
+        $message = match ($this->recipientRole($action, $consumer)) {
+            RecipientRole::Initiator => [
+                'title' => 'Вас приняли в ученики',
+                'text' => 'Теперь вы ученик $user.',
+                'user' => $this->userRef($this->approverId($action)),
+            ],
+            RecipientRole::Consumer => [
+                'title' => 'У вас новый ученик',
+                'text' => '$user стал вашим учеником.',
+                'user' => $this->userRef($this->studentId($action)),
+            ],
+        };
+
         return [
             'type' => 'done',
             'requested_action_id' => $action->id()?->value,
-            'title' => 'Действие выполнено',
-            'text' => 'Связь «учитель — ученик» установлена.',
+            'recipient_role' => $this->recipientRole($action, $consumer)->value,
+            ...$message,
         ];
     }
 
@@ -290,6 +328,7 @@ final readonly class RequestedActionStudentToTeacher implements RequestedActionH
         return [
             'type' => 'error',
             'requested_action_id' => $action->id()?->value,
+            'recipient_role' => $this->recipientRole($action, $consumer)->value,
             'title' => 'Ошибка запроса',
             'text' => sprintf(
                 'Запрос завершился ошибкой: %s',
@@ -365,10 +404,38 @@ final readonly class RequestedActionStudentToTeacher implements RequestedActionH
     }
 
     /**
+     * Описание формы запроса. `user` — расшифровка токена `$user` из `text`
+     * (как в текстах уведомлений); без токена в тексте не отдаётся.
+     *
+     * @param  array{id: int, name: string}|null  $user
+     * @return array<string, mixed>
+     */
+    private function requestForm(string $text, ?array $user = null): array
+    {
+        return [
+            'title' => ['type' => 'string', 'value' => 'Запись к преподавателю.'],
+            'text' => ['type' => 'string', 'value' => $text],
+            'approve' => ['type' => 'boolean', 'value' => false],
+        ] + ($user === null ? [] : ['user' => $user]);
+    }
+
+    /**
+     * Есть ли направленная связь «teacherId — преподаватель studentId».
+     */
+    private function hasTeacher(int $studentId, int $teacherId): bool
+    {
+        return $this->db->connection()
+            ->table('user_relations')
+            ->where('parent_user_id', $teacherId)
+            ->where('child_user_id', $studentId)
+            ->where('relation', self::RELATION_TEACHER)
+            ->exists();
+    }
+
+    /**
      * Полное имя (ФИО) пользователя по данным профиля.
      */
-    private function fullNameOf(int $userId): ?string
-    {
+    private function fullNameOf(int $userId): ?string    {
         if ($userId <= 0) {
             return null;
         }
@@ -433,6 +500,50 @@ final readonly class RequestedActionStudentToTeacher implements RequestedActionH
             static fn (int $id): UserId => new UserId($id),
             array_values(array_unique($ids)),
         );
+    }
+
+    /**
+     * Сторона получателя уведомления. Инициатор — `requested_actions.user_id`
+     * (для этого handler'а совпадает с `payload.student_id`), все прочие
+     * получатели — одобряющие.
+     */
+    private function recipientRole(RequestedAction $action, UserId $consumer): RecipientRole
+    {
+        return $consumer->value === $action->userId()->value
+            ? RecipientRole::Initiator
+            : RecipientRole::Consumer;
+    }
+
+    /**
+     * Id ученика-инициатора: `payload.student_id`, fallback — `user_id`.
+     */
+    private function studentId(RequestedAction $action): int
+    {
+        return (int) $action->payload()->get('student_id', $action->userId()->value);
+    }
+
+    /**
+     * Id преподавателя: `payload.teacher_id`, fallback — единственный консьюмер.
+     */
+    private function approverId(RequestedAction $action): int
+    {
+        $consumers = $action->payload()->consumers();
+
+        return (int) $action->payload()->get('teacher_id', $consumers[0] ?? 0);
+    }
+
+    /**
+     * Данные контрагента для фронта: токен `$user` в `text` подставляется
+     * ссылкой «id — ФИО».
+     *
+     * @return array{id: int, name: string}
+     */
+    private function userRef(int $userId): array
+    {
+        return [
+            'id' => $userId,
+            'name' => $this->displayNameOf($userId) ?? "#{$userId}",
+        ];
     }
 
     /**

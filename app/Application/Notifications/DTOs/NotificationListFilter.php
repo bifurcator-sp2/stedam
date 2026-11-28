@@ -10,7 +10,10 @@ namespace App\Application\Notifications\DTOs;
  *   — notifiableType — класс модели-получателя (`App\Models\User`);
  *   — notifiableId   — id получателя (текущий пользователь);
  *   — search         — нормализованная подстрока для поиска по data.title
- *                      (null — поиска нет).
+ *                      (null — поиска нет);
+ *   — onlyUnread     — true — только непрочитанные (`read_at IS NULL`),
+ *                      false — только прочитанные,
+ *                      null — все (поведение по умолчанию).
  */
 final readonly class NotificationListFilter
 {
@@ -18,5 +21,6 @@ final readonly class NotificationListFilter
         public string $notifiableType,
         public int $notifiableId,
         public ?string $search = null,
+        public ?bool $onlyUnread = null,
     ) {}
 }

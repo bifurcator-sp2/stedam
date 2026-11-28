@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\RequestedActions\Ports;
 
 use App\Domain\RequestedActions\Entities\RequestedAction;
+use App\Domain\RequestedActions\Enums\RequestedActionStatus;
 
 /**
  * Репозиторий агрегата RequestedAction (2.7).
@@ -42,9 +43,16 @@ interface RequestedActionRepositoryInterface
     /**
      * UPDATE существующего агрегата (оптимистичная блокировка).
      *
+     * `$fromStatus` — статус, ИЗ которого выполняется переход: условие
+     * `WHERE status = :fromStatus` берётся из него, а не угадывается по
+     * целевому статусу. Для `error` целевой статус не различает, откуда
+     * шёл переход (approved → error у handle-approved vs approved → error
+     * у stale-recovery), а неверное условие даёт 0 строк и каскад повторов
+     * с дублями уведомлений.
+     *
      * При `0 rows affected` выбрасывает ConcurrentModificationException.
      */
-    public function save(RequestedAction $action): RequestedAction;
+    public function save(RequestedAction $action, RequestedActionStatus $fromStatus): RequestedAction;
 
     /**
      * Сдвиг строки в завершённую ветку (complete = true) без смены статуса.

@@ -54,17 +54,18 @@ final readonly class SendRequestNotificationsAction
         }
 
         $handler = $this->handlers->resolve($action->handler());
+        $fromStatus = $action->status();
         $now = $this->clock->now();
 
         try {
             $handler->sendRequestNotifications($action);
         } catch (\Throwable $e) {
             // Доменные ошибки пробрасываются наружу без смены статуса.
-            $this->repository->save($this->errors->collect($action, $e, $now));
+            $this->repository->save($this->errors->collect($action, $e, $now), $fromStatus);
 
             return;
         }
 
-        $this->repository->save($action->markPending($now));
+        $this->repository->save($action->markPending($now), $fromStatus);
     }
 }

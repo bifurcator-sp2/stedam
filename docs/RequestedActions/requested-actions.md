@@ -1237,3 +1237,37 @@ Event::listen(ActionError::class,    SendErrorNotifications::class);
 - ✅ Код и миграции (create + incremental) изменены (IDE-диагностика по затронутым файлам — без ошибок).
 - ⏳ `./vendor/bin/sail artisan migrate` **не запускался** — нужно применить `2026_12_04_100000_add_decision_to_requested_actions` в рабочей БД.
 - ⏳ `pint`/`pest` не запускались (без указания заказчика).
+
+## 3.14. Роль получателя в уведомлениях + decorator обогащения списка — ГОТОВО (код)
+
+### Контракт «кто формирует уведомление»
+
+Единственная точка формирования — handler RequestedAction (`RequestedActionStudentToTeacher`). Все фазы (`request/approved/rejected/done/error`) лишь триггерят его `sendXxxNotifications()`:
+- текст/payload — `getXxxNotificationMessage(...)`;
+- получатели — `getRequestNotificationConsumers()` / `initiator()` / `bothSides()`;
+- создание объекта и `notify()` — приватный `notify()` → `new RequestedActionNotification(...)`.
+Других `new RequestedActionNotification` в коде нет. `SendBrowserPushForDatabaseNotifications` (`NotificationSent`) `data` не меняет — только читает.
+
+### Вариант 1C — сторона получателя известна при отправке
+
+- `requested_actions.user_id` — всегда **инициатор**, `payload.consumers` — **одобряющие**. В `notify()` handler уже обходит конкретных получателей, поэтому роль известна заранее.
+- Новый enum `App\Enums\RecipientRole: string` — `initiator` / `consumer`.
+- Метод `recipientRole(RequestedAction, UserId): RecipientRole` — `initiator`, если `$user->value === $action->userId()->value`, иначе `consumer`.
+- Все `getXxxNotificationMessage` добавляют в payload ключ `recipient_role` (значение enum). Токен используется в списке (decorator) и доступен фронту.
+- `getDoneNotificationMessage` отдаёт **разные** `title`/`text` по роли: инициатор «Вас приняли в ученики», одобряющий «У вас новый ученик». Это единственное место, где тексты расходятся по стороне; остальные фазы (`approved`/`rejected` адресованы только инициатору, `request` — только одобряющим, `error` — обеим сторонам с одинаковым текстом).
+- Поле `type` (`ActionNotificationType`) не меняется — это и есть «фаза», по которой группируется смысл.
+
+### Вариант 2B — Decorator над `NotificationsQueryInterface`
+
+- `EloquentNotificationsQuery` снова читает **только** `notifications` (id/type/data/поиск/сортировка) — из него удалены `requestedActionSub()` и `withActualStatus()`.
+- Новый `App\Infrastructure\Notifications\RequestedActionNotificationsQuery implements NotificationsQueryInterface` — декоратор с зависимостью на `NotificationsQueryInterface` (внедряется базовый Eloquent-query):
+  - вызывает базовый `paginate()`, затем для страницы собирает id RequestedAction-уведомлений (`type` = `NotificationType::RequestedAction`, есть `data.requested_action_id`);
+  - **одним** запросом `SELECT id, status, decision, user_id, payload FROM requested_actions WHERE id IN (...)` подтягивает актуальное состояние;
+  - подмешивает в `data`:
+    - `status` — актуальный статус (`created|pending|approved|rejected|done|error`);
+    - `decision` — итог кворума (`accepted|declined` / отсутствует);
+    - `recipient_role` — из `data.recipient_role` (записан при отправке), fallback — вычисление по `user_id`/`payload.consumers` относительно получателя (`NotificationListFilter::notifiableId`);
+  - «сиротские» уведомления (нет записи в `requested_actions` после retention) и прочие классы уведомлений — без изменений.
+- Регистрация в `AppServiceProvider`: binding на интерфейс указывает на декоратор, базовый `EloquentNotificationsQuery` передаётся в конструктор декоратора.
+- API-контракт `GET /api/notifications` не меняется; добавляется ключ `data.recipient_role`.
+- Тест `tests/Feature/Api/NotificationsListTest.php` не пишется/не меняется (feature-тесты не пишутся по договорённости заказчика).

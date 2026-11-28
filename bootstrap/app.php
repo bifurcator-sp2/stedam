@@ -23,6 +23,7 @@ use App\Domain\Learn\Exceptions\InvalidStatusTransition;
 use App\Domain\Learn\Exceptions\LearnAlreadyGraded;
 use App\Domain\Learn\Exceptions\LearnNotFound;
 use App\Domain\RequestedActions\Exceptions\AlreadyVotedException;
+use App\Domain\RequestedActions\Exceptions\AlreadyStudentOfTeacherException;
 use App\Domain\RequestedActions\Exceptions\ConcurrentModificationException;
 use App\Domain\RequestedActions\Exceptions\NotAConsumerException;
 use App\Domain\RequestedActions\Exceptions\RequestedActionAlreadyClosedException;
@@ -43,6 +44,15 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Слушатели событий регистрируются явно через Event::listen в
+    // сервис-провайдерах (AppServiceProvider, CourseServiceProvider,
+    // RequestedActionServiceProvider, WebPushServiceProvider). Автопоиск
+    // Laravel дополнительно регистрирует каждый listener из app/Listeners
+    // как `Class@handle`, из-за чего каждый слушатель выполнялся ДВАЖДЫ
+    // (дубли уведомлений RequestedActions, двойной браузерный push,
+    // повторные пересчёты курсов). Отключаем автопоиск, оставляя ручную
+    // регистрацию единственным источником истины.
+    ->withEvents(discover: false)
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [
             // ВАЖНО: ImpersonateFromHeader идёт ПЕРВЫМ — до SetLocale и до
@@ -128,8 +138,7 @@ return Application::configure(basePath: dirname(__DIR__))
             });
         }
 
-        // RequestedActions (2.13, 2.15 п.9/10/14/26). Порядок важен:
-        // специализированные исключения проверяются раньше общего
+        // RequestedActions (2.13, 2.15 п.9/10/14/26). Порядок важен:        // специализированные исключения проверяются раньше общего
         // RequestedActionDomainException (он их родитель в части случаев).
         $requestedActionErrors = [
             // 403 — пользователь не входит в payload.consumers
@@ -140,6 +149,8 @@ return Application::configure(basePath: dirname(__DIR__))
             AlreadyVotedException::class => [409, 'ALREADY_VOTED'],
             RequestedActionAlreadyClosedException::class => [409, 'REQUESTED_ACTION_CLOSED'],
             ConcurrentModificationException::class => [409, 'CONCURRENT_MODIFICATION'],
+            // 409 — форма запроса не нужна: уже ученик этого преподавателя
+            AlreadyStudentOfTeacherException::class => [409, 'ALREADY_STUDENT_OF_TEACHER'],
             // 422 — доменные ошибки валидации ввода
             RequestedActionDomainException::class => [422, 'REQUESTED_ACTION_INVALID'],
         ];
@@ -150,10 +161,17 @@ return Application::configure(basePath: dirname(__DIR__))
                     return null;
                 }
 
-                return response()->json([
+                $payload = [
                     'message' => $e->getMessage(),
                     'code' => $code,
-                ], $status);
+                ];
+
+                // 409 «уже ученик» несёт данные преподавателя для фронта.
+                if ($e instanceof AlreadyStudentOfTeacherException) {
+                    $payload['user'] = ['id' => $e->teacherId, 'name' => $e->teacherName];
+                }
+
+                return response()->json($payload, $status);
             });
         }
     })->create();

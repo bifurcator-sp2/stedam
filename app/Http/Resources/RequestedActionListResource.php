@@ -95,7 +95,8 @@ class RequestedActionListResource extends JsonResource
 
             $result[] = [
                 'id' => $id,
-                'name' => $user?->name,
+                // ФИО из профиля (user_data), fallback — users.name.
+                'name' => $user?->getFullName(),
                 'email' => $user?->email,
             ];
         }

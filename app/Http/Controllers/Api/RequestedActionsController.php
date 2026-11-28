@@ -68,7 +68,7 @@ final readonly class RequestedActionsController
         $recipients = $this->recipientsOf($result->items);
 
         RequestedActionListResource::withRecipients(
-            $recipients === [] ? collect() : User::query()->whereIn('id', $recipients)->get(),
+            $recipients === [] ? collect() : User::query()->with('userData')->whereIn('id', $recipients)->get(),
         );
 
         return response()->json([
@@ -95,7 +95,11 @@ final readonly class RequestedActionsController
      *    Инициатор (`user_id`) в аргументы подставляется из `auth()`,
      *    значение из запроса игнорируется.
      *
-     * Ответ: `{title, text, approve}` — описание полей формы.
+     * Ответ: `{title, text, approve, user?}` — описание полей формы. В
+     * `text` может быть токен `$user` (как в текстах уведомлений), его
+     * расшифровка — `user: {id, name}` в том же ответе. Если инициатор уже
+     * ученик указанного преподавателя — 409
+     * `{message, code: ALREADY_STUDENT_OF_TEACHER, user: {id, name}}`.
      */
     public function form(Request $request, GetRequestFormAction $action): JsonResponse
     {

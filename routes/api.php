@@ -316,6 +316,7 @@ Route::middleware('auth:sanctum')->prefix('courses')->group(function () {
 Route::middleware('auth:sanctum')->prefix('notifications')->group(function () {
     $c = NotificationsController::class;
     Route::get('/', [$c, 'index']);
+    Route::patch('/', [$c, 'setRead']);
 });
 
 // --- Браузерные push (WebPush / VAPID), контракт: docs/browser-push-spec.md ---

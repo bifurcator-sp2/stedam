@@ -6,9 +6,17 @@ use App\Application\RequestedActions\Actions\CreateRequestedActionAction;
 use App\Application\RequestedActions\Actions\RegisterApprovalAction;
 use App\Domain\RequestedActions\Enums\ApprovalResult;
 use App\Domain\RequestedActions\Enums\VoteDecision;
+use App\Domain\RequestedActions\Events\ActionApproved;
+use App\Domain\RequestedActions\Events\ActionDone;
+use App\Domain\RequestedActions\Events\ActionError;
+use App\Domain\RequestedActions\Events\ActionRejected;
 use App\Domain\RequestedActions\ValueObjects\RequestedActionRef;
 use App\Domain\RequestedActions\ValueObjects\UserId;
 use App\Infrastructure\Persistence\Repositories\EloquentRequestedActionVotesRepository;
+use App\Listeners\RequestedActions\SendApprovalNotifications;
+use App\Listeners\RequestedActions\SendDoneNotifications;
+use App\Listeners\RequestedActions\SendErrorNotifications;
+use App\Listeners\RequestedActions\SendRejectionNotifications;
 use App\Models\User;
 use App\Notifications\RequestedActions\RequestedActionNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -337,7 +345,28 @@ it('GET /api/request-action/form отдаёт описание формы', func
     $this->getJson('/api/request-action/form?action='.ALIAS.'&teacher_id='.$pair['teacher']->id)
         ->assertOk()
         ->assertJsonPath('title.type', 'string')
+        ->assertJsonPath('text.value', 'Вы действительно хотите стать учеником $user?')
+        ->assertJsonPath('user', ['id' => $pair['teacher']->id, 'name' => $pair['teacher']->name])
         ->assertJsonPath('approve.type', 'boolean');
+});
+
+it('GET /api/request-action/form вместо формы отдаёт ошибку, если я уже ученик', function () {
+    $pair = pair();
+    DB::table('user_relations')->insert([
+        'parent_user_id' => $pair['teacher']->id,
+        'child_user_id' => $pair['student']->id,
+        'relation' => 'teacher',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    Sanctum::actingAs($pair['student']);
+
+    $this->getJson('/api/request-action/form?action='.ALIAS.'&teacher_id='.$pair['teacher']->id)
+        ->assertStatus(409)
+        ->assertJsonPath('code', 'ALREADY_STUDENT_OF_TEACHER')
+        ->assertJsonPath('message', 'Вы уже являетесь учеником $user')
+        ->assertJsonPath('user', ['id' => $pair['teacher']->id, 'name' => $pair['teacher']->name]);
 });
 
 it('store: уведомление о запросе уходит приёмщику в канал database', function () {
@@ -357,6 +386,68 @@ it('store: уведомление о запросе уходит приёмщи�
     Notification::assertNotSentTo($pair['student'], RequestedActionNotification::class);
 
     expect(actionRow($created->id()->value)->status)->toBe('pending');
+});
+
+it('database-канал: каждому участнику ровно одно уведомление на событие (без дублей)', function () {
+    // Регрессия дублей из дампа. Корневая причина — двойная регистрация
+    // слушателей: автопоиск app/Listeners (Class@handle) плюс ручной
+    // Event::listen в провайдере (Class). Каждый listener отрабатывал
+    // дважды, эмитя по два уведомления на событие. Исправлено отключением
+    // автопоиска в bootstrap/app.php (withEvents(discover: false)).
+    $pair = pair();
+    $created = createAction($pair);
+    $id = $created->id()->value;
+
+    dispatchToPending();
+
+    app(RegisterApprovalAction::class)->execute($id, new UserId($pair['teacher']->id), ['approve' => true]);
+    app(\App\Application\RequestedActions\Actions\HandleApprovedAction::class)->execute($id);
+
+    $notifications = DB::connection()->table('notifications')
+        ->where('notifiable_id', $pair['student']->id)
+        ->where('notifiable_type', $pair['student']->getMorphClass())
+        ->get()
+        ->map(fn (object $row): mixed => json_decode((string) $row->data, true)['type'])
+        ->sort()
+        ->values()
+        ->all();
+
+    // Порядок не важен (created_at может совпасть у approved/done в быстром
+    // прогоне), важно — ровно по одному уведомлению каждого типа.
+    expect($notifications)->toBe(['approved', 'done']);
+
+    // Ни у одного получателя нет дублей (одинаковый type на один и тот же
+    // requested_action_id). Состав: request → teacher, approved → student,
+    // done → student + teacher = 4 строки, каждая уникальна.
+    $rows = DB::connection()->table('notifications')->get();
+    expect($rows)->toHaveCount(4);
+
+    $seen = [];
+    foreach ($rows as $row) {
+        $data = json_decode((string) $row->data, true);
+        $key = $row->notifiable_id.'|'.$row->notifiable_type.'|'.$data['requested_action_id'].'|'.$data['type'];
+        $seen[] = $key;
+    }
+
+    expect(array_unique($seen))->toHaveCount(4)
+        ->and(actionRow($id)->status)->toBe('done');
+});
+
+it('каждый доменный слушатель RequestedActions зарегистрирован ровно один раз', function () {
+    // Защита от повторной двойной регистрации: ручной Event::listen + автопоиск.
+    $events = [
+        ActionApproved::class => SendApprovalNotifications::class,
+        ActionRejected::class => SendRejectionNotifications::class,
+        ActionDone::class => SendDoneNotifications::class,
+        ActionError::class => SendErrorNotifications::class,
+    ];
+
+    $raw = Event::getRawListeners();
+
+    foreach ($events as $event => $listener) {
+        expect($raw[$event] ?? [])->toHaveCount(1)
+            ->and($raw[$event][0])->toBe($listener);
+    }
 });
 
 it('votes-репозиторий: повторная запись голоса возвращает false', function () {

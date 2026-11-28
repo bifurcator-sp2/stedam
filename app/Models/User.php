@@ -104,6 +104,15 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * ФИО из профиля (`user_data`); для пользователя без профиля —
+     * короткое `name`.
+     */
+    public function getFullName(): string
+    {
+        return $this->userData?->full_name ?: (string) $this->name;
+    }
+
+    /**
      * Браузерные push-подписки (WebPush).
      *
      * @return HasMany<PushSubscription, $this>

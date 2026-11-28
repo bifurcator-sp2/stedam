@@ -26,7 +26,7 @@ final readonly class ListNotificationsAction
 
     /**
      * @param array<string, mixed> $input query-параметры запроса
-     * @return PaginatedResult<array{id: string, type: string, data: array<string, mixed>}>
+     * @return PaginatedResult<array{id: string, type: string, data: array<string, mixed>, created_at: string, read_at: string|null}>
      */
     public function paginate(
         string $notifiableType,
@@ -39,6 +39,7 @@ final readonly class ListNotificationsAction
             notifiableType: $notifiableType,
             notifiableId: $notifiableId,
             search: self::buildSearch($input['search'] ?? null),
+            onlyUnread: self::buildOnlyUnread($input['status'] ?? null),
         );
 
         return $this->notifications->paginate($filter, $page, $perPage);
@@ -56,5 +57,18 @@ final readonly class ListNotificationsAction
         $search = trim($raw);
 
         return $search === '' ? null : $search;
+    }
+
+    /**
+     * `status`: `unread` — только непрочитанные, `read` — только прочитанные,
+     * иное/пусто — все.
+     */
+    private static function buildOnlyUnread(mixed $raw): ?bool
+    {
+        return match (is_string($raw) ? mb_strtolower(trim($raw)) : '') {
+            'unread' => true,
+            'read' => false,
+            default => null,
+        };
     }
 }

@@ -124,7 +124,7 @@ final readonly class HandleApprovedAction
         $errored = $action->markError($this->errorCode($e), $e->getMessage(), $now);
 
         // complete не трогаем (2.15 п.1).
-        $this->repository->save($errored);
+        $this->repository->save($errored, $action->status());
 
         return $errored;
     }
@@ -141,7 +141,9 @@ final readonly class HandleApprovedAction
      */
     private function saveDone(RequestedAction $done, DateTimeImmutable $now): void
     {
-        $this->transactions->transactional(fn () => $this->repository->save($done));
+        $this->transactions->transactional(
+            fn () => $this->repository->save($done, RequestedActionStatus::Approved),
+        );
 
         $this->partitions->executeComplete($now);
 

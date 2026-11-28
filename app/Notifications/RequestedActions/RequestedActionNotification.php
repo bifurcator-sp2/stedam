@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Notifications\RequestedActions;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -18,8 +18,19 @@ use Illuminate\Notifications\Notification;
  *
  * Обязательный канал — `database` (2.15 п.12): сообщение сохраняется в
  * таблице `notifications` и отдаётся SPA через стандартный эндпоинт.
+ *
+ * `ShouldQueueAfterCommit`, а не `ShouldQueue`: `notify()` вызывается внутри
+ * транзакции воркера (messaging ставит pending, handle-approved пишет done).
+ * С `ShouldQueue` задача попадала в очередь до коммита, воркер мог взять её
+ * раньше, чем транзакция завершится, — уведомление уходило до фактической
+ * фиксации перехода. `ShouldQueueAfterCommit` гарантирует постановку в очередь
+ * только после успешного коммита.
+ *
+ * Примечание: дубли уведомлений из дампа были вызваны не этим, а двойной
+ * регистрацией слушателей (автопоиск app/Listeners + ручной Event::listen);
+ * см. bootstrap/app.php -> withEvents(discover: false).
  */
-final class RequestedActionNotification extends Notification implements ShouldQueue
+final class RequestedActionNotification extends Notification implements ShouldQueueAfterCommit
 {
     use Queueable;
 
